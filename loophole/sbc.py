@@ -83,6 +83,7 @@ class SpriteCompiler:
         self.new_lists = {}
         self.args = None
         self.script_y = 0
+        self.comments = {}
         self.tree = ast.parse(source)
         self._collect()
 
@@ -118,10 +119,14 @@ class SpriteCompiler:
                 self.consts[node.targets[0].id] = self._const_eval(node.value)
             elif isinstance(node, ast.FunctionDef):
                 decos = [self._deco_name(d) for d in node.decorator_list]
-                if any(d in ("when_flag", "when_broadcast", "when_clone") for d in decos):
+                if any(d in ("when_flag", "when_broadcast", "when_clone", "when_key") for d in decos):
                     continue
                 params = [a.arg for a in node.args.args]
                 proccode = node.name + "".join(" %s" for _ in params)
+                if "block" in decos:
+                    proccode = node.decorator_list[decos.index("block")].args[0].value
+                    if proccode.count("%s") != len(params):
+                        raise CompileError(f"{node.name}: block text needs one %s for each of its {len(params)} inputs")
                 ids = [self.p.uid("a") for _ in params]
                 self.procs[node.name] = {
                     "params": params, "proccode": proccode, "ids": ids,
@@ -160,16 +165,34 @@ class SpriteCompiler:
                 decos = node.decorator_list
                 names = [self._deco_name(d) for d in decos]
                 if "when_flag" in names:
-                    self._hat("event_whenflagclicked", {}, {}, node.body)
+                    top = self._hat("event_whenflagclicked", {}, {}, node.body)
                 elif "when_clone" in names:
-                    self._hat("control_start_as_clone", {}, {}, node.body)
+                    top = self._hat("control_start_as_clone", {}, {}, node.body)
+                elif "when_key" in names:
+                    key = decos[names.index("when_key")].args[0].value
+                    top = self._hat("event_whenkeypressed", {"KEY_OPTION": [key, None]}, {}, node.body)
                 elif "when_broadcast" in names:
                     d = decos[names.index("when_broadcast")]
                     msg = d.args[0].value
-                    self._hat("event_whenbroadcastreceived",
-                              {"BROADCAST_OPTION": [msg, self.p.bc_id(msg)]}, {}, node.body)
+                    top = self._hat("event_whenbroadcastreceived",
+                                    {"BROADCAST_OPTION": [msg, self.p.bc_id(msg)]}, {}, node.body)
                 else:
-                    self._proc_def(node)
+                    top = self._proc_def(node)
+                doc = ast.get_docstring(node)
+                if doc and top:
+                    cid = self.p.uid("c")
+                    blk = self.blocks[top]
+                    blk["comment"] = cid
+                    lines = sum(max(1, -(-len(par) // 44)) for par in doc.split("\n"))
+                    self.comments[cid] = {"blockId": top, "x": blk.get("x", 0) + 560, "y": blk.get("y", 0),
+                                          "width": 340, "height": min(420, 30 + lines * 19), "minimized": False,
+                                          "text": doc}
+                stmts = [n for n in ast.walk(node) if isinstance(n, ast.stmt) and n is not node]
+                nest = sum(1 for n in stmts if isinstance(n, (ast.If, ast.For, ast.While)))
+                tall = 110 + 56 * len(stmts) + 40 * nest
+                if doc:
+                    tall = max(tall, 60 + min(420, 30 + sum(max(1, -(-len(p) // 44)) for p in doc.split("\n")) * 19))
+                self.script_y += tall + 60
         return self.blocks
 
     def _new(self, opcode, parent=None, inputs=None, fields=None, shadow=False, top=False, mutation=None):
@@ -179,7 +202,6 @@ class SpriteCompiler:
         if top:
             blk["x"] = 0
             blk["y"] = self.script_y
-            self.script_y += 400
         if mutation is not None:
             blk["mutation"] = mutation
         self.blocks[bid] = blk
@@ -190,6 +212,7 @@ class SpriteCompiler:
         self.args = None
         first = self._stmts(body, hid)
         self.blocks[hid]["next"] = first
+        return hid
 
     def _proc_def(self, node):
         info = self.procs[node.name]
@@ -208,6 +231,7 @@ class SpriteCompiler:
         first = self._stmts(node.body, did)
         self.blocks[did]["next"] = first
         self.args = None
+        return did
 
     def _stmts(self, body, parent):
         first = None

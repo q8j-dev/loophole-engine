@@ -1,8 +1,31 @@
 # Scratch API
 
-A built game talks to your scripts through normal Scratch variables, lists and broadcasts on the Stage. You use them with the usual blocks: "set [variable] to", "change [variable] by", "item (1) of [list]", "replace item (1) of [list] with", "when I receive [message]" and so on. There are no custom blocks to learn.
+A built game talks to your scripts through normal Scratch variables, lists and broadcasts on the Stage. You use them with the usual blocks: "set [variable] to", "change [variable] by", "item (1) of [list]", "replace item (1) of [list] with", "when I receive [message]" and so on.
 
 Your own sprites, scripts and variables survive `loophole build`. The build replaces only the Engine sprite and, if you use `game.script`, the Game sprite.
+
+## Helpers sprite
+
+A new project comes with a sprite called Helpers. Its My Blocks section has ready-made blocks built from the variables and lists below:
+
+| Block | What it does |
+| --- | --- |
+| `move object [name] to x () y () z ()` | Moves an object to a new spot. |
+| `turn object [name] to () degrees` | Turns an object. |
+| `show object [name]`, `hide object [name]` | Shows or hides an object. |
+| `open [name]`, `close [name]` | Opens or closes a door or anything else that slides. |
+| `play sound [name]` | Plays one of the sounds listed under `sound queue`. |
+| `show message [text]`, `show message [text] for () seconds` | Big text near the bottom of the screen. |
+| `set status [text]` | Small text in the top left corner. |
+| `teleport player to x () y () z ()` | Moves the player. |
+| `switch light [name] to ()` | 1 turns a named light on, 0 turns it off. |
+| `start weather [kind]` | `clear`, `rain`, `snow` or `fog`. |
+| `go to level ()` | Loads a level. |
+| `fade to black in () seconds`, `fade in from black in () seconds` | Fades the screen. |
+| `fly camera to x () y () z () turn () tilt () in () seconds` | Glides a free camera, for cutscenes. |
+| `camera back to player` | Ends a cutscene. |
+
+It also has four example scripts with notes beside them: a button that opens a door, counting collectibles, an enemy that walks back and forth, and a camera fly-through on the C key. Custom blocks belong to the sprite they are made in, so build your scripts in Helpers, or drag the definitions onto another sprite to copy them. Delete the sprite if you don't want it; a rebuild won't bring it back.
 
 ## Variables
 

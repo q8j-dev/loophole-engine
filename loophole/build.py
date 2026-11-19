@@ -1190,6 +1190,18 @@ def game_sprite(A, proj, game, world_path, consts):
             "direction": 90, "draggable": False, "rotationStyle": "don't rotate"}
 
 
+def helpers_sprite(A, proj):
+    src = (HERE / "runtime" / "helpers.py").read_text(encoding="utf-8")
+    c = Compiler(proj, src, list(API_LISTS.values()), aliases=dict(USER_ALIASES))
+    blocks = c.compile()
+    return {"isStage": False, "name": "Helpers", "variables": {vid: [n, 0] for n, vid in c.new_vars.items()},
+            "lists": {lid: [n, []] for n, lid in c.new_lists.items()}, "broadcasts": {}, "blocks": blocks,
+            "comments": c.comments, "currentCostume": 0,
+            "costumes": [A.svg("blank", '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"></svg>', 1, 1)],
+            "sounds": [], "volume": 100, "layerOrder": 4, "visible": False, "x": 0, "y": 0, "size": 100,
+            "direction": 90, "draggable": False, "rotationStyle": "don't rotate"}
+
+
 def used_regions(game):
     regs = set()
     for Lv in game.levels:
@@ -1323,7 +1335,8 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
                      f'viewBox="0 0 {STAGE_W} {STAGE_H}"><rect width="{STAGE_W}" height="{STAGE_H}" fill="#07080b"/></svg>',
                 STAGE_W // 2, STAGE_H // 2)
     old = read_sb3(out) if out.exists() else None
-    pj = merge_project(old, engine, gsprite, overlay_sprite(A, proj), proj, api_values, shader_store, cfg_text, bg, A,
+    fresh = [overlay_sprite(A, proj)] + ([] if old else [helpers_sprite(A, proj)])
+    pj = merge_project(old, engine, gsprite, fresh, proj, api_values, shader_store, cfg_text, bg, A,
                        game, draw_lists)
     js = json.dumps(pj, separators=(",", ":"))
     files = dict(old["files"]) if old else {}
@@ -1472,7 +1485,7 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
                                            "minimized": True, "text": cfg_text}},
                  "currentCostume": 0, "costumes": [bg], "sounds": [], "volume": 100, "layerOrder": 0, "tempo": 60,
                  "videoTransparency": 50, "videoState": "on", "textToSpeechLanguage": None}
-        targets = [stage, engine] + ([gsprite] if gsprite else []) + [overlay]
+        targets = [stage, engine] + ([gsprite] if gsprite else []) + overlay
         exts = ["pen", "penP", "pointerlock", "tw"]
         ext_urls = {}
         ext_store = {}
