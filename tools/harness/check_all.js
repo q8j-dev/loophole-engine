@@ -59,6 +59,11 @@ step('helper blocks and save/load', () => {
   return true;
 });
 
+step('friendly error messages', () => {
+  execFileSync(python, [path.join(root, 'tests', 'test_errors.py')], {cwd: root, encoding: 'utf8', stdio: 'pipe', timeout: 600000});
+  return true;
+});
+
 const intros = EXAMPLES.filter(([dir]) => fs.readFileSync(path.join(root, 'examples', dir, 'world.py'), 'utf8').includes('play_at_start=True'))
   .map(([dir, title]) => path.join(root, 'examples', dir, title + '.sb3')).concat([helper]);
 step('autoplay intros leave the camera on the player', () => {

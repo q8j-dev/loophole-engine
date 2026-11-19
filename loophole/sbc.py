@@ -343,7 +343,7 @@ class SpriteCompiler:
                 self.blocks[bid]["inputs"]["INDEX"] = self._input(tgt.slice, bid, "int")
                 self.blocks[bid]["inputs"]["ITEM"] = self._input(st.value, bid, "text")
                 return self._single(bid)
-            raise CompileError("bad assign")
+            raise CompileError(f"line {st.lineno}: only plain variables and list items like scores[2] can be set.")
         if isinstance(st, ast.AugAssign):
             name = st.target.id
             if isinstance(st.op, ast.Add):
@@ -411,14 +411,14 @@ class SpriteCompiler:
                 self.blocks[rid]["inputs"]["TIMES"] = self._input(call.args[0], rid, "int")
                 self._substack(rid, "SUBSTACK", st.body)
                 return self._single(rid)
-            raise CompileError("for loops need range(), e.g. for i in range(10):")
+            raise CompileError(f"line {st.lineno}: for loops need range(), like for i in range(10):")
         if isinstance(st, ast.Return):
             bid = self._new("control_stop", parent, fields={"STOP_OPTION": ["this script", None]},
                             mutation={"tagName": "mutation", "children": [], "hasnext": "false"})
             return self._single(bid)
         if isinstance(st, ast.Expr) and isinstance(st.value, ast.Call):
             return self._call_stmt(st.value, parent)
-        raise CompileError(f"unsupported statement line {st.lineno}: {ast.dump(st)[:120]}")
+        raise CompileError(f"line {st.lineno}: this kind of line can't become Scratch blocks ({type(st).__name__.lower()}).")
 
     def _menu(self, opcode, field, value, parent):
         return self._new(opcode, parent, fields={field: [value, None]}, shadow=True)
@@ -441,14 +441,14 @@ class SpriteCompiler:
                 self.blocks[bid]["inputs"]["INDEX"] = self._input(call.args[0], bid, "int")
                 self.blocks[bid]["inputs"]["ITEM"] = self._input(call.args[1], bid, "text")
             else:
-                raise CompileError(meth)
+                raise CompileError(f"line {call.lineno}: lists don't have .{meth}(). Use append, insert, pop or clear.")
             return self._single(bid)
         name = call.func.id
         a = call.args
         if name in self.procs:
             info = self.procs[name]
             if len(a) != len(info["params"]):
-                raise CompileError(f"arg count {name} line {call.lineno}")
+                raise CompileError(f"line {call.lineno}: {name}() needs {len(info['params'])} value{'s' * (len(info['params']) != 1)} but got {len(a)}.")
             bid = self._new("procedures_call", parent, mutation={
                 "tagName": "mutation", "children": [], "proccode": info["proccode"],
                 "argumentids": json.dumps(info["ids"]), "warp": "true" if info["warp"] else "false"})
@@ -575,7 +575,10 @@ class SpriteCompiler:
             bid = self._new("control_stop", parent, fields={"STOP_OPTION": ["all", None]},
                             mutation={"tagName": "mutation", "children": [], "hasnext": "false"})
             return self._single(bid)
-        raise CompileError(f"unknown statement call {name} line {call.lineno}")
+        import difflib
+        near = difflib.get_close_matches(name, list(self.procs) + ["broadcast", "wait", "play", "clone", "stop_all", "rumble"], n=1, cutoff=0.6)
+        hint = f" Did you mean {near[0]}()?" if near else f" Check the spelling, or make it with def {name}(): in the script."
+        raise CompileError(f"line {call.lineno}: there's no block called {name}().{hint}")
 
     def _shadow_for(self, kind):
         return {"num": [4, "0"], "int": [7, "1"], "angle": [8, "90"], "text": [10, ""],
@@ -728,4 +731,7 @@ class SpriteCompiler:
                 mid = self._menu("sensing_keyoptions", "KEY_OPTION", a[0].value, bid)
                 self.blocks[bid]["inputs"]["KEY_OPTION"] = [1, mid]
                 return bid
-        raise CompileError(f"unsupported expression line {getattr(node, 'lineno', '?')}: {ast.dump(node)[:160]}")
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            raise CompileError(f"line {node.lineno}: {node.func.id}() can't give back a value. Built-in reporters like join, round, "
+                               f"sqrt, random and index_of can; your own functions can only run as a line of their own.")
+        raise CompileError(f"line {getattr(node, 'lineno', '?')}: this part of the line can't become Scratch blocks.")

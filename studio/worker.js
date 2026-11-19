@@ -87,9 +87,11 @@ B.build('/proj/world.py', out='/proj/game.sb3', log=jslog, cache='/cache')
     await syncCache(false);
     post('done', {bytes}, [bytes.buffer]);
   } catch (e) {
-    const msg = String(e.message || e).trim().split('\n');
-    const last = msg.filter(l => l.trim()).slice(-3).join('\n');
-    post('error', {text: last});
+    const full = String(e.message || e).trim();
+    const at = full.lastIndexOf('SystemExit: ');
+    const lines = full.split('\n').filter(l => l.trim());
+    const text = at >= 0 ? full.slice(at + 12).trim() : lines[lines.length - 1];
+    post('error', {text, trace: full});
   }
 }
 

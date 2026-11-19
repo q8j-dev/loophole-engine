@@ -16,6 +16,7 @@
   let workerReady = false;
   const pending = new Map();
   let sceneId = 0;
+  let errMark = null;
   const listeners = [];
 
   const editor = CodeMirror($('editor'), {
@@ -111,9 +112,20 @@
       } else if (m.type === 'error') {
         building = false;
         $('build').disabled = false;
-        const text = String(m.text).replace(/^SystemExit:\s*/m, '').replace(/^\w+Error:\s*/m, '');
-        setStatus('The build stopped: ' + text + '\nFix world.py and press Build game again.', 1, 'bad');
-        log(m.text);
+        const text = String(m.text).replace(/^SystemExit:\s*/m, '');
+        const at = text.match(/^(world|game)\.py line (\d+)/);
+        const file = at ? at[1] + '.py' : 'world.py';
+        setStatus('The build stopped. ' + text + '\nFix ' + file + ' and press Build game again.', 1, 'bad');
+        log(m.trace || m.text);
+        if (at && docs[file]) {
+          showFile(file);
+          const ln = Math.max(0, +at[2] - 1);
+          editor.setCursor({line: ln, ch: 0});
+          editor.scrollIntoView({line: ln, ch: 0}, 80);
+          if (errMark) errMark.doc.removeLineClass(errMark.line, 'background', 'cm-error');
+          docs[file].addLineClass(ln, 'background', 'cm-error');
+          errMark = {doc: docs[file], line: ln};
+        }
       }
     };
   }
@@ -131,6 +143,7 @@
     building = true;
     $('build').disabled = true;
     $('log').textContent = '';
+    if (errMark) { errMark.doc.removeLineClass(errMark.line, 'background', 'cm-error'); errMark = null; }
     setStatus(workerReady ? 'Reading world.py' : 'Starting Python. The first build downloads about 40 MB.', 0.02);
     const files = {};
     for (const f of FILES) {

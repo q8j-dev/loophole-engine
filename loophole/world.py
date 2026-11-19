@@ -424,7 +424,10 @@ class Level:
     def deco(self, name, pos, fwd=(1, 0, 0), up=(0, 1, 0), scale=(1, 1, 1)):
         from . import decor_place
         if name not in decor_place.KINDS and name not in self.game.models:
-            raise ValueError(f"unknown prop '{name}'. Built-in props: {', '.join(decor_place.KINDS)}")
+            import difflib
+            near = difflib.get_close_matches(str(name), list(decor_place.KINDS) + list(self.game.models), n=3, cutoff=0.5)
+            hint = f" Did you mean {' or '.join(near)}?" if near else " The World guide lists every prop."
+            raise ValueError(f"there's no prop called '{name}'.{hint}")
         self.decor.append((name, tuple(map(float, pos)), tuple(map(float, fwd)), tuple(map(float, up)),
                            tuple(map(float, scale))))
 

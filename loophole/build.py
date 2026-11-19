@@ -251,6 +251,11 @@ def load_game(path):
     sys.path.insert(0, str(path.parent))
     try:
         ns = runpy.run_path(str(path), run_name="world")
+    except SystemExit:
+        raise
+    except Exception as e:
+        from .errors import explain
+        raise SystemExit(explain(e, path)) from None
     finally:
         sys.path.pop(0)
     games = [v for v in ns.values() if isinstance(v, Game)]
@@ -1376,17 +1381,45 @@ def overlay():
 
 def game_sprite(A, proj, game, world_path, consts):
     srcs = []
+    starts = []
+    line = 1
     for s in game.scripts:
         p = (Path(world_path).parent / s).resolve()
-        srcs.append(p.read_text(encoding="utf-8"))
+        if not p.exists():
+            raise SystemExit(f"world.py: game.script(\"{s}\") can't find {s} next to world.py.")
+        text = p.read_text(encoding="utf-8")
+        srcs.append(text)
+        starts.append((line, Path(s).name))
+        line += text.count("\n") + 2
     if not srcs:
         return None
     src = "\n\n".join(srcs)
     al = dict(USER_ALIASES)
+
+    def where(n):
+        start, name = starts[0]
+        for st, nm in starts:
+            if n >= st:
+                start, name = st, nm
+        return f"{name} line {n - start + 1}"
+
     for g in game.globals:
         al[g.replace(" ", "_")] = g
-    c = Compiler(proj, src, list(API_LISTS.values()), consts=consts, aliases=al)
-    blocks = c.compile()
+    try:
+        c = Compiler(proj, src, list(API_LISTS.values()), consts=consts, aliases=al)
+        blocks = c.compile()
+    except SyntaxError as e:
+        raise SystemExit(f"{where(e.lineno or 1)}: Python can't read this line, a bracket, quote, colon or comma is probably "
+                         f"missing.\n    {(e.text or '').strip()}") from None
+    except sbc.CompileError as e:
+        import re as _re
+        msg = str(e)
+        m = _re.match(r"line (\d+): (.*)", msg, _re.S)
+        if m:
+            n = int(m.group(1))
+            code = src.splitlines()[n - 1].strip() if 0 < n <= len(src.splitlines()) else ""
+            raise SystemExit(f"{where(n)}: {m.group(2)}\n    {code}") from None
+        raise SystemExit(f"{starts[0][1]}: {msg}") from None
     return {"isStage": False, "name": "Game", "variables": {vid: [n, 0] for n, vid in c.new_vars.items()},
             "lists": {lid: [n, []] for n, lid in c.new_lists.items()}, "broadcasts": {}, "blocks": blocks,
             "comments": {}, "currentCostume": 0,

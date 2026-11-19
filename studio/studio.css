@@ -290,6 +290,7 @@ summary { cursor: pointer; }
 .kitems { display: flex; flex-wrap: wrap; gap: 4px; }
 .kitem { padding: 6px 9px; font: 500 14px/1 "JetBrains Mono", ui-monospace, monospace; }
 .cm-picked { background: #e3eafd; }
+.cm-error { background: #fde7e4; }
 
 @media (max-width: 900px) {
   .lview { min-height: 62vh; }
