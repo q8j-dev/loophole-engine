@@ -2400,7 +2400,7 @@ def api_cyaw_o():
 @warp
 def cam_orbit():
     if api_cam == 3:
-        cpitch = 0 - api_cpitch
+        cpitch = 0 - max(10, min(89, api_cpitch))
     if abs(api_cyaw - round(lcyaw * 100) / 100) > 0.02:
         cyaw = api_cyaw
     otx = px

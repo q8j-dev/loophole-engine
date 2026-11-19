@@ -178,6 +178,21 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       await page.evaluate(() => { for (const k of ['w', 'a', 's', 'd']) key(k, false); });
       await sleep(250);
     }
+    else if (cmd === 'waitcs') console.log('WAITCS', await page.evaluate(ms => new Promise(res => {
+      let seen = false;
+      const t0 = performance.now();
+      const iv = setInterval(() => {
+        const c = +getv('csi');
+        if (c > 0) seen = true;
+        if ((seen && c === 0) || performance.now() - t0 > ms) { clearInterval(iv); res(seen && c === 0 ? 'done' : seen ? 'still playing' : 'never started'); }
+      }, 30);
+    }), +(a || 30000)));
+    else if (cmd === 'pclick' || cmd === 'pmove') {
+      const r = await page.evaluate(() => { const b = S.renderer.canvas.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; });
+      if (!global.mpos) { global.mpos = r; await page.mouse.move(r[0], r[1]); }
+      if (cmd === 'pclick') { await page.mouse.move(r[0], r[1]); global.mpos = r; await page.mouse.down(); await sleep(80); await page.mouse.up(); }
+      else { const n = +(c || 10); for (let k = 0; k < n; k++) { global.mpos = [global.mpos[0] + +a / n, global.mpos[1] + +b / n]; await page.mouse.move(global.mpos[0], global.mpos[1]); await sleep(16); } }
+    }
     else if (cmd === 'autofight') global.autofight = a !== '0';
     else if (cmd === 'fight') {
       const t0 = Date.now();

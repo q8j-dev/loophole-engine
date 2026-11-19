@@ -57,6 +57,13 @@ step('helper blocks and save/load', () => {
   return true;
 });
 
+const intros = EXAMPLES.filter(([dir]) => fs.readFileSync(path.join(root, 'examples', dir, 'world.py'), 'utf8').includes('play_at_start=True'))
+  .map(([dir, title]) => path.join(root, 'examples', dir, title + '.sb3')).concat([helper]);
+step('autoplay intros leave the camera on the player', () => {
+  execFileSync(process.execPath, [path.join(__dirname, 'intro_test.js'), ...intros], {encoding: 'utf8', stdio: 'pipe', timeout: 1800000});
+  return true;
+});
+
 const failed = results.filter(x => !x).length;
 console.log(`${results.length - failed}/${results.length} passed`);
 process.exit(failed ? 1 : 0);
