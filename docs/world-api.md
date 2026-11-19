@@ -89,11 +89,27 @@ v.building(-2, -10, 9, -2, door=("+z", 3.5), windows=[("+z", 7.0)])
 
 | Method | What it does |
 | --- | --- |
-| `outdoor(sky="day", sun=(0.4, 0.75, 0.3), sun_color=None, fog=0.0035, clouds=0.45)` | Opens the level to the sky. Skies: `day`, `sunset`, `dusk`, `night`, `overcast`. `sun` points toward the sun. |
-| `terrain(x0, z0, x1, z1, hills=4.0, seed=1, height=None, grass=1.0, material="terrain")` | Rolling ground with grass, dirt and rock on slopes. The hills continue to the horizon. Pass a 2D `height` array to sculpt it yourself. |
+| `outdoor(sky="day", sun=(0.4, 0.75, 0.3), sun_color=None, fog=0.0035, clouds=0.45, shafts=0.6)` | Opens the level to the sky. Skies: `day`, `sunset`, `dusk`, `night`, `overcast`. `sun` points toward the sun. `shafts` sets how strongly sunbeams show through gaps in trees when you look toward the sun. |
+| `terrain(x0, z0, x1, z1, hills=4.0, seed=1, height=None, grass=1.0, grass_style="lawn", material="terrain")` | Rolling ground with grass, dirt and rock on slopes. The hills continue to the horizon. `grass_style` is `"lawn"` (short, green), `"meadow"` (tall, with wildflowers), `"dry"` (golden) or `"forest"` (sparse, with leaf litter and moss under trees). `grass` scales the density. Pass a 2D `height` array to sculpt the ground yourself. |
+| `wind(direction=(1, 0.35), strength=1.0)` | Wind for the level. Gusts roll across grass in waves and sway trees, bushes and clumps of leaves together. `strength=0` stops it. |
 | `flatten(x0, z0, x1, z1, height=0, falloff=6)` | Levels an area, blending back into the hills over `falloff` metres. |
 | `path(*points, width=2.0, material="gravel")` | A smooth path through the points. Use `"dirt"` or `"gravel"`. |
 | `building(x0, z0, x1, z1, height=3, walls="brick", inside="plaster", floor="wood", roof="roof", roof_shape="gable", door=None, windows=(), ...)` | A house with a foundation, a gabled or flat roof, framed glass windows, a door frame and trim. `door` and each window are `(side, position along the wall)`. The ground under it is flattened. |
+
+## Forests in one line
+
+```python
+v.forest(-40, -40, 40, 20)
+v.forest(-40, 20, 0, 50, kind="pine", density=0.8)
+v.scatter(["boulder", "rock"], -30, -30, 30, 30, spacing=8)
+```
+
+| Method | What it does |
+| --- | --- |
+| `forest(x0, z0, x1, z1, kind="mixed", density=1.0, undergrowth=True, seed=1)` | Fills the area with trees spaced like a real forest, plus bushes, ferns, grass, fallen logs and rocks underneath. Kinds: `"mixed"`, `"broadleaf"`, `"pine"`, `"birch"`, `"autumn"`. Paths, buildings, objects and the spawn point stay clear. |
+| `scatter(kinds, x0, z0, x1, z1, spacing=3.0, scale=(0.8, 1.2), seed=0)` | Places props randomly with at least `spacing` metres between them, with random size and rotation. `kinds` is a prop name, a list of names, or a list of `(name, weight)` pairs. |
+
+Big forests stay fast: leaves far from the camera are thinned out and replaced by fewer, larger clusters, and parts of the level behind the camera are skipped.
 
 On a level with terrain, `y` means height above the ground for spawns, props, lights, objects and triggers. `y=0` stands on the hillside wherever you are.
 
@@ -122,7 +138,8 @@ v.wall_prop("sconce", 8.3, 1.8, -4.5, facing="-x")
 
 | Group | Props |
 | --- | --- |
-| Nature | `oak`, `birch`, `pine`, `bush`, `grass`, `fern`, `boulder`, `rock`, `stump` |
+| Trees | `oak`, `birch`, `maple` (autumn colours), `willow`, `pine`, `spruce` |
+| Nature | `bush`, `grass`, `fern`, `log`, `boulder`, `rock`, `mossrock`, `stump` |
 | House | `table`, `chair`, `armchair`, `sofa`, `bed`, `bookshelf`, `cabinet`, `nightstand`, `picture`, `chandelier`, `sconce`, `lantern`, `candlestick`, `oillamp` |
 | Village | `woodbarrel`, `winebarrel`, `woodcrate`, `bench`, `firepit`, `streetlamp`, `walllamp`, `toolcart`, `bucket` |
 | Treasure | `apple`, `goblet`, `treasure`, `statue`, `catstatue`, `rat` |
