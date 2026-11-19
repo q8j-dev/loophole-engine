@@ -5,6 +5,8 @@ LIGHTS = {
     "sconce": ((0.0, 0.2, 0.06), "warm", 5.0),
     "chandelier": ((0.0, 0.45, 0.0), "warm", 14.0),
     "firepit": ((0.0, 0.6, 0.0), "orange", 9.0),
+    "candlestick": ((0.0, 0.25, 0.0), "amber", 1.6),
+    "oillamp": ((0.0, 0.5, 0.0), "warm", 5.0),
 }
 SOLID = {"crate", "barrel", "machine", "tank", "rack", "terminal", "trolley", "reel", "toolbox", "ramp", "column",
          "catwalk", "tray", "table", "chair", "bookshelf", "sofa", "bed", "woodbarrel", "woodcrate", "bench", "firepit",

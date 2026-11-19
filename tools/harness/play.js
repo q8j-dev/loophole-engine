@@ -43,6 +43,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     else if (cmd === 'log') await log(a || 'log');
     else if (cmd === 'set') await page.evaluate((n, x) => setv(n, isNaN(+x) ? x : +x), a, b);
     else if (cmd === 'item') await page.evaluate((n, i, x) => { Lst(n).value[+i - 1] = isNaN(+x) ? x : +x; Lst(n)._monitorUpToDate = false; }, a, b, c);
+    else if (cmd === 'get') console.log('VAR', a, JSON.stringify(await page.evaluate(n => getv(n), a)));
     else if (cmd === 'list') console.log('LIST', a, JSON.stringify(await page.evaluate(n => Lst(n).value, a)));
     else if (cmd === 'pos') await page.evaluate((x, y, z) => { setv('player x', x); setv('player y', y); setv('player z', z); }, +a, +b, +c);
     else if (cmd === 'look') await page.evaluate((y, p) => { setv('player yaw', y); setv('player pitch', p); }, +a, +b);

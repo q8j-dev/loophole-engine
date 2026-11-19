@@ -426,8 +426,8 @@ def lights_load(lv):
     lk = LL0[lv]
     for li in rep(LLN[lv]):
         light_name.append(LNM[lk])
-        light_power.append(1)
-        LPWL[li] = 1
+        light_power.append(LLON[lk])
+        LPWL[li] = -1
         set_arr4(li, "uLt", "world", LTX[lk], LTY[lk], LTZ[lk], LTW[lk])
         set_arr4(li, "uLd", "world", LDDX[lk], LDDY[lk], LDDZ[lk], LDDW[lk])
         set_arr4(li, "uLc", "world", LCR[lk], LCG[lk], LCB[lk], LCW[lk])
@@ -810,11 +810,15 @@ def objects_step():
             if ttch != obj_touch[ok_]:
                 obj_touch[ok_] = ttch
                 if ttch == 1:
+                    api_ltouch = obj_name[ok_]
                     broadcast(join("touch ", obj_name[ok_]))
+                    broadcast("touch")
                     if DCOLL[od] == 1:
                         obj_visible[ok_] = 0
                         play("pickup")
+                        api_lcoll = obj_name[ok_]
                         broadcast(join("collect ", obj_name[ok_]))
+                        broadcast("collect")
         if api_hold == ok_:
             hold_step(ok_)
         elif DPHYS[od] == 1 and obj_visible[ok_] == 1:
@@ -1010,7 +1014,9 @@ def triggers_step():
         if tin != trig_in[ti]:
             trig_in[ti] = tin
             if tin == 1:
+                api_ltrig = TNAME[tk]
                 broadcast(join("enter ", TNAME[tk]))
+                broadcast("enter")
                 if TKIND[tk] == 1:
                     die()
                 elif TKIND[tk] == 2:
@@ -1022,7 +1028,9 @@ def triggers_step():
                     else:
                         broadcast("game complete")
             else:
+                api_ltrig = TNAME[tk]
                 broadcast(join("leave ", TNAME[tk]))
+                broadcast("leave")
         tk += 1
 
 

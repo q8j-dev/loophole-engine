@@ -34,7 +34,8 @@ API_VARS = {
     "api_cyaw": "camera yaw", "api_cpitch": "camera pitch", "api_cdist": "camera distance",
     "api_fov": "field of view", "api_expo": "exposure", "api_fade": "fade", "api_flash": "flash",
     "api_walk": "walk speed", "api_jump": "jump power", "api_grav": "gravity", "api_paused": "paused",
-    "api_locked": "mouse locked", "api_vm": "viewmodel",
+    "api_locked": "mouse locked", "api_vm": "viewmodel", "api_lcoll": "last collected", "api_ltouch": "last touched",
+    "api_ltrig": "last trigger",
 }
 API_LISTS = {
     "obj_name": "obj name", "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw",
@@ -44,7 +45,24 @@ API_LISTS = {
     "trig_in": "trigger inside",
 }
 ALIASES = {**API_VARS, **API_LISTS}
-FIXED_BROADCASTS = ["level start", "player died", "paused", "resumed", "game complete"]
+FIXED_BROADCASTS = ["level start", "player died", "paused", "resumed", "game complete", "collect", "touch", "enter",
+                    "leave"]
+USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "player z", "player_yaw": "player yaw",
+                "player_pitch": "player pitch", "player_speed": "player speed", "on_ground": "player on ground",
+                "level": "level", "level_name": "level name", "level_time": "level time", "fps": "fps",
+                "looking_at": "looking at", "looking_distance": "looking distance", "holding": "holding",
+                "used_object": "used object", "go_to_level": "go to level", "controls": "controls",
+                "camera_mode": "camera mode", "camera_x": "camera x", "camera_y": "camera y", "camera_z": "camera z",
+                "camera_yaw": "camera yaw", "camera_pitch": "camera pitch", "camera_distance": "camera distance",
+                "field_of_view": "field of view", "exposure": "exposure", "fade": "fade", "flash": "flash",
+                "walk_speed": "walk speed", "jump_power": "jump power", "gravity": "gravity", "paused": "paused",
+                "mouse_locked": "mouse locked", "viewmodel": "viewmodel", "last_collected": "last collected",
+                "last_touched": "last touched", "last_trigger": "last trigger", "obj_name": "obj name",
+                "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw", "obj_pitch": "obj pitch",
+                "obj_roll": "obj roll", "obj_scale": "obj scale", "obj_visible": "obj visible", "obj_solid": "obj solid",
+                "obj_glow": "obj glow", "obj_open": "obj open", "obj_touching": "obj touching",
+                "sound_queue": "sound queue", "light_name": "light name", "light_power": "light power",
+                "trigger_name": "trigger name", "trigger_inside": "trigger inside"}
 
 SH = ("shader", "menu", "penPlusShaders")
 UN = ("uniformName", "text", None)
@@ -512,7 +530,7 @@ TPM = {}
 LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "HV1", "HKILL", "HPORT", "LSX", "LSY",
               "LSZ", "LSYAW", "LSPIT", "LKILL", "LO0", "LON", "LT0", "LTN", "TNAME", "TKIND", "TARG", "TX0", "TY0",
               "TZ0", "TX1", "TY1", "TZ1", "LL0", "LLN", "LNM", "LTX", "LTY", "LTZ", "LTW", "LDDX", "LDDY", "LDDZ",
-              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
+              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
               "AMB0", "AMBNX", "AMBNY", "AMBNZ", "AMBST", "AMBOX", "AMBOY", "AMBOZ", "AMB", "LPX", "LPY", "LPZ",
               "LB0X", "LB0Y", "LB0Z", "LB1X", "LB1Y", "LB1Z", "LFY", "LCY_", "LV0", "LVNN", "VX0", "VZ0", "VX1",
               "VZ1", "VY0", "VY1", "VPW", "LSP0", "LSPN", "SPX", "SPY", "SPZ", "LSKY", "LSUN", "LTER", "TOX", "TOZ",
@@ -578,6 +596,7 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
         if dl.get("dynamic"):
             q = norm_light(dl)
             q = light_json(dict(q, name=dl.get("name"), dynamic=True))
+            q["on"] = 1.0 if dl.get("on", True) else 0.0
             lts.append(q)
     lts = sorted(lts, key=lambda q: (q["kind"] != "sun", -q["vol"], -int(q["dynamic"]), -int(bool(q.get("name")))))[:24]
     L["LL0"].append(len(L["LTX"]) + 1)
@@ -607,6 +626,7 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
         L["LCB"].append(r4(q["col"][2] * q["inten"] * sk))
         L["LCW"].append(r4(q["cin"]))
         L["LDYN"].append(1 if q["dynamic"] else 0)
+        L["LLON"].append(q.get("on", 1.0))
     amb = meta["amb"]
     cube = np.array(amb["cube"])
     L["AMB0"].append(len(L["AMB"]) + 1)
@@ -857,7 +877,10 @@ def game_sprite(A, proj, game, world_path, consts):
     if not srcs:
         return None
     src = "\n\n".join(srcs)
-    c = Compiler(proj, src, list(API_LISTS.values()), consts=consts, aliases=ALIASES)
+    al = dict(USER_ALIASES)
+    for g in game.globals:
+        al[g.replace(" ", "_")] = g
+    c = Compiler(proj, src, list(API_LISTS.values()), consts=consts, aliases=al)
     blocks = c.compile()
     return {"isStage": False, "name": "Game", "variables": {vid: [n, 0] for n, vid in c.new_vars.items()},
             "lists": {lid: [n, []] for n, lid in c.new_lists.items()}, "broadcasts": {}, "blocks": blocks,
@@ -877,7 +900,7 @@ def placeholder_jpg():
 def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_ids=(), has_terrain=False, tlms=None,
              dimgs=None):
     A = Assets()
-    proj = Project(global_names=list(API_VARS.values()), global_lists=list(API_LISTS.values()))
+    proj = Project(global_names=list(API_VARS.values()) + list(game.globals), global_lists=list(API_LISTS.values()))
     for b in sorted(broadcasts):
         proj.bc_id(b)
     paw, pah = props.atlas_size()
@@ -1042,7 +1065,7 @@ def referenced_assets(pj):
 
 
 def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store, cfg_text, bg, A, game):
-    api_v = {proj.var_id(n): n for n in API_VARS.values()}
+    api_v = {proj.var_id(n): n for n in list(API_VARS.values()) + list(game.globals)}
     api_l = {proj.list_id(n): n for n in API_LISTS.values()}
     bcs = {bid: n for n, bid in proj.broadcasts.items()}
     if old:
@@ -1078,7 +1101,9 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
         exts = list(dict.fromkeys(po.get("extensions", []) + ["pen", "penP", "pointerlock", "tw"]))
         ext_urls = dict(po.get("extensionURLs", {}))
         ext_store = dict(po.get("extensionStorage", {}))
-        monitors = po.get("monitors", [])
+        monitors = [m for m in po.get("monitors", []) if not m.get("loophole")]
+        have = {m.get("id") for m in monitors}
+        monitors += [m for m in hud_monitors(proj, game) if m["id"] not in have]
     else:
         stage = {"isStage": True, "name": "Stage", "variables": {vid: [n, api_values.get(n, 0)] for vid, n in api_v.items()},
                  "lists": {lid: [n, []] for lid, n in api_l.items()}, "broadcasts": bcs, "blocks": {},
@@ -1090,7 +1115,7 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
         exts = ["pen", "penP", "pointerlock", "tw"]
         ext_urls = {}
         ext_store = {}
-        monitors = []
+        monitors = hud_monitors(proj, game)
     for i, t in enumerate(targets):
         t["layerOrder"] = i
     ext_urls.update({"penP": PENP_URL, "pointerlock": PLOCK_URL})
@@ -1100,6 +1125,15 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
             "extensionStorage": ext_store,
             "meta": {"semver": "3.0.0", "vm": "0.2.0", "agent": f"loophole {ENGINE_VERSION}",
                      "platform": {"name": "TurboWarp", "url": "https://turbowarp.org/"}}}
+
+
+def hud_monitors(proj, game):
+    out = []
+    for i, n in enumerate(game.hud):
+        out.append({"id": proj.var_id(n), "mode": "default", "opcode": "data_variable", "params": {"VARIABLE": n},
+                    "spriteName": None, "value": 0, "width": 0, "height": 0, "x": 8, "y": 8 + i * 30,
+                    "visible": True, "sliderMin": 0, "sliderMax": 100, "isDiscrete": True})
+    return out
 
 
 def rewrite_ids(po, old, new):

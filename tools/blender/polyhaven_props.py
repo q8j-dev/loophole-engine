@@ -21,6 +21,11 @@ SPECS = {
     "nightstand": ("ClassicNightstand_01", 1500, 512), "cabinet": ("painted_wooden_cabinet", 2500, 512),
     "picture": ("hanging_picture_frame_01", 600, 256), "chandelier": ("Chandelier_01", 3000, 512),
     "toolcart": ("tool_cart", 2500, 512), "sconce": ("industrial_wall_sconce", 1200, 256),
+    "apple": ("food_apple_01", 600, 256), "rat": ("street_rat", 1500, 512), "treasure": ("treasure_chest", 3000, 512),
+    "candlestick": ("wooden_candlestick", 800, 256), "oillamp": ("vintage_oil_lamp", 1500, 256),
+    "statue": ("gothic_statue", 4000, 1024), "catstatue": ("concrete_cat_statue", 2000, 512),
+    "bucket": ("wooden_bucket_01", 1000, 256), "winebarrel": ("wine_barrel_01", 1800, 512),
+    "goblet": ("brass_goblets", 1000, 256),
 }
 
 

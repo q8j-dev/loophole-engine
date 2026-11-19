@@ -214,7 +214,7 @@ class Level:
         return self
 
     def light(self, x, y, z, color="white", power=8.0, fixture="cage", facing="-y", dynamic=False, name=None,
-              haze=0.0):
+              haze=0.0, on=True):
         n = np.array(globals()["facing"](facing), float)
         if fixture == "cage":
             if abs(n[1]) < 0.9:
@@ -223,7 +223,7 @@ class Level:
                 self.deco("cage", (x, y, z), (1, 0, 0), tuple(n))
         p = tuple(np.array([x, y, z], float) + n * 0.11)
         self.lights.append(dict(kind="point", p=p, d=tuple(n), size=(0.05, 0.05), col=color_(color), power=power,
-                                vol=haze, dynamic=dynamic, name=name))
+                                vol=haze, dynamic=dynamic, name=name, on=on))
         return self
 
     def spot(self, x, y, z, target, color="white", power=40.0, cone=(18, 32), haze=1.0, fixture=True, dynamic=False,
@@ -455,6 +455,8 @@ class Game:
         self.levels = []
         self.scripts = []
         self.models = {}
+        self.globals = []
+        self.hud = []
 
     def model(self, name, path, scale=1.0, texture=1024, up="y"):
         self.models[name] = dict(path=str(path), scale=scale, texture=texture, up=up)
@@ -467,4 +469,11 @@ class Game:
 
     def script(self, path):
         self.scripts.append(path)
+        return self
+
+    def variable(self, name, show=False):
+        if name not in self.globals:
+            self.globals.append(name)
+        if show and name not in self.hud:
+            self.hud.append(name)
         return self
