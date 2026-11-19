@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "loophole-engine"
+version = "0.1.0"
+description = "A 3D game engine for Scratch and TurboWarp: baked global illumination, PBR, reflections, volumetric haze and a Scratch-block API"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.22", "pillow>=9"]
+
+[project.scripts]
+loophole = "loophole.cli:main"
+
+[tool.setuptools]
+packages = ["loophole"]
+
+[tool.setuptools.package-data]
+loophole = ["data/**/*", "runtime/*.py", "templates/**/*"]

@@ -1,0 +1,12 @@
+{
+  "name": "loophole-harness",
+  "private": true,
+  "description": "Headless TurboWarp harness for Loophole games",
+  "scripts": {
+    "setup": "node fetch_ext.js"
+  },
+  "dependencies": {
+    "@turbowarp/scaffolding": "^0.4.0",
+    "puppeteer": "^25.17.0"
+  }
+}

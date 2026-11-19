@@ -1,0 +1,23 @@
+<!doctype html><html><body style="margin:0;background:#000"><div id="p" style="width:100vw;height:56.25vw"></div>
+<script src="node_modules/@turbowarp/scaffolding/dist/scaffolding-min.js"></script>
+<script>
+window.run = async (url) => {
+  const s = new Scaffolding.Scaffolding();
+  s.width = 640; s.height = 360; s.resizeMode = 'preserve-ratio';
+  s.setup(); s.appendTo(document.getElementById('p'));
+  s.vm.setFramerate(60);
+  s.vm.setCompilerOptions({enabled: true, warpTimer: false});
+  s.vm.setRuntimeOptions({fencing: false, miscLimits: false, maxClones: 300});
+  if (s.renderer.setUseHighQualityRender) s.renderer.setUseHighQualityRender(true);
+  const sm = s.vm.securityManager;
+  sm.getSandboxMode = () => Promise.resolve('unsandboxed');
+  sm.canLoadExtensionFromProject = () => Promise.resolve(true);
+  const base = location.href.replace(/harness\.html.*/, 'ext/');
+  sm.rewriteExtensionURL = u => Promise.resolve(u.indexOf('penPlus') >= 0 ? base + 'penPlus.js' : (u.indexOf('pointerlock') >= 0 ? base + 'pointerlock.js' : u));
+  const buf = await (await fetch(url)).arrayBuffer();
+  await s.loadProject(buf);
+  window.S = s;
+  s.vm.on('RUNTIME_ERROR', e => console.log('RTERR', e));
+  s.start();
+};
+</script></body></html>

@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.loophole/
+*.sb3
+*.sb3.tmp
+tools/harness/node_modules
+tools/harness/ext/
+.DS_Store
