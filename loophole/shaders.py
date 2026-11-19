@@ -2198,7 +2198,7 @@ void main() {
   float code = g.w - 32.0;
   vec2 cell = vec2(mod(code, 16.0), floor(code / 16.0));
   vUV = (cell + vec2(aCorner.x, 1.0 - aCorner.y)) / vec2(16.0, 6.0);
-  vA = aSlot < 83.5 ? uTA.x : (aSlot < 95.5 ? uTA.z : uTA.y);
+  vA = aSlot < 79.5 ? uTA.x : (aSlot < 95.5 ? uTA.z : uTA.y);
 }
 """
 

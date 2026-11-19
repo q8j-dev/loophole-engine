@@ -35,6 +35,7 @@ def init():
     drv = 0
     drvcam = 0
     lptx = ""
+    carresets = 0
     pta = 0
     msgw = 0
     skt = 0
@@ -544,6 +545,8 @@ def respawn():
         obj_yaw[drv] = yaw
         OPIT[drv] = 0
         OROL[drv] = 0
+        if LRDN[level] > 0:
+            car_reset()
     api_out()
 
 
@@ -900,8 +903,11 @@ def play_step():
             if api_msg == LHINT[level]:
                 api_msg = ""
     if kr == 1:
-        begin(level)
-        return
+        if drv > 0:
+            car_reset()
+        else:
+            begin(level)
+            return
     api_in()
     lights_step()
     weather_step()
@@ -3275,7 +3281,7 @@ def post():
 def hud():
     if api_msg != lmsg or strlen(api_msg) != strlen(lmsg):
         lmsg = api_msg
-        hud_text(api_msg, 0, 84, RTW / RTH * 0.5, 0.2, 0.085, 1)
+        hud_text(api_msg, 0, 80, RTW / RTH * 0.5, 0.2, 0.085, 1)
         msgw = hw
         msgt = 0
     if api_stat != lstat or strlen(api_stat) != strlen(lstat):
@@ -3317,6 +3323,8 @@ def hud():
 def use_prompt():
     ptx = ""
     if state == 1 and api_ctl == 1 and csi == 0:
+        if drv > 0 and stuckt > 1.5:
+            ptx = "Back to track"
         if drv == 0:
             for pk_ in rep(nobj):
                 if ptx == "" and DKIND[LO0[level] + pk_ - 1] == 7 and obj_visible[pk_] == 1:
@@ -3330,7 +3338,13 @@ def use_prompt():
                         ptx = "Pick up"
                     elif DUSE[LO0[level] + api_look - 1] == 1:
                         ptx = "Use"
-    if ptx != "":
+    if ptx == "Back to track":
+        if gpc == 1 or api_touch == 1:
+            ptx = "Stuck? Hold on"
+        else:
+            ptx = join(RESETKEY, "  Back to track")
+        pta = min(1, pta + dt * 6)
+    elif ptx != "":
         pkey = USEKEY
         if gpc == 1:
             pkey = "X"
@@ -3342,7 +3356,7 @@ def use_prompt():
         pta = max(0, pta - dt * 6)
     if ptx != lptx and (ptx != "" or pta <= 0):
         lptx = ptx
-        hud_text(ptx, 84, 12, RTW / RTH * 0.5, 0.33, 0.06, 1)
+        hud_text(ptx, 80, 16, RTW / RTH * 0.5, 0.33, 0.06, 1)
 
 
 @warp
@@ -4062,6 +4076,12 @@ def car_drive():
     api_vspd = round(cspd * 10) / 10
     crr = min(1, cspd / ctop)
     api_rpm = round(min(1, crr * 0.7 + (crr * 4 - floor(crr * 4)) * 0.22 + max(0, cthr) * 0.1) * 100) / 100
+    if api_ctl == 1 and abs(cthr) > 0.3 and cspd < 1.2:
+        stuckt += dt
+    else:
+        stuckt = max(0, stuckt - dt * 3)
+    if stuckt > 4:
+        car_reset()
     skt = skt - dt
     if onground == 1 and abs(vl) > 2.2 and cspd > 4 and skt <= 0:
         play("skid")
@@ -4211,3 +4231,44 @@ def chase_cam():
     cuy = crz * cfx - crx * cfz
     cuz = crx * cfy - cry * cfx
     lcyaw = cyaw
+
+
+@warp
+def car_reset():
+    stuckt = 0
+    carresets += 1
+    rbest = 0
+    if LRDN[level] > 0:
+        rbd = 999999
+        rk = LRD0[level]
+        for ri_ in rep(LRDN[level]):
+            rdd = (RDX[rk] - px) * (RDX[rk] - px) + (RDZ[rk] - pz) * (RDZ[rk] - pz)
+            if rdd < rbd:
+                rbd = rdd
+                rbest = rk
+            rk += 1
+    if rbest > 0:
+        px = RDX[rbest]
+        pz = RDZ[rbest]
+        atan2_(RDTX[rbest], 0 - RDTZ[rbest])
+        yaw = at
+    else:
+        px = px - sin(yaw) * 2
+        pz = pz + cos(yaw) * 2
+        yaw = yaw + 180
+    terr_h(px, pz)
+    if tgh > -900:
+        py = tgh + 0.3
+    else:
+        py = py + 0.5
+    vx = 0
+    vy = 0
+    vz = 0
+    obj_x[drv] = px
+    obj_y[drv] = py
+    obj_z[drv] = pz
+    obj_yaw[drv] = yaw
+    OPIT[drv] = 0
+    OROL[drv] = 0
+    cyaw = yaw
+    play("arrive")

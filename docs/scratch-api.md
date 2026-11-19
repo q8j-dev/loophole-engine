@@ -86,7 +86,7 @@ Variables marked "read" are updated by the engine every frame. Variables marked 
 
 | Variable | Use | Meaning |
 | --- | --- | --- |
-| `message` | set | Large text near the bottom of the screen, on a dark backdrop, up to 84 characters. It fades in when it changes. Set it to empty to hide it. |
+| `message` | set | Large text near the bottom of the screen, on a dark backdrop, up to 80 characters. It fades in when it changes. Set it to empty to hide it. |
 | `status` | set | Smaller text in the top left corner, for score, health or time. |
 | `fade` | set | 0 is normal and 1 is black. Count it up in a loop for a fade-out. |
 | `flash` | set | Set to about 0.5 for a white flash when the player is hurt. It fades back by itself. |

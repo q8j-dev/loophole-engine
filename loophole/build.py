@@ -844,7 +844,7 @@ LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "
               "DPRY2", "DPRS2", "DPRT2", "DBX", "DBY", "DBZ", "DBCX", "DBCY", "DBCZ", "DSX", "DSY", "DSZ", "DKIND",
               "DPHYS", "DCARRY", "DUSE", "DSHAD", "DSOLID", "DVIS", "DX", "DY", "DZ", "DYAW", "DPITCH", "DROLL",
               "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DHR", "DHG", "DHB", "DBOB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
-              "DPSP", "DPLOOP", "DPFACE", "DMODE", "DSIGHT", "DFOV", "DMASS", "DFRIC", "DBNC", "DPUSH", "DWGT", "DSWG", "DLEN", "DLGT", "DHP", "DDMG", "DRNG", "DCHR", "NBM", "NCB0", "NCNJ", "NCCL", "DVS", "DVTOP", "DVACC", "DVGRIP", "VPV", "VRAD", "VHW", "VHH", "RSTX", "RSTZ", "RSTDX", "RSTDZ", "LHINT", "LHINTT", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
+              "DPSP", "DPLOOP", "DPFACE", "DMODE", "DSIGHT", "DFOV", "DMASS", "DFRIC", "DBNC", "DPUSH", "DWGT", "DSWG", "DLEN", "DLGT", "DHP", "DDMG", "DRNG", "DCHR", "NBM", "NCB0", "NCNJ", "NCCL", "DVS", "DVTOP", "DVACC", "DVGRIP", "VPV", "VRAD", "VHW", "VHH", "RSTX", "RSTZ", "RSTDX", "RSTDZ", "LHINT", "LHINTT", "LRD0", "LRDN", "RDX", "RDZ", "RDTX", "RDTZ", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
 
 
 def portal_blockers(L, Lv, c, rects, h0):
@@ -1116,6 +1116,13 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
     for k in ("TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH",
               "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT", "RSTX", "RSTZ", "RSTDX", "RSTDZ"):
         L[k].append(0)
+    L["LRD0"].append(len(L["RDX"]) + 1)
+    for r_ in getattr(Lv, "roads", []):
+        for k_ in range(max(2, int(r_.length / 2.0))):
+            x_, z_, tx_, tz_ = r_.at(k_ / max(2, int(r_.length / 2.0)))
+            for key_, v_ in zip(("RDX", "RDZ", "RDTX", "RDTZ"), (x_, z_, tx_, tz_)):
+                L[key_].append(r4(v_))
+    L["LRDN"].append(len(L["RDX"]) + 1 - L["LRD0"][-1])
     for r_ in getattr(Lv, "roads", []):
         if r_.start and r_.kerbs and not L["RSTDX"][-1] and not L["RSTDZ"][-1]:
             sx_, sz_, tx_, tz_ = r_.at(0.0)
@@ -1499,7 +1506,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     keys = getattr(game, "keys", None) or dict(Game.KEYS)
     pad = getattr(game, "pad", dict(Game.PAD))
     touch = getattr(game, "touch", "auto")
-    consts = {"USEKEY": (keys.get("use", "e").upper() if len(keys.get("use", "e")) == 1 else keys.get("use", "e")), "NAVMAX": max(1, L.get("_NAVMAX", 1)), "SH2": STAGE_H / 2, "SW2": STAGE_W / 2, "TOUCHA": 1 if touch == "auto" else 0, "TOUCH0": 1 if touch is True else 0,
+    consts = {"RESETKEY": (keys.get("restart", "r").upper() if len(keys.get("restart", "r")) == 1 else keys.get("restart", "r")), "USEKEY": (keys.get("use", "e").upper() if len(keys.get("use", "e")) == 1 else keys.get("use", "e")), "NAVMAX": max(1, L.get("_NAVMAX", 1)), "SH2": STAGE_H / 2, "SW2": STAGE_W / 2, "TOUCHA": 1 if touch == "auto" else 0, "TOUCH0": 1 if touch is True else 0,
               "GPAD": 1 if pad else 0, "GP_JUMP": (pad or Game.PAD)["jump"], "GP_USE": (pad or Game.PAD)["use"],
               "GP_CROUCH": (pad or Game.PAD)["crouch"], "GP_PAUSE": (pad or Game.PAD)["pause"],
               "GP_ATK": (pad or Game.PAD).get("attack", 4), "GP_THR": (pad or Game.PAD).get("throw", 6),

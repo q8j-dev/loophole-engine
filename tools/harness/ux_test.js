@@ -50,4 +50,13 @@ v = run(racing, `wait,2500;walkto,-11.6,35.6;wait,600;${probe('p', prompt)};${pr
 check('drive prompt next to a kart', v.p === 'E  Drive', `prompt: ${v.p}`);
 check('crosshair hidden in third person', v.ov === 'false', `overlay visible: ${v.ov}`);
 
+const eng = n => `S.vm.runtime.targets.find(t=>t.isOriginal&&t.getName()==='Engine').lookupVariableByNameAndType('${n}','').value`;
+const onTrack = "Math.round(Lst('RDX').value.reduce((b,x,i)=>Math.min(b,Math.hypot(x-getv('player x'),Lst('RDZ').value[i]-getv('player z'))),1e9)*10)/10";
+v = run(racing, `wait,2500;walkto,-11.6,35.6;tap,e;wait,500;down,w;down,d;wait,700;up,d;wait,1500;up,w;${probe('off', onTrack)};tap,r;wait,500;${probe('back', onTrack)}`);
+check('R puts the kart back on the track', +v.back < 1 && +v.off > 3, `${v.off} m from the track before, ${v.back} m after`);
+const watchPrompt = `(window.seen='',window.seenIv=setInterval(()=>{if(${eng('lptx')})window.seen=${eng('lptx')}},50),1)`;
+v = run(racing, `wait,2500;walkto,-11.6,35.6;tap,e;wait,500;js,${watchPrompt};down,w;down,d;wait,600;up,d;wait,13000;${probe('n', eng('carresets'))};${probe('seen', 'window.seen')};up,w`);
+check('a stuck kart goes back to the track by itself', +v.n >= 1, `resets: ${v.n}`);
+check('a stuck kart shows the back-to-track prompt', v.seen === 'R  Back to track', `prompt seen: ${v.seen}`);
+
 process.exit(failed ? 1 : 0);

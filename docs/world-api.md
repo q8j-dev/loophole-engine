@@ -254,7 +254,7 @@ t.vehicle("kart", "kart", -9.7, 0, 34.3, yaw=100)
 t.vehicle("taxi1", "taxi", 20, 0, 5, top_speed=18)
 ```
 
-`vehicle(name, model="kart", x, y, z, yaw=0, top_speed=None, accel=None, grip=1.0)` parks a vehicle the player can drive. Walk up to it and press E (X on a controller, the use button on a touch screen) to get in, and E again to get out. W or the left stick accelerates and S brakes, then reverses. A and D steer, and space is the handbrake: hold it in a corner to drift. The body leans in corners and dips when braking, the wheels spin and steer, and the engine sound rises with speed.
+`vehicle(name, model="kart", x, y, z, yaw=0, top_speed=None, accel=None, grip=1.0)` parks a vehicle the player can drive. Walk up to it and press E (X on a controller, the use button on a touch screen) to get in, and E again to get out. W or the left stick accelerates and S brakes, then reverses. A and D steer, and space is the handbrake: hold it in a corner to drift. If you get stuck against a tree or the edge of the world, a prompt shows R (your restart key): press it to go back to the nearest point on the road, facing the right way. After 4 seconds stuck, or if you fall off the world, this happens by itself. The body leans in corners and dips when braking, the wheels spin and steer, and the engine sound rises with speed.
 
 Models: `kart`, `kart_pink`, `kart_yellow`, `kart_green`, `kart_tan`, `racecar`, `police`, `taxi`, `suv`. Karts top out at 15 m/s and the race car at 26. `grip` below 1 makes it slide more.
 
