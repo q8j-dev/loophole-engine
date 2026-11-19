@@ -33,7 +33,7 @@ Game(title="My Game", viewmodel="none", viewmodels=None, hand_color="cyan", qual
 | `viewmodel` | What the player holds in first person: `"none"`, `"arms"`, `"device"`, or the name of any prop or imported model. |
 | `viewmodels` | Extra viewmodels a script can switch to by setting the `viewmodel` variable. |
 | `hand_color` | Glow colour of the device. |
-| `quality` | Starting render resolution from 1 (fastest) to 4 (sharpest). |
+| `quality` | Starting render quality from 1 (fastest, for Chromebooks and old laptops) to 4 (sharpest). See `quality` in the Scratch API for what each level changes. |
 | `auto_quality` | On by default. Steps `quality` down to 2 when the frame rate stays under 50, and to 1 under 36, so games stay smooth on slower computers. |
 | `fov` | Vertical field of view in degrees. |
 | `start_level` | Level number to start on. |

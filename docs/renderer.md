@@ -29,6 +29,8 @@ Results are cached under `.loophole/cache`, keyed by a hash of the level content
 
 Pen+ draws triangles from Scratch lists, and lists of hundreds of thousands of numbers load slowly. Loophole stores every vertex as 8 RGB texels in a PNG instead: position at 16-bit precision, normal, lightmap coordinate, material, ambient occlusion, a seed, a bone index, a flag and a tangent. The vertex shader reads the texels for each vertex index (vertex pulling), so one short index list draws any mesh.
 
+Pen+ still turns the index list into JSON on every draw call, so a draw costs CPU time in proportion to the size of the list it uses. The engine keeps index lists from 256 to 16384 triangles and picks the smallest one that covers each draw. These lists and the shared meshes live on the Stage (named `engine ...`) because Pen+ looks lists up by name, Stage first, and the Engine sprite has hundreds of variables to search.
+
 ### Textures are packed per game
 
 Pen+ textures have no mipmaps, so every atlas cell stores its own mip chain and the shader picks and blends levels itself. At build time `loophole/texpack.py` reads the world shader's material table to work out which material cells the game uses, copies only those, and drops the top mip level unless `textures="high"`. Props are packed the same way into a per-game decor atlas (`loophole/decor_pack.py`). The showcase went from 63 MB to 23 MB this way.
@@ -68,7 +70,8 @@ Trees, bushes, ferns and grass are generated offline by `tools/make_foliage.py` 
 - **Ground.** Under canopies the bake traces sun and sky rays through the crowns, with noise gaps that make dapples. At run time the dappled areas shimmer as the wind moves. Shaded forest floor blends to a scanned leaf-litter material with moss.
 - **Grass** is a field of camera-following cards drawn from a height and density map, with lawn, meadow (wildflowers), dry and forest styles. It writes depth so TAA treats it correctly.
 - **Sunbeams** are a screen-space march from each pixel toward the sun's screen position over the G-buffer's sky mask, added in the haze pass.
-- **Speed.** Leaf pixels take a short shading path. Each crown's leaf cards are split at build time into a coarse third, which is always drawn and grows with distance, and a detail two thirds in separate chunks. Detail chunks fade out between 20 and 32 m and aren't submitted at all beyond that. Level geometry is sorted into spatial chunks, and chunks outside the view are skipped.
+- **Speed.** Leaf pixels take a short shading path. Each crown's leaf cards are split at build time into a coarse third, which is always drawn and grows with distance, and a detail two thirds in separate chunks. Detail chunks fade out between 20 and 32 m and aren't submitted at all beyond that. Level geometry is sorted into spatial chunks of up to 8192 triangles, and chunks outside the view are skipped.
+- **Level of detail.** Each chunk stores its triangles in three runs: near only, shared, far only. Near only holds full trunks and rock meshes, small foliage cards and half of each crown's leaf billboards. Far only holds stand-ins built at compile time: a six-sided tapered prism for each trunk and a vertex-clustered copy of each rock or log, with lighting taken from the nearest original vertex. A chunk draws one contiguous range, near or far, so a distant chunk costs about half as much. Far billboards grow by about 1.4 times to cover the gaps. The switch distance is 16 m at quality 1 and 50 to 70 m above it.
 
 ## Water and weather
 
@@ -86,4 +89,21 @@ Imported characters (`loophole/character.py`) use rigid skinning. Each vertex fo
 
 ## Performance
 
-In the playtest harness on an M-series MacBook at 720p, the lab, valley and orchard run at about 60 frames per second. The crypt vault, with its many flickering lights, drops to about 35 at 1080p. `Game(quality=1)` renders at a lower internal resolution for slower machines. Bake time scales with level size: 4 seconds for the starter and about 35 seconds for the showcase valley.
+In the playtest harness on an M-series MacBook at 720p, the lab, valley and orchard run at about 60 frames per second. The crypt vault, with its many flickering lights, drops to about 35 at 1080p. `Game(quality=1)` is for slower machines, and auto quality drops to it by itself.
+
+For a Chromebook-class test, `node tools/harness/lowend.js game.sb3` runs a short walk at quality 1 and 720p with Chrome's CPU throttled 4 and 6 times (`RATES=4,5,6` and `LEVELS=3` change that). Frames per second, minimum over the walk then average:
+
+| Game | 4x | 5x | 6x |
+| --- | --- | --- | --- |
+| Starter | 62 / 63 | 62 / 62 | 62 / 63 |
+| Afterglow lab | 59 / 62 | 50 / 54 | 42 / 46 |
+| Afterglow valley | 42 / 45 | 33 / 36 | 28 / 30 |
+| Orchard Dash | 56 / 57 | 45 / 46 | 38 / 38 |
+| Crypt Crawl | 62 / 62 | 62 / 62 | 62 / 63 |
+| Portal Lab | 62 / 63 | 58 / 60 | 50 / 51 |
+| Autumn Woods | 32 / 39 | 26 / 31 | 21 / 25 |
+| The Long Walk, woods | 32 / 41 | 26 / 32 | 21 / 27 |
+| The Long Walk, lake | 62 / 63 | 54 / 58 | 46 / 49 |
+| The Long Walk, snowy pass | 43 / 47 | 34 / 37 | 28 / 31 |
+
+The dense autumn forests are the heaviest scenes. Looking into the whole forest from its edge, each pass still submits about 180,000 triangles, and Pen+ spends most of the frame turning index lists into JSON. Throttling only slows the CPU, so a weak GPU is not part of this test. Bake time scales with level size: 4 seconds for the starter and about 35 seconds for the showcase valley.

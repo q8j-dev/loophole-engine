@@ -56,7 +56,7 @@ Variables marked "read" are updated by the engine every frame. Variables marked 
 | `flash` | set | Set to about 0.5 for a white flash when the player is hurt. It fades back by itself. |
 | `exposure` | set | Brightness multiplier. Default 1. |
 | `weather` | read, set | `clear`, `rain`, `snow` or `fog`. The weather fades in over a few seconds: rain darkens and wets the ground and leaves puddles, snow falls and settles on the ground, and fog closes in. |
-| `quality` | read, set | Render resolution from 1 (960 pixels wide) to 4 (1920). The engine lowers it by itself, to 2 if the game stays under 50 frames per second and to 1 under 36, unless `Game(auto_quality=False)`. |
+| `quality` | read, set | Render quality from 1 to 4. Quality 2 to 4 render 1280, 1600 and 1920 pixels wide. Quality 1 renders 960 wide, fades outdoor scenes into fog by 60 m, draws detail leaves only within 14 m and updates the depth buffer every other frame. The engine lowers it by itself, to 2 if the game stays under 50 frames per second and to 1 under 36, unless `Game(auto_quality=False)`. |
 
 ### Game flow
 
