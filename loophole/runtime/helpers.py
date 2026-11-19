@@ -74,6 +74,16 @@ def move_object(name, x, y, z):
         obj_z[number] = z
 
 
+@block("push %s by x %s y %s z %s")
+def push_object(name, x, y, z):
+    """Shoves an object that has physics, like a cube. The numbers are speeds in metres per second, so y 6 throws it up."""
+    number = index_of(obj_name, name)
+    if number > 0:
+        obj_vx[number] = obj_vx[number] + x
+        obj_vy[number] = obj_vy[number] + y
+        obj_vz[number] = obj_vz[number] + z
+
+
 @block("turn object %s to %s degrees")
 def turn_object(name, angle):
     number = index_of(obj_name, name)

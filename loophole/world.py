@@ -44,7 +44,8 @@ class Obj:
     def __init__(self, name, model, pos, yaw=0.0, pitch=0.0, roll=0.0, scale=1.0, size=(1, 1, 1), visible=True,
                  solid=True, physics=False, carry=False, use=False, shadow=True, glow=1.0, glow_color=None,
                  collect=False, spin=0.0, path=None, speed=2.0, loop=True, face_path=True, kind=0, opens=None,
-                 slide=0.0, open_speed=0.8, texture=None, highlight=None, bob=0.0, mode=None, sight=12.0, fov=140.0):
+                 slide=0.0, open_speed=0.8, texture=None, highlight=None, bob=0.0, mode=None, sight=12.0, fov=140.0,
+                 mass=1.0, friction=0.5, bounce=0.0, push=True, weight=0.5, swing=0.0, length=0.0):
         self.__dict__.update(locals())
         del self.__dict__["self"]
 
@@ -393,6 +394,19 @@ class Level:
         kw.setdefault("shadow", True)
         return self.object(name, "door", x, y + height / 2, z, yaw=yaw, size=(width / 2, height / 3, 1.0), kind=1,
                            slide=height * 0.98, **kw)
+
+    def hinge_door(self, name, x, y, z, facing="+z", width=1.4, height=2.4, swing=90.0, **kw):
+        n = globals()["facing"](facing)
+        yaw = math.degrees(math.atan2(n[0], n[2])) if abs(n[1]) < 0.9 else 0.0
+        kw.setdefault("shadow", True)
+        return self.object(name, "door", x, y + height / 2, z, yaw=yaw, size=(width / 2, height / 3, 0.6), kind=3,
+                           swing=swing, length=width / 2, **kw)
+
+    def swing(self, name, model, x, y, z, length=1.5, angle=25.0, light=None, **kw):
+        kw.setdefault("solid", False)
+        o = self.object(name, model, x, y - length, z, kind=4, swing=angle, length=length, **kw)
+        o.light_name = light
+        return o
 
     def button(self, name, x, y, z, opens=None, **kw):
         kw.setdefault("solid", False)

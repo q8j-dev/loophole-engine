@@ -13,6 +13,7 @@ A new project comes with a sprite called Helpers. Its My Blocks section has read
 | Block | What it does |
 | --- | --- |
 | `move object [name] to x () y () z ()` | Moves an object to a new spot. |
+| `push [name] by x () y () z ()` | Shoves a physics object, adding to its speed. |
 | `turn object [name] to () degrees` | Turns an object. |
 | `show object [name]`, `hide object [name]` | Shows or hides an object. |
 | `open [name]`, `close [name]` | Opens or closes a door or anything else that slides. |
@@ -133,6 +134,7 @@ Each object in the current level has one item in every `obj` list, in the order 
 | `trigger inside` | read | 1 while the player is inside that trigger. |
 | `obj mode` | read, set | What a moving character is doing: `follow`, `wander`, `patrol`, `flee`, `goto`, `stop`, or empty for objects that don't think. |
 | `obj goal x`, `obj goal z` | read, set | Where a character in `goto` mode walks to. |
+| `obj vx`, `obj vy`, `obj vz` | read, set | Speed of a physics object in metres per second. Set `obj vy` to 6 to throw it up. |
 | `obj sees player` | read | 1 while that character can see the player. |
 | `sound queue` | add | Add a sound name and the engine plays it: `alarm`, `arrive`, `boost`, `button`, `click`, `door_close`, `door_open`, `fail`, `hum`, `impact`, `jump`, `land`, `pickup`, `release`, `rumble`, `success`, `unpress`, `whoosh`. |
 

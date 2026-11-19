@@ -46,7 +46,7 @@ API_LISTS = {
     "obj_solid": "obj solid", "obj_glow": "obj glow", "obj_open": "obj open", "obj_touch": "obj touching",
     "snd_q": "sound queue", "light_name": "light name", "light_power": "light power", "trig_name": "trigger name",
     "trig_in": "trigger inside", "obj_mode": "obj mode", "obj_gx": "obj goal x", "obj_gz": "obj goal z",
-    "obj_sees": "obj sees player",
+    "obj_sees": "obj sees player", "OVX": "obj vx", "OVY": "obj vy", "OVZ": "obj vz",
 }
 ALIASES = {**API_VARS, **API_LISTS}
 FIXED_BROADCASTS = ["level start", "player died", "paused", "resumed", "game complete", "collect", "touch", "enter",
@@ -69,7 +69,7 @@ USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "pla
                 "trigger_name": "trigger name", "trigger_inside": "trigger inside", "touch_controls": "touch controls",
                 "gamepad": "gamepad", "input_x": "input x", "input_y": "input y", "input_jump": "input jump",
                 "input_use": "input use", "obj_mode": "obj mode", "obj_goal_x": "obj goal x", "obj_goal_z": "obj goal z",
-                "obj_sees_player": "obj sees player"}
+                "obj_sees_player": "obj sees player", "obj_vx": "obj vx", "obj_vy": "obj vy", "obj_vz": "obj vz"}
 
 SH = ("shader", "menu", "penPlusShaders")
 UN = ("uniformName", "text", None)
@@ -785,7 +785,7 @@ LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "
               "DPRY2", "DPRS2", "DPRT2", "DBX", "DBY", "DBZ", "DBCX", "DBCY", "DBCZ", "DSX", "DSY", "DSZ", "DKIND",
               "DPHYS", "DCARRY", "DUSE", "DSHAD", "DSOLID", "DVIS", "DX", "DY", "DZ", "DYAW", "DPITCH", "DROLL",
               "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DHR", "DHG", "DHB", "DBOB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
-              "DPSP", "DPLOOP", "DPFACE", "DMODE", "DSIGHT", "DFOV", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
+              "DPSP", "DPLOOP", "DPFACE", "DMODE", "DSIGHT", "DFOV", "DMASS", "DFRIC", "DBNC", "DPUSH", "DWGT", "DSWG", "DLEN", "DLGT", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
 
 
 def portal_blockers(L, Lv, c, rects, h0):
@@ -976,6 +976,7 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
             q["flicker"] = float(dl.get("flicker", 0.0))
             lts.append(q)
     lts = sorted(lts, key=lambda q: (q["kind"] != "sun", -q["vol"], -int(q["dynamic"]), -int(bool(q.get("name")))))[:24]
+    Lv._light_index = {q.get("name"): i + 1 for i, q in enumerate(lts) if q.get("name")}
     L["LL0"].append(len(L["LTX"]) + 1)
     L["LLN"].append(len(lts))
     L["LVN"].append(min(8, sum(1 for q in lts if q["vol"] > 0)))
@@ -1191,7 +1192,11 @@ def object_lists(L, o, names, models, Lv):
     L["DSHAD"].append(int(bool(o.shadow)))
     L["DSOLID"].append(int(bool(o.solid)))
     L["DVIS"].append(int(bool(o.visible)))
-    for k, v in zip(["DX", "DY", "DZ"], o.pos):
+    pos = list(o.pos)
+    if o.physics:
+        s_ = float(o.scale) if isinstance(o.scale, (int, float)) else 1.0
+        pos[1] += max(0.0, (hs[1] - ctr[1]) * sz[1] * s_) + 0.002
+    for k, v in zip(["DX", "DY", "DZ"], pos):
         L[k].append(r4(v))
     L["DYAW"].append(r4(o.yaw))
     L["DPITCH"].append(r4(o.pitch))
@@ -1225,6 +1230,17 @@ def object_lists(L, o, names, models, Lv):
     L["DMODE"].append(mode)
     L["DSIGHT"].append(r4(getattr(o, "sight", 12.0)))
     L["DFOV"].append(r4(getattr(o, "fov", 140.0)))
+    L["DMASS"].append(r4(max(0.05, float(getattr(o, "mass", 1.0)))))
+    L["DFRIC"].append(r4(max(0.0, float(getattr(o, "friction", 0.5)))))
+    L["DBNC"].append(r4(min(0.95, max(0.0, float(getattr(o, "bounce", 0.0))))))
+    L["DPUSH"].append(int(bool(getattr(o, "push", True))))
+    L["DWGT"].append(r4(float(getattr(o, "weight", 0.5))))
+    L["DSWG"].append(r4(float(getattr(o, "swing", 0.0))))
+    L["DLEN"].append(r4(float(getattr(o, "length", 0.0))))
+    lname = getattr(o, "light_name", None)
+    if lname and lname not in getattr(Lv, "_light_index", {}):
+        raise SystemExit(f"{Lv.name}: '{o.name}' carries light '{lname}', but no light has name=\"{lname}\"")
+    L["DLGT"].append(getattr(Lv, "_light_index", {}).get(lname, 0) if lname else 0)
     acc = 0.0
     for i, p in enumerate(path):
         if i > 0:

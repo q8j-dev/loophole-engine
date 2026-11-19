@@ -1153,12 +1153,28 @@ def objects_prep():
 def objects_step():
     for ok_ in rep(nobj):
         od = LO0[level] + ok_ - 1
-        if DKIND[od] == 1:
+        if DKIND[od] == 1 or DKIND[od] == 3:
             otgt = obj_open[ok_]
             if OOPN[ok_] < otgt:
                 OOPN[ok_] = min(otgt, OOPN[ok_] + dt * DOSP[od])
             elif OOPN[ok_] > otgt:
                 OOPN[ok_] = max(otgt, OOPN[ok_] - dt * DOSP[od])
+        if DKIND[od] == 3:
+            hyaw = DYAW[od] + OOPN[ok_] * OOPN[ok_] * (3 - 2 * OOPN[ok_]) * DSWG[od]
+            obj_yaw[ok_] = hyaw
+            obj_x[ok_] = DX[od] - cos(DYAW[od]) * DLEN[od] + cos(hyaw) * DLEN[od]
+            obj_z[ok_] = DZ[od] - sin(DYAW[od]) * DLEN[od] + sin(hyaw) * DLEN[od]
+        elif DKIND[od] == 4:
+            sang = DSWG[od] * sin(TT * sqrt(9.8 / max(DLEN[od], 0.1)) * 57.3 + ok_ * 47)
+            obj_pitch[ok_] = sang
+            obj_x[ok_] = DX[od] + sin(DYAW[od]) * sin(sang) * DLEN[od]
+            obj_y[ok_] = DY[od] + DLEN[od] - cos(sang) * DLEN[od]
+            obj_z[ok_] = DZ[od] - cos(DYAW[od]) * sin(sang) * DLEN[od]
+            if DLGT[od] > 0:
+                slk = LL0[level] + DLGT[od] - 1
+                set_arr4(DLGT[od], "uLt", "world", obj_x[ok_], obj_y[ok_], obj_z[ok_], LTW[slk])
+                set_arr4(DLGT[od], "uLt", "part", obj_x[ok_], obj_y[ok_], obj_z[ok_], LTW[slk])
+                set_arr4(DLGT[od], "uLt", "haze", obj_x[ok_], obj_y[ok_], obj_z[ok_], LTW[slk])
         if DSPIN[od] != 0:
             obj_yaw[ok_] = (obj_yaw[ok_] + DSPIN[od] * dt) % 360
         if obj_mode[ok_] != "" and obj_visible[ok_] == 1:
@@ -1478,12 +1494,26 @@ def phys_step(k):
         OVY[k] = min(7 * vin, OVY[k] + (api_grav + 30 * (vfall - 0.3)) * dt * vin)
         OVY[k] = OVY[k] * (1 - min(1, dt * 3))
     cpre = OVY[k]
+    cprx = OVX[k]
+    cprz = OVZ[k]
+    pod = LO0[level] + k - 1
     body_obj(k)
+    if DBNC[pod] > 0:
+        if abs(cprx) > 0.8 and abs(OVX[k]) < 0.01:
+            OVX[k] = 0 - cprx * DBNC[pod]
+        if abs(cprz) > 0.8 and abs(OVZ[k]) < 0.01:
+            OVZ[k] = 0 - cprz * DBNC[pod]
+        if bground == 1 and cpre < -1.5:
+            if cpre < -3.2:
+                play("impact")
+            OVY[k] = 0 - cpre * DBNC[pod]
+            bground = 0
+            OGRD[k] = 0
     if bground == 1:
         if cpre < -3.2:
             play("impact")
-        OVX[k] = OVX[k] * (1 - min(1, dt * 8))
-        OVZ[k] = OVZ[k] * (1 - min(1, dt * 8))
+        OVX[k] = OVX[k] * (1 - min(1, dt * 16 * DFRIC[pod]))
+        OVZ[k] = OVZ[k] * (1 - min(1, dt * 16 * DFRIC[pod]))
     if bkill == 1 or OAY0[k] < LKILL[level]:
         od = LO0[level] + k - 1
         obj_x[k] = DX[od]
@@ -1553,13 +1583,16 @@ def buttons_step():
             bcy_ = obj_y[bk]
             bcz_ = obj_z[bk]
             bpr = 0
+            bwt = 0
             if abs(px - bcx_) < 0.95 and abs(pz - bcz_) < 0.95 and abs(py - bcy_ - 0.2) < 0.35:
-                bpr = 1
+                bwt = 1
             for bj in rep(nobj):
                 odj = LO0[level] + bj - 1
                 if DPHYS[odj] == 1 and api_hold != bj and obj_visible[bj] == 1:
-                    if abs((OAX0[bj] + OAX1[bj]) / 2 - bcx_) < 0.95 and abs((OAZ0[bj] + OAZ1[bj]) / 2 - bcz_) < 0.95 and abs(OAY0[bj] - bcy_ - 0.2) < 0.4:
-                        bpr = 1
+                    if abs((OAX0[bj] + OAX1[bj]) / 2 - bcx_) < 0.95 and abs((OAZ0[bj] + OAZ1[bj]) / 2 - bcz_) < 0.95 and OAY0[bj] - bcy_ < 2.5 and OAY0[bj] - bcy_ > -0.2:
+                        bwt += DMASS[odj]
+            if bwt >= DWGT[od]:
+                bpr = 1
             if bpr != OPRS[bk]:
                 OPRS[bk] = bpr
                 if DLNK[od] > 0:
@@ -1821,7 +1854,12 @@ def solids_axis(ax):
                 sop0 = soz0
                 sop1 = soz1
             if soo == 1:
-                if ax != 2 and bself == 0 and onground == 1 and soy1 - by < STEPH and soy1 - by > 0.01:
+                spsh = 0
+                if bself == 0 and ax != 2:
+                    sod = LO0[level] + so - 1
+                    if DPHYS[sod] == 1 and DPUSH[sod] == 1:
+                        spsh = 1
+                if ax != 2 and bself == 0 and onground == 1 and soy1 - by < STEPH and soy1 - by > 0.01 and spsh == 0:
                     if soy1 > mstepy:
                         mstepy = soy1
                         bplat = so
@@ -1830,16 +1868,35 @@ def solids_axis(ax):
                     mbn += mbd
                     mbnlo += mbd
                     mbnhi += mbd
+                    smv = mbv
                     mbv = 0
+                    if spsh == 1:
+                        push_obj(so, ax, smv)
                 elif mbv < 0 and mblo > sop1 - 0.02 and mbnlo < sop1:
                     mbd = sop1 - mbnlo + 0.0005
                     mbn += mbd
                     mbnlo += mbd
                     mbnhi += mbd
+                    smv = mbv
                     mbv = 0
+                    if spsh == 1:
+                        push_obj(so, ax, smv)
                     if ax == 2:
                         bground = 1
                         bplat = so
+
+
+@warp
+def push_obj(so, ax, v):
+    sod = LO0[level] + so - 1
+    spk = min(1, 1.2 / DMASS[sod])
+    if ax == 1:
+        if abs(OVX[so]) < abs(v * spk):
+            OVX[so] = v * spk
+    else:
+        if abs(OVZ[so]) < abs(v * spk):
+            OVZ[so] = v * spk
+    mbv = v * spk * 0.9
 
 
 @warp

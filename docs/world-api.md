@@ -198,9 +198,13 @@ v.object("rat1", "rat", -20, 0, 1, scale=6, solid=False, path=[(-20, 0, 1), (20,
 | --- | --- |
 | `object(name, model, x, y, z, **options)` | Any prop, imported model or `cube`, `door`, `button` as an object. Names must be unique in a level. |
 | `cube(name, x, y, z)` | A physics cube the player can carry with E. |
-| `button(name, x, y, z, opens=None)` | A floor button. Standing on it or putting something heavy on it opens the object named in `opens`. |
+| `button(name, x, y, z, opens=None, weight=0.5)` | A floor button or pressure plate. It goes down when the weight on it reaches `weight`: the player counts as 1, and objects count their `mass`. It opens the object named in `opens`. |
 | `door(name, x, y, z, facing="+z", width=2, height=3)` | A sliding door. It opens when its button is pressed or a script sets its `obj open` item to 1. |
+| `hinge_door(name, x, y, z, facing="+z", width=1.4, height=2.4, swing=90)` | A door that swings open on a hinge at its left edge, by `swing` degrees. It opens like a sliding door. |
+| `swing(name, model, x, y, z, length=1.5, angle=25, light=None)` | A prop hanging from the point `x, y, z` on a rope `length` metres long, swinging `angle` degrees each way, like a lamp in the wind. `light="lamp1"` makes the light named `lamp1` swing with it. |
 | `pickup(name, model, x, y, z)` | A collectible that spins, bobs and glows gold. Touching it hides it and sends `collect`. |
+
+Objects with `physics=True`, like cubes, fall, stack on each other and slide when the player walks into them. `mass` (default 1) makes them heavier to push and heavier on pressure plates, `friction` (default 0.5) sets how quickly they stop sliding, `bounce` from 0 to 0.95 makes them bouncy, and `push=False` stops the player pushing them.
 
 Options for any object: `yaw`, `pitch`, `roll`, `scale`, `visible`, `solid`, `physics`, `carry`, `use` (E sends `used object`), `shadow`, `glow`, `glow_color`, `collect`, `spin` (degrees per second), `bob` (metres), `highlight` (rim glow colour), `path` (list of points to walk), `speed`, `loop`, `face_path`, `slide` and `open_speed` (for doors; any object with `kind=1` slides by `slide` metres when opened, and negative values sink it).
 
