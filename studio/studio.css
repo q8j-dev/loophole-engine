@@ -162,6 +162,7 @@ summary { cursor: pointer; }
 
 .doc { overflow: auto; padding: 8px 28px 40px; }
 .doc > * { max-width: 72ch; }
+.doc img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius); }
 .doc h1 { font-size: 30px; line-height: 1.2; letter-spacing: -0.02em; margin: 24px 0 12px; }
 .doc h2 { font-size: 22px; line-height: 1.25; margin: 34px 0 10px; }
 .doc h3 { font-size: 18px; margin: 26px 0 8px; }

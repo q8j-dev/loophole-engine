@@ -158,6 +158,11 @@
     try {
       const md = await (await fetch(path)).text();
       el.innerHTML = marked.parse(md);
+      for (const img of el.querySelectorAll('img[src]')) {
+        const s = img.getAttribute('src');
+        if (!/^https?:/.test(s)) img.src = new URL(s, new URL(path, location.href)).href;
+        img.loading = 'lazy';
+      }
       for (const a of el.querySelectorAll('a[href]')) {
         const h = a.getAttribute('href');
         if (h.startsWith('#')) continue;
@@ -172,8 +177,9 @@
 
   function showPane(p) {
     for (const b of document.querySelectorAll('.ptab')) b.setAttribute('aria-selected', String(b.dataset.pane === p));
-    for (const id of ['level', 'play', 'world', 'scratch']) $('pane-' + id).hidden = id !== p;
+    for (const id of ['level', 'play', 'tutorial', 'world', 'scratch']) $('pane-' + id).hidden = id !== p;
     for (const cb of listeners) cb('pane:' + p);
+    if (p === 'tutorial') loadDoc('tutorial', 'docs/tutorial.md');
     if (p === 'world') loadDoc('world', 'docs/world-api.md');
     if (p === 'scratch') loadDoc('scratch', 'docs/scratch-api.md');
   }

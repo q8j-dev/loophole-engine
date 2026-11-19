@@ -16,7 +16,7 @@ A 3D game engine for Scratch and TurboWarp. You describe a level in a short Pyth
 | Autumn Woods | A forest to walk through, made with two `forest()` calls | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Autumn-Woods.sb3) | [Autumn-Woods.sb3](https://github.com/q8j-dev/loophole-engine/releases/latest/download/Autumn-Woods.sb3) (18 MB) |
 | The Long Walk | Autumn woods, a lake to swim across, a snowy pass and a warm cabin | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/The-Long-Walk.sb3) | [The-Long-Walk.sb3](https://github.com/q8j-dev/loophole-engine/releases/latest/download/The-Long-Walk.sb3) (31 MB) |
 
-**Make a game in your browser.** [Loophole Studio](https://q8j-dev.github.io/loophole-engine/) runs the real build in the page. Pick a template and change the level in 3D or in code: the Level tab shows the level, lets you place props, lights, collectibles, zones, water, forests and sounds from the toolbar, and move, turn or resize anything with the handles. Every change is written into `world.py` as a normal line of code, and typing in `world.py` updates the 3D view. Press Build game and it plays beside the code. Download the `.sb3` to add Scratch blocks in TurboWarp. The first build downloads about 40 MB; later builds start in a few seconds.
+**Make a game in your browser.** [Loophole Studio](https://q8j-dev.github.io/loophole-engine/) runs the real build in the page. Pick a template and change the level in 3D or in code: the Level tab shows the level, lets you place props, lights, collectibles, enemies, checkpoints, zones, water, forests and sounds from the toolbar, and move, turn or resize anything with the handles. Every change is written into `world.py` as a normal line of code, and typing in `world.py` updates the 3D view. Press Build game and it plays beside the code. Download the `.sb3` to add Scratch blocks in TurboWarp. The first build downloads about 40 MB; later builds start in a few seconds. New to it? The [tutorial](docs/tutorial.md) makes a small chase game in about 15 minutes.
 
 ![Loophole Studio: world.py on the left, the 3D level editor on the right with the cube selected](docs/img/studio.jpg)
 
@@ -134,6 +134,7 @@ The source of every game in the table above is in [examples](examples), and the 
 
 ## Documentation
 
+- [docs/tutorial.md](docs/tutorial.md): make your first game in Studio, step by step. It is also the Tutorial tab in Studio.
 - [docs/world-api.md](docs/world-api.md): every `Game` and `Level` method for building levels.
 - [docs/scratch-api.md](docs/scratch-api.md): every variable, list and broadcast your Scratch scripts can use.
 - [docs/renderer.md](docs/renderer.md): how the renderer works, from the bake to the final frame.
