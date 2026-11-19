@@ -28,7 +28,7 @@ from pathlib import Path as _Path
 _A = _Path(__file__).resolve().parent / "data" / "atlas"
 EXTRA_IDS = {}
 for _f, _base in (("materials2", 50), ("materials3", 62)):
-    _j = _json.loads((_A / f"{_f}.json").read_text())
+    _j = _json.loads((_A / f"{_f}.json").read_text(encoding="utf-8"))
     for _i, _n in enumerate(_j["MATS"]):
         _c = np.array(_j["AVG"][_n])
         _l = float(_c @ np.array([0.2126, 0.7152, 0.0722]))

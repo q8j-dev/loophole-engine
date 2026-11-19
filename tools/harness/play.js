@@ -22,7 +22,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await page.evaluate(async u => { await window.run(u); }, await serve(path.resolve(sb3)));
   await page.evaluate(() => {
     const st = () => S.vm.runtime.getTargetForStage();
-    window.V = n => st().lookupVariableByNameAndType(n, '');
+    window.V = n => st().lookupVariableByNameAndType(n, '') || S.vm.runtime.targets.map(t => t.lookupVariableByNameAndType(n, '')).find(Boolean);
     window.Lst = n => st().lookupVariableByNameAndType(n, 'list') || S.vm.runtime.targets.map(t => t.lookupVariableByNameAndType(n, 'list')).find(Boolean);
     window.getv = n => { const v = V(n); return v ? v.value : null; };
     window.setv = (n, x) => { V(n).value = x; };
@@ -56,8 +56,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     else if (cmd === 'up') await page.evaluate(k => key(k, false), a);
     else if (cmd === 'tap') { await page.evaluate(k => key(k, true), a); await sleep(120); await page.evaluate(k => key(k, false), a); }
     else if (cmd === 'hold') { await page.evaluate(k => key(k, true), a); await sleep(+b); await page.evaluate(k => key(k, false), a); }
-    else if (cmd === 'walkto') {
-      const tx = +a, tz = +b, lim = +(c || 8000), t0 = Date.now();
+    else if (cmd === 'walkto' || cmd === 'walkportal' || cmd === 'walkexact') {
+      let tx = +a, tz = +b, lim = +(c || 8000);
+      if (cmd === 'walkportal') { const q = +a; tx = await page.evaluate(q => Lst('QCX').value[q - 1], q); tz = await page.evaluate(q => Lst('QCZ').value[q - 1], q); tz += +(b || 0); lim = +(c || 6000); }
+      const t0 = Date.now();
+      global.lastp = null;
       const lv0 = await page.evaluate(() => getv('level'));
       const top = await page.evaluate(() => getv('camera mode') == 3);
       if (!top) await page.evaluate(() => key('w', true));
@@ -70,8 +73,22 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
             key('w', dd > 0.3 && df > 0.38); key('s', dd > 0.3 && df < -0.38); key('d', dd > 0.3 && dr > 0.38); key('a', dd > 0.3 && dr < -0.38);
           } else if (dd > 0.3) setv(getv('camera mode') >= 2 ? 'camera yaw' : 'player yaw', Math.atan2(dx, -dz) * 180 / Math.PI);
           return dd; }, tx, tz, top);
-        if (dist < 0.4) break;
+        const exact = cmd === 'walkportal' || cmd === 'walkexact';
+        if (dist < (exact ? 0.15 : 0.4)) break;
+        if (exact && dist < 0.8) {
+          await page.evaluate(() => key('w', false));
+          await sleep(350);
+          for (let k = 0; k < 20; k++) {
+            const d2 = await page.evaluate((tx, tz) => { const dx = tx - getv('player x'), dz = tz - getv('player z'); const dd = Math.hypot(dx, dz); if (dd > 0.1) setv('player yaw', Math.atan2(dx, -dz) * 180 / Math.PI); return dd; }, tx, tz);
+            if (d2 < 0.15) break;
+            await page.evaluate(() => key('w', true)); await sleep(d2 > 0.4 ? 90 : 50); await page.evaluate(() => key('w', false)); await sleep(220);
+          }
+          break;
+        }
         if (await page.evaluate(() => getv('level')) !== lv0) break;
+        const jp = await page.evaluate(() => [getv('player x'), getv('player y'), getv('player z')]);
+        if (global.lastp && Math.hypot(jp[0] - global.lastp[0], jp[1] - global.lastp[1], jp[2] - global.lastp[2]) > 2) { global.lastp = null; break; }
+        global.lastp = jp;
         await sleep(30);
       }
       await page.evaluate(() => { for (const k of ['w', 'a', 's', 'd']) key(k, false); });

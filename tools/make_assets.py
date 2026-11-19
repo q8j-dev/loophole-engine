@@ -52,7 +52,7 @@ def main():
         meta = dict(S=textures.S, G=textures.G, COLS=textures.COLS, CELL_W=textures.CELL_W, CELL_H=textures.CELL_H,
                     ATLAS_W=textures.ATLAS_W, ATLAS_H=textures.ATLAS_H, LAYOUT=textures.LAYOUT, MATS=textures.MATS,
                     TILE=textures.TILE)
-        (OUT / "atlas" / "materials.json").write_text(json.dumps(meta))
+        (OUT / "atlas" / "materials.json").write_text(json.dumps(meta), encoding="utf-8")
         print("materials", arr.shape)
     if a.ph and (only is None or "atlas2" in only):
         import textures as T2
@@ -64,7 +64,7 @@ def main():
             T2.ATLAS_H = T2.CELL_H * ((2 * len(T2.MATS) + T2.COLS - 1) // T2.COLS)
             arr = T2.build_atlas()
             (OUT / "atlas" / f"{fname}.jpg").write_bytes(T2.encode_jpg(arr, 90))
-            (OUT / "atlas" / f"{fname}.json").write_text(json.dumps(dict(ATLAS_W=T2.ATLAS_W, ATLAS_H=T2.ATLAS_H, MATS=T2.MATS)))
+            (OUT / "atlas" / f"{fname}.json").write_text(json.dumps(dict(ATLAS_W=T2.ATLAS_W, ATLAS_H=T2.ATLAS_H, MATS=T2.MATS)), encoding="utf-8")
             print(fname, arr.shape)
     if only is None or "decor" in only:
         import decor_atlas
@@ -72,12 +72,12 @@ def main():
             (OUT / "atlas" / f"{name}.jpg").write_bytes(data)
             print(name, w, h, len(data) // 1024, "KB")
         (OUT / "atlas" / "decor.json").write_text(json.dumps(dict(PW=decor_atlas.PW, PH=decor_atlas.PH,
-                                                                    layout=decor_atlas.layout())))
+                                                                    layout=decor_atlas.layout())), encoding="utf-8")
     if only is None or "props" in only:
         import props
         data, w, h, reg = props.build(PROPS)
         (OUT / "props" / "patlas.jpg").write_bytes(data)
-        (OUT / "props" / "props.json").write_text(json.dumps(dict(W=w, H=h, regions=reg)))
+        (OUT / "props" / "props.json").write_text(json.dumps(dict(W=w, H=h, regions=reg)), encoding="utf-8")
         for name, _, _ in PROPS:
             for suf in ("", "_lod"):
                 f = src / "art" / "out" / f"{name}{suf}_mesh.npz"

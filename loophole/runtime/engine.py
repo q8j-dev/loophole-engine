@@ -68,6 +68,7 @@ def init():
     mklist(KW3, MAXD)
 
     btele = 0
+    nofun = 0
     bp1 = 0
     bp2 = 0
     vcq = 0
@@ -160,10 +161,10 @@ def make_rts():
     create_rt("lum1", 4, 4)
     lumreset = 1
     if PORTALS == 1:
-        create_rt("p10", RTW, RTH)
-        create_rt("p11", RTW, RTH)
-        create_rt("p20", RTW, RTH)
-        create_rt("p21", RTW, RTH)
+        create_rt("p10", round(RTW / 2), round(RTH / 2))
+        create_rt("p11", round(RTW / 2), round(RTH / 2))
+        create_rt("p20", round(RTW / 2), round(RTH / 2))
+        create_rt("p21", round(RTW / 2), round(RTH / 2))
     create_rt("env", 3 * ENVT, 2 * ENVT)
     create_rt("envb", 3 * ENVT / 2, ENVT)
     create_rt("enve", 3 * ENVT / 2, ENVT)
@@ -666,6 +667,19 @@ def player_move():
         if lvin == 0:
             play("whoosh")
     lvin = ceil(vin)
+    nofun = max(0, nofun - dt)
+    if PORTALS == 1 and QON[1] == 1 and QON[2] == 1 and onground == 0 and nofun <= 0:
+        for fq in rep(2):
+            if abs(QNY[fq]) > 0.5:
+                fdh = py + 0.9 - QCY[fq]
+                if (QNY[fq] > 0 and fdh > 0 and fdh < 8 and vy < 0) or (QNY[fq] < 0 and fdh < 0 and fdh > -6 and vy > 0):
+                    fox = QCX[fq] - px
+                    foz = QCZ[fq] - pz
+                    fr = (fox * QRX[fq] + foz * QRZ[fq]) / PORW
+                    fu = (fox * QUX[fq] + foz * QUZ[fq]) / PORH
+                    if fr * fr + fu * fu < 3:
+                        vx += (fox * 4 - vx) * min(1, dt * 4)
+                        vz += (foz * 4 - vz) * min(1, dt * 4)
     bx = px
     by = py
     bz = pz
@@ -686,10 +700,35 @@ def player_move():
     py = by
     pz = bz
     if btele > 0:
+        nofun = 0.7
         tele_dir(sin(yaw) * cos(pitch), sin(pitch), 0 - cos(yaw) * cos(pitch), btele)
-        atan2_(ttx, 0 - ttz)
-        yaw = at
-        pitch = asin(max(-1, min(1, tty)))
+        zq2 = 3 - btele
+        if (sqrt(ttx * ttx + ttz * ttz) < 0.35 or abs(QNY[btele]) > 0.5) and abs(QNY[zq2]) < 0.5:
+            atan2_(QNX[zq2], 0 - QNZ[zq2])
+            yaw = at
+            pitch = 0
+        else:
+            atan2_(ttx, 0 - ttz)
+            yaw = at
+            pitch = asin(max(-1, min(1, tty)))
+        if api_hold > 0:
+            zk = api_hold
+            zdx = px + sin(yaw) * cos(pitch) * HOLDD - (OAX0[zk] + OAX1[zk]) / 2
+            zdy = py + eyeh + sin(pitch) * HOLDD - (OAY0[zk] + OAY1[zk]) / 2
+            zdz = pz - cos(yaw) * cos(pitch) * HOLDD - (OAZ0[zk] + OAZ1[zk]) / 2
+            obj_x[zk] = obj_x[zk] + zdx
+            obj_y[zk] = obj_y[zk] + zdy
+            obj_z[zk] = obj_z[zk] + zdz
+            OAX0[zk] = OAX0[zk] + zdx
+            OAX1[zk] = OAX1[zk] + zdx
+            OAY0[zk] = OAY0[zk] + zdy
+            OAY1[zk] = OAY1[zk] + zdy
+            OAZ0[zk] = OAZ0[zk] + zdz
+            OAZ1[zk] = OAZ1[zk] + zdz
+            OVX[zk] = vx
+            OVY[zk] = vy
+            OVZ[zk] = vz
+            hfar = 0
         api_flash = 0.25
         btele = 0
     vx = bvx
@@ -1014,6 +1053,7 @@ def body_obj(k):
     OVY[k] = bvy
     OVZ[k] = bvz
     OGRD[k] = bground
+    btele = 0
 
 
 @warp
@@ -1172,13 +1212,13 @@ def move_body():
     bplat = 0
     bp1 = 0
     bp2 = 0
-    if PORTALS == 1 and bself == 0 and QON[1] == 1 and QON[2] == 1:
+    if PORTALS == 1 and QON[1] == 1 and QON[2] == 1:
         portal_pass(1)
         portal_pass(2)
     mb_axis(1)
     mb_axis(2)
     mb_axis(3)
-    if PORTALS == 1 and bself == 0 and QON[1] == 1 and QON[2] == 1:
+    if PORTALS == 1 and QON[1] == 1 and QON[2] == 1 and not (bself > 0 and bself == api_hold):
         btele = 0
         tele_check(1)
         if btele == 0:
@@ -2110,11 +2150,11 @@ def post():
 def hud():
     if api_msg != lmsg or strlen(api_msg) != strlen(lmsg):
         lmsg = api_msg
-        hud_text(api_msg, 0, 64, RTW / RTH * 0.5, 0.2, 0.085, 1)
+        hud_text(api_msg, 0, 96, RTW / RTH * 0.5, 0.2, 0.085, 1)
         msgt = 0
     if api_stat != lstat or strlen(api_stat) != strlen(lstat):
         lstat = api_stat
-        hud_text(api_stat, 64, 32, 0.045, 0.885, 0.068, 0)
+        hud_text(api_stat, 96, 32, 0.045, 0.885, 0.068, 0)
     msgt = min(1, msgt + dt * 3)
     if strlen(api_msg) + strlen(api_stat) > 0:
         set_vec4("uTA", "text", msgt, 1, 0, 0)
@@ -2239,6 +2279,11 @@ def place_portal(q, p, u, v, dx, dz):
     zpv = max(HV0[p] + zhv + 0.01, min(HV1[p] - zhv - 0.01, v))
     if zpa != 2 and zpv - zhv - HV0[p] < 1.6:
         zpv = HV0[p] + zhv + 0.01
+    pfit(p, zpu, zpv, zhu, zhv)
+    if zpok == 0:
+        play("fail")
+        return
+    zpu = zpfu
     zq2 = 3 - q
     if QON[zq2] == 1 and QREC[zq2] == p:
         if zpa == 1:
@@ -2291,6 +2336,48 @@ def place_portal(q, p, u, v, dx, dz):
     QSC[q] = 0
     play("boost")
     broadcast("portal")
+
+
+@warp
+def pcheck(p, cu, fv, hu, hv):
+    zpcv = 1
+    if cu - hu < HU0[p] or cu + hu > HU1[p]:
+        zpcv = 0
+    else:
+        zk = LK0[level]
+        for zki in times(LKN[level]):
+            if KH[zk] == p:
+                if cu + hu > KU0[zk] and cu - hu < KU1[zk] and fv + hv > KV0[zk] and fv - hv < KV1[zk]:
+                    zpcv = 0
+            zk += 1
+
+
+@warp
+def pfit(p, fu, fv, hu, hv):
+    zpfu = fu
+    pcheck(p, fu, fv, hu, hv)
+    zpok = zpcv
+    if zpok == 0:
+        zpbest = 4.0
+        zj = LK0[level]
+        for zji in times(LKN[level]):
+            if KH[zj] == p:
+                if fv + hv > KV0[zj] and fv - hv < KV1[zj]:
+                    zpcu = KU0[zj] - hu - 0.01
+                    if abs(zpcu - fu) < zpbest:
+                        pcheck(p, zpcu, fv, hu, hv)
+                        if zpcv == 1:
+                            zpbest = abs(zpcu - fu)
+                            zpfu = zpcu
+                            zpok = 1
+                    zpcu = KU1[zj] + hu + 0.01
+                    if abs(zpcu - fu) < zpbest:
+                        pcheck(p, zpcu, fv, hu, hv)
+                        if zpcv == 1:
+                            zpbest = abs(zpcu - fu)
+                            zpfu = zpcu
+                            zpok = 1
+            zj += 1
 
 
 @warp

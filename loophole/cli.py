@@ -27,7 +27,8 @@ def cmd_new(a):
         raise SystemExit(f"unknown template '{a.template}'. Templates: {', '.join(p.name for p in TEMPLATES.iterdir())}")
     shutil.copytree(src, dst, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", ".loophole", "*.sb3"))
     w = dst / "world.py"
-    w.write_text(w.read_text().replace("My Game", dst.name.replace("-", " ").replace("_", " ").title()))
+    w.write_text(w.read_text(encoding="utf-8").replace("My Game", dst.name.replace("-", " ").replace("_", " ").title()),
+                 encoding="utf-8")
     print(f"created {dst}/")
     print(f"next: cd {dst} && loophole build")
 

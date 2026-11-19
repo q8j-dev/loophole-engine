@@ -592,7 +592,7 @@ TPM = {}
 LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "HV1", "HKILL", "HPORT", "LSX", "LSY",
               "LSZ", "LSYAW", "LSPIT", "LKILL", "LO0", "LON", "LT0", "LTN", "TNAME", "TKIND", "TARG", "TX0", "TY0",
               "TZ0", "TX1", "TY1", "TZ1", "LL0", "LLN", "LNM", "LTX", "LTY", "LTZ", "LTW", "LDDX", "LDDY", "LDDZ",
-              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LFLK", "LCUT", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
+              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LFLK", "LCUT", "LK0", "LKN", "KH", "KU0", "KU1", "KV0", "KV1", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
               "AMB0", "AMBNX", "AMBNY", "AMBNZ", "AMBST", "AMBOX", "AMBOY", "AMBOZ", "AMB", "LPX", "LPY", "LPZ",
               "LB0X", "LB0Y", "LB0Z", "LB1X", "LB1Y", "LB1Z", "LFY", "LCY_", "LV0", "LVNN", "VX0", "VZ0", "VX1",
               "VZ1", "VY0", "VY1", "VPW", "LSP0", "LSPN", "SPX", "SPY", "SPZ", "LSKY", "LSUN", "LTER", "TOX", "TOZ",
@@ -601,6 +601,46 @@ LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "
               "DPHYS", "DCARRY", "DUSE", "DSHAD", "DSOLID", "DVIS", "DX", "DY", "DZ", "DYAW", "DPITCH", "DROLL",
               "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DHR", "DHG", "DHB", "DBOB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
               "DPSP", "DPLOOP", "DPFACE", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS"]
+
+
+def portal_blockers(L, Lv, c, rects, h0):
+    boxes = []
+    for lo, hi in decor_place.footprints(c):
+        boxes.append((np.array(lo, float), np.array(hi, float)))
+    for (x, y, z, n, h, text) in getattr(c, "signs", []):
+        n = np.array(n, float)
+        right = np.cross(-n, np.array([0.0, 1.0, 0.0]))
+        w = (0.3 * len(text) + 0.3) * h
+        p0 = np.array([x, y - 0.35 * h, z]) - np.abs(right) * w - np.abs(n) * 0.1
+        p1 = np.array([x, y + 1.2 * h, z]) + np.abs(right) * w + np.abs(n) * 0.1
+        boxes.append((np.minimum(p0, p1), np.maximum(p0, p1)))
+    for (x0, y0, z0, x1, y1, z1, _) in getattr(c, "windows", []):
+        boxes.append((np.array([min(x0, x1), min(y0, y1), min(z0, z1)]) - 0.15,
+                      np.array([max(x0, x1), max(y0, y1), max(z0, z1)]) + 0.15))
+    for o in Lv.objects:
+        p = np.array(o.pos, float)
+        boxes.append((p - np.array([0.7, 0.2, 0.7]), p + np.array([0.7, 2.2, 0.7])))
+    uvax = {0: (2, 1), 1: (0, 2), 2: (0, 1)}
+    L["LK0"].append(len(L["KH"]) + 1)
+    n0 = len(L["KH"])
+    for i, r in enumerate(rects):
+        if r["mat"] not in PORTAL:
+            continue
+        ax = r["axis"]
+        ua, va = uvax[ax]
+        if ax == 0:
+            ru0, ru1, rv0, rv1 = r["v0"], r["v1"], r["u0"], r["u1"]
+        else:
+            ru0, ru1, rv0, rv1 = r["u0"], r["u1"], r["v0"], r["v1"]
+        for lo, hi in boxes:
+            if not (lo[ax] - 0.35 <= r["pl"] <= hi[ax] + 0.35):
+                continue
+            u0, u1, v0, v1 = max(lo[ua], ru0), min(hi[ua], ru1), max(lo[va], rv0), min(hi[va], rv1)
+            if u1 > u0 and v1 > v0:
+                L["KH"].append(h0 + i)
+                for k, v in zip(("KU0", "KU1", "KV0", "KV1"), (u0, u1, v0, v1)):
+                    L[k].append(r4(v))
+    L["LKN"].append(len(L["KH"]) - n0)
 
 
 def r4(v):
@@ -615,6 +655,7 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
     for b in getattr(Lv, "solid_boxes", []):
         rects += box_rects(np.array(b[:3]), np.array(b[3:]))
     L["LNAME"].append(Lv.name)
+    portal_blockers(L, Lv, c, rects, len(L["HAX"]) + 1)
     L["LH0"].append(len(L["HAX"]) + 1)
     L["LHN"].append(len(rects))
     fy, cy = 99.0, -99.0
@@ -899,7 +940,7 @@ SFX = ["arrive", "button", "click", "door_close", "door_open", "fail", "impact",
 
 
 def sounds(A):
-    man = json.loads((DATA / "sfx" / "manifest.json").read_text())
+    man = json.loads((DATA / "sfx" / "manifest.json").read_text(encoding="utf-8"))
     out = []
     for n in SFX:
         rate, cnt = man[n]
@@ -942,7 +983,7 @@ def game_sprite(A, proj, game, world_path, consts):
     srcs = []
     for s in game.scripts:
         p = (Path(world_path).parent / s).resolve()
-        srcs.append(p.read_text())
+        srcs.append(p.read_text(encoding="utf-8"))
     if not srcs:
         return None
     src = "\n\n".join(srcs)
@@ -995,28 +1036,33 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     for b in sorted(broadcasts):
         proj.bc_id(b)
     paw, pah = props.atlas_size()
+    pcol = []
+    for cname in game.portal_colors:
+        cc = np.array(color(cname), float)
+        pcol.append(tuple(r4(v) for v in cc / max(cc.max(), 1e-3)))
     consts = {"NLEV": len(game.levels), "START_LEVEL": max(1, min(len(game.levels), game.start_level)),
               "QUALITY": game.quality, "FOV": game.fov, "VMDEF": game.viewmodel,
               "CAM0": game.camera, "CDIST0": game.camera_distance, "CPITCH0": game.camera_pitch, "WALK": game.walk_speed, "JUMPV": game.jump_power, "GRAV": 20.0, "FRIC": 5.0, "STOPSPD": 1.9, "ACCEL": 10.0, "AIRACC": 12.0,
               "AIRCAP": 0.8, "STEPH": 0.55, "EYE": 1.6, "EYEC": 1.05, "PHT": 1.75, "PHTC": 1.2, "PW": 0.3,
               "ENVT": 192, "NEAR": 0.01, "FAR": 150.0, "SENS": 0.11, "EXPO": 0.72, "AMBS": 0.01, "HOLDD": 1.6,
               "USED": 2.6, "NSHAD": 4, "HASTER": 1 if has_terrain else 0, "PAW": paw, "PAH": pah,
-              "CH0": 5, "PORTALS": 1 if game.portals else 0, "PORW": 0.62, "PORH": 1.02, "MAXD": 4, "MINA": 0.004,
-              "COLAR": 0.1, "COLAG": 0.42, "COLAB": 1.5, "COLBR": 1.6, "COLBG": 0.6, "COLBB": 0.18,
+              "CH0": 5, "PORTALS": 1 if game.portals_on else 0, "PORW": 0.62, "PORH": 1.02, "MAXD": 3, "MINA": 0.004,
+              "COLAR": pcol[0][0], "COLAG": pcol[0][1], "COLAB": pcol[0][2], "COLBR": pcol[1][0], "COLBG": pcol[1][1],
+              "COLBB": pcol[1][2],
               "CHAR": gids["char"], "CNJ": L.pop("_CNJ", 0), "CFPS": 15, "G_DEVICE": gids["device"], "G_ARMS": gids["arms"], "G_PLAYER": gids["player"]}
     for n in ("device", "arms", "player"):
         x, y, s, t = props.region(n)
         consts.update({f"PR_{n.upper()}_X": x, f"PR_{n.upper()}_Y": y, f"PR_{n.upper()}_S": s, f"PR_{n.upper()}_T": t})
-    L["FADV"] = json.loads((DATA / "font.json").read_text())["adv"]
+    L["FADV"] = json.loads((DATA / "font.json").read_text(encoding="utf-8"))["adv"]
     L["JX"] = [0.5, 0.25, 0.75, 0.125, 0.625, 0.375, 0.875, 0.0625]
     L["JY"] = [0.3333, 0.6667, 0.1111, 0.4444, 0.7778, 0.2222, 0.5556, 0.8889]
-    src = expand_mklist((HERE / "runtime" / "engine.py").read_text())
+    src = expand_mklist((HERE / "runtime" / "engine.py").read_text(encoding="utf-8"))
     gc = Compiler(proj, src, list(API_LISTS.values()), consts=consts, aliases=ALIASES)
     gblocks = gc.compile()
     eng_lists = {}
     from . import mesh as M
     meshes = {"QUAD": M.quad_mesh(), "DUST": M.particles(320, 5), "IMPACT": M.particles(56, 21),
-              "VENTP": M.particles(140, 13), "GRASS": M.grass_cards(3000, 9), "TEXT": M.text_quads(96), "DISC": M.portal_disc()}
+              "VENTP": M.particles(140, 13), "GRASS": M.grass_cards(3000, 9), "TEXT": M.text_quads(128), "DISC": M.portal_disc()}
     for name, m in meshes.items():
         eng_lists[proj.uid("l")] = [name, m.items()]
     eng_lists[proj.uid("l")] = ["IC", geo.index_items(geo.CHUNK)]
@@ -1026,7 +1072,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
             continue
         eng_lists[lid] = [name, L.get(name, [])]
     blank = A.svg("blank", '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"></svg>', 1, 1)
-    mj = json.loads((DATA / "atlas" / "materials.json").read_text())
+    mj = json.loads((DATA / "atlas" / "materials.json").read_text(encoding="utf-8"))
     from . import texpack
     matimgs, atlas_src, _ = texpack.build(used_ids, has_terrain, high=game.textures == "high")
     d1, w1, h1 = matimgs[1]

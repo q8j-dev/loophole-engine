@@ -1,14 +1,14 @@
 @when_broadcast("level start")
 def begin():
-    message = "Left click and right click make portals"
+    message = "Left and right click make portals. Bring the cube across the slime."
     status = ""
 
 
-@when_broadcast("portal")
-def placed():
-    message = "Walk through one portal to come out of the other"
+@when_broadcast("press button")
+def opened():
+    message = "The exit is open"
 
 
 @when_broadcast("game complete")
 def done():
-    message = "You reached the ledge!"
+    message = "Portal Lab complete"

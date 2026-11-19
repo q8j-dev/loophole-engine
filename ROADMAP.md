@@ -4,65 +4,81 @@
 
 Someone watches a 30-second clip and says "there's no way this is Scratch". A 12-year-old can make their own game with it in an afternoon. Nothing else on Scratch or TurboWarp comes close.
 
-Status: `[ ]` not started, `[~]` in progress, `[x]` built and checked in a 1080p screenshot or a headless playthrough.
+Status: `[ ]` not started, `[~]` works but has known gaps, `[x]` built and checked in a 1080p screenshot or a scripted playthrough in `tools/harness`.
 
 ## How it fits together
 
-- `world.py` describes the game in Python: rooms carved from boxes, materials, lights, props, objects, triggers, spawn and settings, over any number of levels.
-- `loophole build` bakes each level (cached by content hash) and writes `<game>.sb3`. If the file exists, the build merges into it: the user's sprites, blocks, variables and costumes stay, and only the Engine sprite and the engine's data are replaced.
-- Gameplay is plain Scratch blocks in TurboWarp. The engine exposes variables (`player x`), lists indexed by object (`obj x`, `obj visible`), broadcasts (`enter <trigger>`, `use <object>`), a sound queue and a camera override. Gameplay can also be written in the Python dialect and compiled to blocks.
-- Rendering is Loophole's, made data-driven: vertex-pulled meshes from data textures, PBR materials, kit surface detailing, baked lightmaps with GI and directional data, ambient probes, soft dynamic shadows from any object, parallax-corrected env probe reflections, SSR, TAA, volumetric haze, bloom, ACES, sharpening and grain.
+- `world.py` describes the game in Python: rooms carved from boxes, terrain, buildings, materials, lights, props, objects, triggers and settings, over any number of levels.
+- `loophole build` bakes each level (cached by content hash) and writes `<game>.sb3`. If the file exists, the build merges into it: the user's sprites, blocks, variables and costumes stay, and only the Engine sprite, the Game sprite and the engine's data are replaced.
+- Gameplay is plain Scratch blocks in TurboWarp, or Python compiled to blocks. The engine exposes variables, per-object lists, broadcasts, a sound queue, camera control and on-screen text. [docs/scratch-api.md](docs/scratch-api.md) lists all of them.
+- The renderer is Loophole's, made data-driven. [docs/renderer.md](docs/renderer.md) explains it.
 
 ## Milestones
 
 ### 1. Core engine
-- [ ] Package layout, `pyproject.toml`, `loophole` command (`new`, `build`, `bake`, `info`)
-- [ ] World DSL: rooms, solids, paint, lights (point, spot, strip, panel, lamp), props, spawn, settings, multiple levels
-- [ ] Bake cache keyed by level content
-- [ ] Runtime stripped of chamber hacks (finale flood, `uRm`, portal-only uniforms, VO, ride, title)
-- [ ] Generic dynamic shadow casters (object boxes plus the player capsule)
-- [ ] Shipped prebuilt assets: material atlas, decor atlases, kit meshes, prop meshes and atlas, sound pack
-- [x] Starter template renders in the headless harness (62 fps at 1600x900 internal)
+- [x] Package layout, `pyproject.toml`, `loophole` command (`new`, `build`, `info`). Baking happens inside `build`, so there is no separate `bake` command.
+- [x] World DSL: rooms, solids, paint, lights (point, spot, strip, panel, prop lamps), props, spawn, settings, multiple levels
+- [x] Bake cache keyed by level content and prop meshes
+- [x] Runtime stripped of Loophole's chamber-specific code
+- [x] Generic dynamic shadow casters (object boxes plus the player capsule)
+- [x] Prebuilt assets in the package: material atlases, kit and prop meshes, decor tiles, characters, fonts, sound pack
+- [x] Per-game texture packing: only the materials and props a game uses, 512-pixel textures by default. The showcase went from 63 MB to 23 MB.
+- [x] Starter template renders in the harness at about 60 fps
 
 ### 2. Scratch API
-- [ ] Player variables, readable and writable (teleport by setting `player x`)
-- [ ] Objects: model, transform, visible, solid, physics, carry, use, glow, shadow
-- [ ] Triggers with `enter`/`leave` broadcasts, kill and goal zones
-- [ ] Sound queue, camera override, fade and flash, level switching
-- [ ] Switchable dynamic lights
-- [ ] Merge-rebuild keeps user sprites and blocks (checked by an automated test)
-- [ ] Python gameplay dialect compiled to a Game sprite
+- [x] Player variables, readable and writable (teleport by setting `player x`)
+- [x] Objects: model, transform, visible, solid, physics, carry, use, glow, highlight, bob, shadow, paths
+- [x] Triggers with `enter`/`leave` broadcasts, hazard and goal zones, generic `collect`/`touch`/`enter`/`leave` broadcasts with `last ...` variables
+- [x] Sound queue, camera control, fade and flash, level switching, `controls` to freeze the player
+- [x] Switchable and flickering lights
+- [x] On-screen `message` and `status` text drawn by the engine
+- [x] Merge-rebuild keeps user sprites and blocks (`tests/test_merge.py`)
+- [x] Python gameplay dialect compiled to a Game sprite, including `range` loops, `in` checks and `index_of`
 
 ### 3. Proof
-- [ ] Showcase game, several levels, built only from the public API
-- [ ] Natural-input playthrough of the showcase in the harness
-- [ ] 1080p screenshots, a GIF, README with a 5-minute guide
-- [ ] `docs/`: world API, Scratch API, renderer
+- [x] Showcase game (Afterglow): a first-person lab puzzle, then a dusk valley with a lantern hunt and an ending, built only from the public API
+- [x] Natural-input playthrough of the showcase from start to finish (`tools/harness/runs/showcase.txt`)
+- [x] README with real 1080p captures, a GIF and a 5-minute guide, checked by following it in a fresh virtual environment from a fresh clone
+- [x] `docs/`: world API, Scratch API, renderer
 
 ### 4. Outdoor
-- [~] Sun as a directional light baked into the lightmaps, sky light from rays that escape the level (works; a 80 m level bakes in 6 minutes, needs to drop under 1)
-- [~] Sky dome (day, sunset, night, overcast presets) with clouds and sun disc, drawn into reflections (renders; presets read pale and washed out)
-- [~] Heightmap terrain with its own collision and baked vertex lighting (works; the slope blend reads as dirt with thin grass)
-- [ ] Open levels without visible boundary walls, with distance fog
-- [ ] Real window openings that let daylight into interiors
-- [ ] Showcase includes an outdoor space next to an indoor one
+- [x] Sun baked into lightmaps with soft shadows, sky light from rays that escape the level. The showcase valley bakes in about 35 seconds.
+- [x] Sky with day, sunset, dusk, night and overcast presets, sun disc and clouds
+- [x] Heightmap terrain with its own lightmap, grass cards, dirt and rock blending, paths, and hills out to the horizon
+- [x] Open levels without boundary walls, with height fog
+- [x] Buildings with roofs, framed glass windows and doors that let daylight into interiors
+- [x] Showcase has an indoor level and an outdoor level
+- [x] On terrain, `y` is measured from the ground for spawns, props, objects and triggers
 
 ### 4b. Look library
-- [x] Second and third material atlases from Poly Haven CC0 sets: grass, rock, sand, dirt, brick, wood, planks, plaster, tiles, stone, cobble, bark, asphalt, snow, cliff, gravel, roof tiles, marble
-- [x] Level styles: lab, house, dungeon, outdoor, plain (default materials, skirting per wall material, lab beams and stripes only in labs, daylight windows)
+- [x] Second and third material atlases from Poly Haven CC0 sets
+- [x] Level styles: lab, house, dungeon, outdoor, plain
 - [x] Viewmodel is data-driven: none, arms, device, or any prop or model, switchable from the `viewmodel` variable
-- [~] Prop library beyond the industrial kit. `procprops.py` has primitive stand-ins (trees, rocks, furniture, torches); they look cheap next to the kit and must be replaced by Blender-modelled props with baked PBR maps and alpha-cut foliage with wind sway
+- [x] Prop library made in Blender from Poly Haven models (32 props) plus generated foliage with alpha-cut leaves and wind sway
+- [x] Signs with letters, digits and punctuation
 
 ### 5. Game variety
-- [ ] Camera modes in the API: first person, free, third person orbit, top down
-- [ ] Objects that follow paths (NPCs, enemies, moving platforms), spin, and fire `touch` and `collect` broadcasts
-- [ ] Three small example games in different genres, built only on the public API (collectathon, third-person platformer, top-down chase)
+- [x] Camera modes: first person, free, third person orbit, top down with a cutaway for indoor levels
+- [x] Objects that follow paths, spin, bob and fire `touch` and `collect` broadcasts
+- [x] Example games in different genres, each with a natural-input playthrough: Afterglow (first-person puzzle and exploration), Orchard Dash (third-person timed collectathon), Crypt Crawl (top-down dungeon), Portal Lab (portal puzzle with a cube, a ledge and a momentum fling)
+- [x] Player characters: suit, knight, mage, rogue, barbarian, or any rigged glTF with idle, walk, run and jump clips
 
 ### 6. Reach
-- [ ] OBJ and GLB import with a base colour texture
-- [ ] Portals as an optional engine feature
-- [ ] Moving platforms
+- [x] OBJ, glTF and GLB import with base colour, normal and roughness textures
+- [x] Portals as an optional engine feature (`game.portals(True, colors=...)`): recursive see-through views (3 levels), walk-through with momentum, floor-portal funnelling, carried and dropped cubes pass through, placement refuses props, signs, windows and non-portal surfaces. Ported from Loophole's verified `tele_check`, `tele_dir`, `portal_pass` and funnelling code.
+- [~] Moving platforms: the player rides objects that move along paths, but no example uses it and no playthrough checks it
 
 ### 7. Ship
-- [ ] MIT license, CREDITS for CC0 assets
-- [~] Public repo on GitHub (https://github.com/q8j-dev/loophole-engine), pushed at each milestone
+- [x] MIT license, CREDITS for every third-party asset
+- [x] Public repo on GitHub (https://github.com/q8j-dev/loophole-engine), pushed at each milestone
+- [x] Clean clone builds and plays from a fresh path, with only numpy and Pillow
+
+## Known gaps
+
+- Tree canopies seen from very close still break into ragged leaf cards, and the temporal anti-aliasing smears foliage during fast camera turns.
+- Distant hills beyond the playable area are low in detail.
+- Portals work only in first person, and portal views render at half resolution.
+- The Portal Lab playthrough is timing-sensitive in the harness: it passes as written in `tools/harness/runs/portals.txt`, but removing the extra `log` steps after the first teleport has made the walk west along the ledge stall in some runs. The cause is not yet found.
+- Characters use rigid skinning (each vertex follows one bone) with a limit of 32 bones, so very smooth organic rigs crease at the joints.
+- Games need TurboWarp because they use the Pen+ extension. They don't run on scratch.mit.edu.
+- A clone of the repo is about 150 MB, half of it git history from earlier texture versions.

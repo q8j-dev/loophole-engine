@@ -45,7 +45,7 @@ def main():
     rgb = Image.merge("RGB", (cov, sh, Image.new("L", cov.size, 0)))
     rgb.save(OUT / "font.png", optimize=True)
     (OUT / "font.json").write_text(json.dumps({"cols": COLS, "rows": ROWS, "cw": CW, "ch": CH, "pad": PAD / CH,
-                                               "adv": adv}))
+                                               "adv": adv}), encoding="utf-8")
     print("font atlas", rgb.size)
 
 

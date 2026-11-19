@@ -12,6 +12,8 @@ Every image on this page is a real TurboWarp frame captured by the playtest harn
 | --- | --- | --- |
 | ![](docs/img/lab.jpg) | ![](docs/img/orchard.jpg) | ![](docs/img/crypt.jpg) |
 
+![Two facing portals in a narrow room make a recursive tunnel](docs/img/portals.jpg)
+
 ## What you get
 
 - Lightmaps with baked global illumination, a sun and sky for outdoor levels, flickering torches and switchable lights.
@@ -20,7 +22,7 @@ Every image on this page is a real TurboWarp frame captured by the playtest harn
 - First person, third person, top-down and free cameras. Four animated player characters, or import your own rigged glTF.
 - Objects that you can pick up and carry, buttons and doors, pickups that spin and glow, enemies that walk paths, triggers and goals.
 - On-screen text that you set from Scratch, letters on signs, OBJ and glTF model import.
-- Optional portals: `Game(portals=True)` adds a portal gun with see-through, walk-through portals.
+- Optional portals: `game.portals(True)` adds a portal gun. Portals are see-through (recursively, so facing portals make a tunnel) and walk-through, they keep your momentum, and they carry the cube you're holding.
 
 ## Make a game in five minutes
 
@@ -84,7 +86,7 @@ Each example uses only the public API and has a scripted playthrough in `tools/h
 - [examples/orchard](examples/orchard): Orchard Dash. A third-person race to collect 12 apples before the timer runs out, with rats patrolling the rows. You play the rogue.
 - [examples/crypt](examples/crypt): Crypt Crawl. A top-down crypt lit by torches. Collect three goblets to sink the statue that blocks the treasure vault, and keep away from the giant rats. You play the knight.
 
-- [examples/portals](examples/portals): Portal Lab. A small room with an exit on a ledge you can only reach through portals.
+- [examples/portals](examples/portals): Portal Lab. Carry a cube up to a ledge through a portal, fall into a floor portal to be flung across a slime pit, and put the cube on the button that opens the exit.
 
 Build one with `loophole build examples/orchard`.
 

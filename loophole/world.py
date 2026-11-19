@@ -16,7 +16,7 @@ COLORS = {"white": (1.0, 0.97, 0.92), "warm": (1.0, 0.82, 0.6), "cool": (0.8, 0.
           "orange": (1.0, 0.55, 0.2), "amber": (1.0, 0.7, 0.3), "green": (0.35, 1.0, 0.45),
           "blue": (0.35, 0.6, 1.0), "cyan": (0.3, 0.9, 1.0), "purple": (0.7, 0.4, 1.0), "pink": (1.0, 0.4, 0.7),
           "yellow": (1.0, 0.9, 0.35), "sodium": (1.0, 0.62, 0.28), "daylight": (0.95, 0.97, 1.0),
-          "gold": (1.0, 0.6, 0.1)}
+          "gold": (1.0, 0.6, 0.1), "magenta": (1.0, 0.12, 0.8)}
 
 
 def facing(f):
@@ -467,7 +467,8 @@ class Game:
                  jump_power=7.0, textures="normal", viewmodel_arms=False, camera_pitch=None, player_model="suit",
                  portals=False):
         self.title = title
-        self.portals = bool(portals)
+        self.portals_on = bool(portals)
+        self.portal_colors = ("cyan", "magenta")
         self.player_model = player_model
         self.characters = {}
         self.camera_pitch = camera_pitch if camera_pitch is not None else (60.0 if camera == "top down" else 20.0)
@@ -502,6 +503,11 @@ class Game:
 
     def character(self, name, path, height=1.8, keep=None, facing="+z"):
         self.characters[name] = dict(path=str(path), height=height, keep=keep, facing=facing)
+        return self
+
+    def portals(self, on=True, colors=("cyan", "magenta")):
+        self.portals_on = bool(on)
+        self.portal_colors = tuple(colors)
         return self
 
     def level(self, name):

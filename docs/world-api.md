@@ -42,11 +42,12 @@ Game(title="My Game", viewmodel="none", viewmodels=None, hand_color="cyan", qual
 | `walk_speed`, `jump_power` | Movement in metres per second. Scripts can change them at run time. |
 | `textures` | `"normal"` uses 512-pixel textures and keeps games small. `"high"` uses 1024 pixels and makes files about twice as large. |
 | `viewmodel_arms` | Draw the suit arms holding prop viewmodels. |
-| `portals` | Turns on the portal gun in first person. Left click places the blue portal and right click the orange one, on any `white`, `concrete`, `floor`, `plaster`, `tiles` or `marble` surface big enough to hold it. Walking into one portal brings you out of the other, and you can see through them. |
+| `portals` | Same as calling `game.portals(True)`. Turns on the portal gun in first person. Left click places the blue portal and right click the orange one, on any `white`, `concrete`, `floor`, `plaster`, `tiles` or `marble` surface big enough to hold it. Walking into one portal brings you out of the other, and you can see through them. |
 | `player_model` | Character shown in third person and top down: `"suit"`, `"knight"`, `"mage"`, `"rogue"`, `"barbarian"`, or a name added with `game.character`. |
 
 | Method | What it does |
 | --- | --- |
+| `game.portals(on=True, colors=("cyan", "magenta"))` | Turns the portal gun on or off and sets the two portal colours. Portals can't be placed over props, signs, windows or objects. |
 | `game.level(name)` | Adds a level and returns it. Levels are numbered from 1 in the order you add them. |
 | `game.script(path)` | Compiles a Python gameplay file into Scratch blocks in a sprite called Game. See [scratch-api.md](scratch-api.md#python-gameplay-scripts). |
 | `game.variable(name, show=False)` | Adds a Stage variable. With `show=True` it appears as a Scratch monitor. |

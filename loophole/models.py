@@ -352,10 +352,10 @@ def import_models(game, project_dir, log=print):
             raise SystemExit(f"model '{name}': file not found: {spec['path']}")
         key = hashlib.md5(src.read_bytes() + repr(sorted(spec.items())).encode()).hexdigest()[:12]
         stamp = out / f"{name}.key"
-        if not (stamp.exists() and stamp.read_text() == key and (out / "kit" / f"kit_{name}.npz").exists()):
+        if not (stamp.exists() and stamp.read_text(encoding="utf-8") == key and (out / "kit" / f"kit_{name}.npz").exists()):
             n = convert(src, out, name, scale=spec.get("scale", 1.0), size=spec.get("texture", 1024),
                         up_axis=spec.get("up", "y"))
-            stamp.write_text(key)
+            stamp.write_text(key, encoding="utf-8")
             log(f"  model {name}: {n} triangles from {src.name}")
         decor_place.EXTRA[name] = out / "kit" / f"kit_{name}.npz"
         decor_pack.EXTRA_TILES[name] = out / "tiles"
@@ -366,10 +366,10 @@ def import_models(game, project_dir, log=print):
             raise SystemExit(f"character '{name}': file not found: {spec['path']}")
         key = hashlib.md5(src.read_bytes() + repr(sorted(spec.items())).encode()).hexdigest()[:12]
         stamp = out / f"{name}.ckey"
-        if not (stamp.exists() and stamp.read_text() == key and (out / "anim" / f"{name}.npz").exists()):
+        if not (stamp.exists() and stamp.read_text(encoding="utf-8") == key and (out / "anim" / f"{name}.npz").exists()):
             n, nb, clips = character.convert(src, out, name, height=spec["height"], keep=spec["keep"],
                                              facing=spec["facing"])
-            stamp.write_text(key)
+            stamp.write_text(key, encoding="utf-8")
             log(f"  character {name}: {n} triangles, {nb} bones, clips {clips}")
         decor_place.EXTRA[name] = out / "kit" / f"kit_{name}.npz"
         decor_pack.EXTRA_TILES[name] = out / "tiles"

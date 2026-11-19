@@ -18,7 +18,7 @@ BUILTIN = {
 
 @lru_cache(None)
 def meta():
-    return json.loads((DATA / "props.json").read_text())
+    return json.loads((DATA / "props.json").read_text(encoding="utf-8"))
 
 
 STATE = {"regions": None, "W": None, "H": None, "bytes": None}

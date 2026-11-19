@@ -3,11 +3,11 @@ from pathlib import Path
 
 from .geo import GW, TPV
 
-_M = json.loads((Path(__file__).resolve().parent / "data" / "atlas" / "materials.json").read_text())
+_M = json.loads((Path(__file__).resolve().parent / "data" / "atlas" / "materials.json").read_text(encoding="utf-8"))
 ATLAS_W, ATLAS_H, CELL_W, CELL_H, COLS, S = _M["ATLAS_W"], _M["ATLAS_H"], _M["CELL_W"], _M["CELL_H"], _M["COLS"], _M["S"]
 LAYOUT = [tuple(x) for x in _M["LAYOUT"]]
-ATLAS_H2 = json.loads((Path(__file__).resolve().parent / "data" / "atlas" / "materials2.json").read_text())["ATLAS_H"]
-ATLAS_H3 = json.loads((Path(__file__).resolve().parent / "data" / "atlas" / "materials3.json").read_text())["ATLAS_H"]
+ATLAS_H2 = json.loads((Path(__file__).resolve().parent / "data" / "atlas" / "materials2.json").read_text(encoding="utf-8"))["ATLAS_H"]
+ATLAS_H3 = json.loads((Path(__file__).resolve().parent / "data" / "atlas" / "materials3.json").read_text(encoding="utf-8"))["ATLAS_H"]
 
 HEAD = "precision highp float;\n"
 
@@ -1687,9 +1687,9 @@ void main() {
   float edge = smoothstep(0.915, 0.965, r + (nn - 0.5) * 0.05 + (n3 - 0.5) * 0.03);
   float inner = smoothstep(0.72, 0.97, r) * 0.45;
   float hot = smoothstep(0.958, 0.985, r + (nn - 0.5) * 0.03);
-  vec3 rim = uCol * (3.2 + nn * 3.2 + n3 * 2.0) + vec3(1.0) * hot * 3.5;
+  vec3 rim = uCol * (1.3 + nn * 1.4 + n3 * 0.8) + uCol * hot * 1.2 + vec3(hot * 0.25);
   vec3 rimE = enc(rim, 1.0).rgb;
-  inside = mix(inside, enc(uCol * 1.2, 1.0).rgb, inner * (0.6 + 0.4 * nn));
+  inside = mix(inside, enc(uCol * 0.9, 1.0).rgb, inner * (0.6 + 0.4 * nn));
   gl_FragColor = vec4(mix(inside, rimE, edge), 1.0);
 }
 """
@@ -1698,7 +1698,7 @@ void main() {
 TEXT_VS = HEAD + """
 attribute float aSlot;
 attribute vec2 aCorner;
-uniform vec4 uG[96];
+uniform vec4 uG[128];
 uniform vec2 u_res;
 uniform vec4 uTA;
 varying vec2 vUV;
@@ -1712,7 +1712,7 @@ void main() {
   float code = g.w - 32.0;
   vec2 cell = vec2(mod(code, 16.0), floor(code / 16.0));
   vUV = (cell + vec2(aCorner.x, 1.0 - aCorner.y)) / vec2(16.0, 6.0);
-  vA = aSlot < 63.5 ? uTA.x : uTA.y;
+  vA = aSlot < 95.5 ? uTA.x : uTA.y;
 }
 """
 
