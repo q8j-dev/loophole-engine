@@ -702,10 +702,10 @@ def main():
                          gap=0.15, tint=(0.44, 0.58, 0.45)))
     print("bush", bush("bush", 2, src))
     print("grass", clump("grass", 4, src, "grass_medium_01__Diffuse.jpg", "grass_medium_01__Alpha.png", 5, size=0.7,
-                         cards=3, count=3, spread=0.3, rough=0.75, tint=(0.95, 1.0, 0.85), region=(0.62, 1.0),
+                         cards=3, count=3, spread=0.3, rough=0.75, tint=(0.88, 0.92, 0.7), region=(0.62, 1.0),
                          flowers=True))
     print("fern", clump("fern", 6, src, "fern_02__Diffuse.jpg", "fern_02__Alpha.png", 0, size=1.0, cards=6, count=1,
-                        rough=0.6))
+                        rough=0.6, tint=(0.7, 0.78, 0.54)))
 
 
 if __name__ == "__main__":

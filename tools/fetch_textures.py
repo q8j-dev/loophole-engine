@@ -8,7 +8,7 @@ SETS = {
     "brick": "brick_wall_001", "wood": "old_wood_floor", "planks": "brown_planks_05", "asphalt": "asphalt_02",
     "tiles": "floor_tiles_06", "snow": "snow_02", "cliff": "cliff_side", "gravel": "gravel_road",
     "plaster": "painted_plaster_wall", "stone": "castle_brick_07", "cobble": "cobblestone_floor_08",
-    "bark": "bark_brown_02", "roof": "clay_roof_tiles_02", "marble": "marble_01",
+    "bark": "bark_brown_02", "roof": "clay_roof_tiles_02", "marble": "marble_01", "litter": "forest_leaves_02",
 }
 UA = {"User-Agent": "loophole-engine-asset-fetch/0.1"}
 

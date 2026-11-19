@@ -25,6 +25,7 @@ ATLAS3 = [
     ("asphalt", "asphalt_02", 0.11, 0.5, (1.0, 1.0, 1.0)), ("snow", "snow_02", 0.78, 0.6, (0.97, 0.99, 1.03)),
     ("cliff", "cliff_side", 0.2, 0.3, (1.0, 1.0, 1.0)), ("gravel", "gravel_road", 0.2, 0.3, (1.0, 1.0, 1.0)),
     ("roof", "clay_roof_tiles_02", 0.24, 0.1, (1.0, 1.0, 1.0)), ("marble", "marble_01", 0.66, 0.3, (1.0, 1.0, 1.0)),
+    ("litter", "forest_leaves_02", 0.2, 0.25, (1.0, 1.0, 1.0)),
 ]
 PROPS = [("cube", 1024, 1024 / 0.9), ("device", 1024, 1024 / 0.45), ("door", 1024, 1024 / 3.6),
          ("btnb", 512, 512 / 2.4), ("btnt", 512, 512 / 1.6), ("player", 512, 512 / 2.2), ("arms", 1024, 1024 / 0.9)]
@@ -64,7 +65,16 @@ def main():
             T2.ATLAS_H = T2.CELL_H * ((2 * len(T2.MATS) + T2.COLS - 1) // T2.COLS)
             arr = T2.build_atlas()
             (OUT / "atlas" / f"{fname}.jpg").write_bytes(T2.encode_jpg(arr, 90))
-            (OUT / "atlas" / f"{fname}.json").write_text(json.dumps(dict(ATLAS_W=T2.ATLAS_W, ATLAS_H=T2.ATLAS_H, MATS=T2.MATS)), encoding="utf-8")
+            avg = {}
+            x0, y0, sz = T2.LAYOUT[0]
+            for i, nm in enumerate(T2.MATS):
+                cid = 2 * i
+                cx, cy = (cid % T2.COLS) * T2.CELL_W + x0, (cid // T2.COLS) * T2.CELL_H + y0
+                cell = arr[cy:cy + sz, cx:cx + sz, :3].astype(np.float64)
+                cell = cell / 255.0 if cell.max() > 1.5 else cell
+                avg[nm] = [round(float(v), 4) for v in (cell ** 2.2).reshape(-1, 3).mean(0)]
+            (OUT / "atlas" / f"{fname}.json").write_text(json.dumps(dict(ATLAS_W=T2.ATLAS_W, ATLAS_H=T2.ATLAS_H, MATS=T2.MATS,
+                                                                          AVG=avg)), encoding="utf-8")
             print(fname, arr.shape)
     if only is None or "decor" in only:
         import decor_atlas

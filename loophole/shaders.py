@@ -153,6 +153,7 @@ varying vec3 vTan;
 uniform vec4 uSkin;
 uniform vec4 uLOD;
 uniform vec4 uTerr;
+uniform vec4 uWind2;
 uniform vec4 uBM[96];
 uniform vec4 uSk0;
 uniform vec4 uSk1;
@@ -272,6 +273,7 @@ void main() {
 
 WORLD_FS = HEAD + """
 uniform vec4 uTerr;
+uniform vec4 uWind2;
 uniform float u_timer;
 """ + GATE + ENC + NOISE + ATLAS + """
 uniform vec3 uCP;
@@ -610,9 +612,10 @@ void main() {
     float wrap = max(dot(LN, sunL) * 0.5 + 0.5, 0.0);
     float back = pow(max(dot(-lV, sunL), 0.0), 3.0);
     vec3 E0 = vIrr.rgb;
-    vec3 sunT = uSunC.rgb * uSunC.w * (0.05 + 0.1 * wrap);
-    vec3 LE = E0 * (0.8 + 0.3 * wrap) + uSkyA * 1.3 + E0 * back * 0.6 + sunT;
-    vec3 lcol = lalb * LE + lalb * LE * back * 0.25;
+    float sunv = smoothstep(0.15, 0.7, dot(E0, vec3(0.3, 0.5, 0.2)) / max(dot(uSunC.rgb, vec3(0.3, 0.5, 0.2)), 0.01) * 1.6);
+    vec3 sunT = uSunC.rgb * uSunC.w * (0.05 + 0.1 * wrap) * sunv;
+    vec3 LE = E0 * (0.8 + 0.3 * wrap) + uSkyA * (1.3 + 0.9 * (1.0 - sunv)) + E0 * back * 0.6 * sunv + sunT;
+    vec3 lcol = lalb * LE + lalb * LE * back * 0.25 * sunv;
     for (int i = 0; i < 24; i++) {
       if (float(i) >= uLtN) break;
       if (uLf[i].x < 0.5) continue;
@@ -709,6 +712,7 @@ void main() {
   else if (mat > 64.5 && mat < 65.5) { atl = 3.0; cidA = 6.0; tile = 3.0; }
   else if (mat > 65.5 && mat < 66.5) { atl = 3.0; cidA = 8.0; tile = 2.0; }
   else if (mat > 66.5 && mat < 67.5) { atl = 3.0; cidA = 10.0; tile = 2.0; }
+  else if (mat > 67.5 && mat < 68.5) { atl = 3.0; cidA = 12.0; tile = 2.0; }
   else if (mat > 69.5 && mat < 70.5) { atl = 2.0; cidA = 0.0; tile = 3.0; }
   else if (mat > 70.5 && mat < 71.5) { atl = 1.0; cidA = 22.0; tile = 1.5; }
   else if (mat > 71.5 && mat < 72.5) { atl = 2.0; cidA = 14.0; tile = 3.0; }
@@ -750,8 +754,16 @@ void main() {
       float gv = ns * 0.6 + ns3 * 0.4;
       gr *= mix(vec3(0.36, 0.5, 0.24), vec3(0.55, 0.6, 0.3), gv) * (0.72 + 0.4 * smoothstep(0.3, 0.7, ns2));
       a = mix(mix(gr, ad * vec3(0.7, 0.66, 0.6), wd), ar * vec3(1.05, 1.0, 0.95), wr);
-      vec3 litter = ad * mix(vec3(0.5, 0.42, 0.3), vec3(0.36, 0.34, 0.22), ns3) * (0.7 + 0.45 * ns2);
-      a = mix(a, litter, wl);
+      if (wl > 0.003) {
+        vec2 lu = uv / 1.8 + vec2(ns * 0.3, ns2 * 0.2);
+        vec3 la_ = sampA(3.0, 12.0, lu, tl);
+        vec3 ln_ = sampA(3.0, 13.0, lu, tl);
+        vec3 litter = la_ * (0.85 + 0.3 * ns2) * mix(vec3(1.0), vec3(0.9, 0.95, 0.8), ns3);
+        float moss = smoothstep(0.62, 0.78, ns3 * 0.7 + ns * 0.3) * shade;
+        litter = mix(litter, gr * vec3(0.62, 0.78, 0.42), moss * 0.7);
+        a = mix(a, litter, wl);
+        nm = mix(nm, ln_, wl * (1.0 - moss * 0.5));
+      }
       nm = mix(mix(nm, nd, wd), nr, wr);
       float pth = texture2D(uTHM, (vW.xz - uTHP.xy) * uTHP.zw).r;
       if (pth > 0.01) {
@@ -763,8 +775,18 @@ void main() {
         vec3 pdn = sampA(2.0, 7.0, vW.xz / 2.2 + 0.3, pl);
         float gm = smoothstep(0.35, 0.65, ns2 + (ns3 - 0.5) * 0.5);
         float pe = smoothstep(0.2, 0.7, pth + (ns3 - 0.5) * 0.5);
-        a = mix(a, mix(pd * vec3(0.78, 0.72, 0.64), pa * vec3(0.72, 0.68, 0.62), gm), pe);
+        a = mix(a, mix(pd * vec3(0.86, 0.75, 0.58), pa * vec3(0.76, 0.7, 0.6), gm), pe);
         nm = mix(nm, mix(pdn, pn, gm), pe);
+        vec3 pdd = sampA(3.0, 6.0, vW.xz / 0.55 + 0.31, max(pl - 1.0, 0.0));
+        float dl_ = dot(pdd, vec3(0.33));
+        a *= mix(1.0, clamp(0.45 + dl_ * 1.6, 0.6, 1.5), pe * near * 0.8);
+        if (uTerr.x > 0.0) {
+          vec3 la2 = sampA(3.0, 12.0, vW.xz / 1.8 + 0.17, pl);
+          vec3 ln2 = sampA(3.0, 13.0, vW.xz / 1.8 + 0.17, pl);
+          float lit = uTerr.x * clamp((1.0 - smoothstep(0.5, 0.95, pth)) * 0.85 + smoothstep(0.6, 0.85, ns3 * 0.6 + ns2 * 0.4) * 0.5, 0.0, 1.0);
+          a = mix(a, la2 * 0.95, lit * pe);
+          nm = mix(nm, ln2, lit * pe);
+        }
       }
     }
     float sv = fract(vSeed * 0.7548777);
@@ -1058,6 +1080,13 @@ void main() {
     vec3 tl = texture2D(uTLM, (vW.xz - uTLMP.xy) * uTLMP.zw).rgb;
     E = tl * tl * 4.0;
     so = clamp(dot(E, vec3(0.4)) * 1.4 - 0.1, 0.0, 1.0);
+    if (uTerr.y > 0.0) {
+      float tlum = dot(tl, vec3(0.3, 0.5, 0.2));
+      float dm = smoothstep(0.18, 0.42, tlum) * (1.0 - smoothstep(0.5, 0.75, tlum));
+      vec2 wq = vW.xz * 0.9 - uWind2.xy * u_timer * 0.6;
+      float wn = vnoise(wq) * 0.6 + vnoise(wq * 2.3 + 7.1 + u_timer * 0.35) * 0.4;
+      E *= 1.0 + dm * uTerr.y * (smoothstep(0.35, 0.75, wn) * 1.4 - 0.5);
+    }
   } else if (uMode.x < 0.5 && vIrr.w > 0.5) {
     E = vIrr.rgb;
     so = clamp(dot(E, vec3(0.4)) * 1.4 - 0.1, 0.0, 1.0);
