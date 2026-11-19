@@ -35,7 +35,7 @@ API_VARS = {
     "api_fov": "field of view", "api_expo": "exposure", "api_fade": "fade", "api_flash": "flash",
     "api_walk": "walk speed", "api_jump": "jump power", "api_grav": "gravity", "api_paused": "paused",
     "api_locked": "mouse locked", "api_vm": "viewmodel", "api_lcoll": "last collected", "api_ltouch": "last touched",
-    "api_ltrig": "last trigger",
+    "api_ltrig": "last trigger", "api_msg": "message", "api_stat": "status",
 }
 API_LISTS = {
     "obj_name": "obj name", "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw",
@@ -57,7 +57,7 @@ USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "pla
                 "field_of_view": "field of view", "exposure": "exposure", "fade": "fade", "flash": "flash",
                 "walk_speed": "walk speed", "jump_power": "jump power", "gravity": "gravity", "paused": "paused",
                 "mouse_locked": "mouse locked", "viewmodel": "viewmodel", "last_collected": "last collected",
-                "last_touched": "last touched", "last_trigger": "last trigger", "obj_name": "obj name",
+                "last_touched": "last touched", "last_trigger": "last trigger", "message": "message", "status": "status", "obj_name": "obj name",
                 "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw", "obj_pitch": "obj pitch",
                 "obj_roll": "obj roll", "obj_scale": "obj scale", "obj_visible": "obj visible", "obj_solid": "obj solid",
                 "obj_glow": "obj glow", "obj_open": "obj open", "obj_touching": "obj touching",
@@ -119,9 +119,27 @@ class Compiler(sbc.SpriteCompiler):
         return super()._call_stmt(call, parent)
 
     def _expr(self, node, parent):
+        if isinstance(node, ast.Compare) and isinstance(node.ops[0], (ast.In, ast.NotIn)):
+            item, cont = node.left, node.comparators[0]
+            nm = self.aliases.get(cont.id, cont.id) if isinstance(cont, ast.Name) else None
+            if nm is not None and (nm in self.list_names or nm in self.local_lists or nm in self.p.global_lists):
+                bid = self._new("data_listcontainsitem", parent, fields={"LIST": self.lref(cont.id)})
+                self.blocks[bid]["inputs"]["ITEM"] = self._input(item, bid, "text")
+            else:
+                bid = self._new("operator_contains", parent)
+                self.blocks[bid]["inputs"]["STRING1"] = self._input(cont, bid, "text")
+                self.blocks[bid]["inputs"]["STRING2"] = self._input(item, bid, "text")
+            if isinstance(node.ops[0], ast.NotIn):
+                nid = self._new("operator_not", parent)
+                self.blocks[nid]["inputs"]["OPERAND"] = [2, bid]
+                self.blocks[bid]["parent"] = nid
+                return nid
+            return bid
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
             if node.func.id == "plocked":
                 return self._new("pointerlock_isLocked", parent)
+            if node.func.id == "costume_number":
+                return self._new("looks_costumenumbername", parent, fields={"NUMBER_NAME": ["number", None]})
             if node.func.id == "mbtn":
                 bid = self._new("tw_getButtonIsDown", parent)
                 mid = self._new("tw_menu_mouseButton", bid, fields={"mouseButton": [str(node.args[0].value), None]},
@@ -222,7 +240,43 @@ def voxelize_outdoor(L, li):
     return c
 
 
+def ground_relative(L):
+    from . import terrain as T
+    td = L.terrain_def
+    if not td or getattr(L, "_grounded", False):
+        return
+    L._grounded = True
+    for b in L.buildings:
+        td["flats"].append((b["x0"] - 0.5, b["z0"] - 0.5, b["x1"] + 0.5, b["z1"] + 0.5, b["y"], 4.0))
+    xs, zs, H = T.heights(td)
+    f = T.Field(td, xs, zs, H)
+
+    def h(x, z):
+        return float(f.height(np.array([x]), np.array([z]))[0])
+
+    def box(b):
+        d = h((b[0] + b[3]) / 2, (b[2] + b[5]) / 2)
+        return (b[0], b[1] + d, b[2], b[3], b[4] + d, b[5])
+
+    L.decor = [(n_, (p[0], p[1] + h(p[0], p[2]), p[2]), fw, up, sc) for n_, p, fw, up, sc in L.decor]
+    for q in L.lights:
+        p = q["p"]
+        q["p"] = (p[0], p[1] + h(p[0], p[2]), p[2])
+    for o in L.objects:
+        o.pos = (o.pos[0], o.pos[1] + h(o.pos[0], o.pos[2]), o.pos[2])
+        if o.path:
+            o.path = [(p[0], p[1] + h(p[0], p[2]), p[2]) for p in o.path]
+    for t in L.triggers:
+        t["box"] = box(t["box"])
+    L.occluders = [box(b) for b in L.occluders]
+    if hasattr(L, "solid_boxes"):
+        L.solid_boxes = [box(b) for b in L.solid_boxes]
+    sx, sy, sz, yaw = L.start
+    L.start = (sx, sy + h(sx, sz), sz, yaw)
+
+
 def voxelize(L, li):
+    ground_relative(L)
     if L.sky:
         c = voxelize_outdoor(L, li)
         return finish_voxel(c, L, li)
@@ -449,6 +503,7 @@ class Models:
 def build(world_path, out=None, log=print, cache=None):
     world_path = Path(world_path).resolve()
     game = load_game(world_path)
+    props.configure(used_regions(game), high=game.textures == "high")
     if game.models:
         from . import models as MD
         MD.import_models(game, world_path.parent, log)
@@ -473,7 +528,7 @@ def build(world_path, out=None, log=print, cache=None):
     if any(Lv.terrain_def for Lv in game.levels):
         tiles.add("grass")
     tiles = sorted(t for t in tiles if t in decor_pack.available())
-    dlay, dimgs = decor_pack.build(tiles)
+    dlay, dimgs = decor_pack.build(tiles, 1024 if game.textures == "high" else 512, keep=game.viewmodels)
     decor_place.set_layout(dlay)
     used_ids = set()
     has_terrain = False
@@ -890,6 +945,28 @@ def game_sprite(A, proj, game, world_path, consts):
             "direction": 90, "draggable": False, "rotationStyle": "don't rotate"}
 
 
+def used_regions(game):
+    regs = set()
+    for Lv in game.levels:
+        for o in Lv.objects:
+            b = props.BUILTIN.get(o.model)
+            if b:
+                regs.add(b["region"])
+                if b.get("top"):
+                    regs.add(b["top"])
+    for v in game.viewmodels:
+        b = props.BUILTIN.get(v)
+        if b:
+            regs.add(b["region"])
+    if game.viewmodels:
+        regs.add("arms")
+    if "device" in game.viewmodels:
+        regs.add("device")
+    if game.camera != 0 or game.scripts:
+        regs.add("player")
+    return regs
+
+
 def placeholder_jpg():
     from PIL import Image
     b = io.BytesIO()
@@ -906,14 +983,15 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     paw, pah = props.atlas_size()
     consts = {"NLEV": len(game.levels), "START_LEVEL": max(1, min(len(game.levels), game.start_level)),
               "QUALITY": game.quality, "FOV": game.fov, "VMDEF": game.viewmodel,
-              "WALK": 6.0, "JUMPV": 7.0, "GRAV": 20.0, "FRIC": 5.0, "STOPSPD": 1.9, "ACCEL": 10.0, "AIRACC": 12.0,
+              "CAM0": game.camera, "CDIST0": game.camera_distance, "WALK": game.walk_speed, "JUMPV": game.jump_power, "GRAV": 20.0, "FRIC": 5.0, "STOPSPD": 1.9, "ACCEL": 10.0, "AIRACC": 12.0,
               "AIRCAP": 0.8, "STEPH": 0.55, "EYE": 1.6, "EYEC": 1.05, "PHT": 1.75, "PHTC": 1.2, "PW": 0.3,
               "ENVT": 192, "NEAR": 0.01, "FAR": 150.0, "SENS": 0.11, "EXPO": 0.72, "AMBS": 0.01, "HOLDD": 1.6,
               "USED": 2.6, "NSHAD": 4, "HASTER": 1 if has_terrain else 0, "PAW": paw, "PAH": pah,
-              "G_DEVICE": gids["device"], "G_ARMS": gids["arms"], "G_PLAYER": gids["player"]}
+              "CH0": 5, "G_DEVICE": gids["device"], "G_ARMS": gids["arms"], "G_PLAYER": gids["player"]}
     for n in ("device", "arms", "player"):
         x, y, s, t = props.region(n)
         consts.update({f"PR_{n.upper()}_X": x, f"PR_{n.upper()}_Y": y, f"PR_{n.upper()}_S": s, f"PR_{n.upper()}_T": t})
+    L["FADV"] = json.loads((DATA / "font.json").read_text())["adv"]
     L["JX"] = [0.5, 0.25, 0.75, 0.125, 0.625, 0.375, 0.875, 0.0625]
     L["JY"] = [0.3333, 0.6667, 0.1111, 0.4444, 0.7778, 0.2222, 0.5556, 0.8889]
     src = expand_mklist((HERE / "runtime" / "engine.py").read_text())
@@ -922,7 +1000,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     eng_lists = {}
     from . import mesh as M
     meshes = {"QUAD": M.quad_mesh(), "DUST": M.particles(320, 5), "IMPACT": M.particles(56, 21),
-              "VENTP": M.particles(140, 13), "GRASS": M.grass_cards(3000, 9)}
+              "VENTP": M.particles(140, 13), "GRASS": M.grass_cards(3000, 9), "TEXT": M.text_quads(96)}
     for name, m in meshes.items():
         eng_lists[proj.uid("l")] = [name, m.items()]
     eng_lists[proj.uid("l")] = ["IC", geo.index_items(geo.CHUNK)]
@@ -933,15 +1011,17 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
         eng_lists[lid] = [name, L.get(name, [])]
     blank = A.svg("blank", '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"></svg>', 1, 1)
     mj = json.loads((DATA / "atlas" / "materials.json").read_text())
-    costumes = [blank, A.bitmap("atlas", (DATA / "atlas" / "materials.jpg").read_bytes(), "jpg", mj["ATLAS_W"],
-                                mj["ATLAS_H"]),
-                A.bitmap("patlas", props.atlas_bytes(), "jpg", paw, pah)]
-    need2 = any(49 < i < 62 or i in (70, 72) for i in used_ids)
-    need3 = any(61 < i < 68 for i in used_ids)
-    for nm, need, f in (("atlas2", need2, "materials2"), ("atlas3", need3, "materials3")):
-        if need:
-            mj2 = json.loads((DATA / "atlas" / f"{f}.json").read_text())
-            costumes.append(A.bitmap(nm, (DATA / "atlas" / f"{f}.jpg").read_bytes(), "jpg", mj2["ATLAS_W"], mj2["ATLAS_H"]))
+    from . import texpack
+    matimgs, atlas_src, _ = texpack.build(used_ids, has_terrain, high=game.textures == "high")
+    d1, w1, h1 = matimgs[1]
+    costumes = [blank, A.bitmap("atlas", d1, "jpg", w1, h1),
+                A.bitmap("patlas", props.atlas_bytes(), "jpg", paw, pah),
+                A.bitmap("font", (DATA / "font.png").read_bytes(), "png", 1024, 576)]
+    for i in range(33, 127):
+        costumes.append(dict(blank, name="ch" + chr(i)))
+    for nm, k in (("atlas2", 2), ("atlas3", 3)):
+        if matimgs[k]:
+            costumes.append(A.bitmap(nm, *matimgs[k][:1], "jpg", *matimgs[k][1:]))
         else:
             costumes.append(A.bitmap(nm, placeholder_jpg(), "jpg", 8, 8))
     for nm in ("dA", "dN", "dR"):
@@ -977,9 +1057,12 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     cfg_text = ("Configuration for https://turbowarp.org/\nYou can move, resize, and minimize this comment, "
                 "but don't edit it by hand. This comment can be deleted to remove the stored settings.\n"
                 + json.dumps(tw_cfg, separators=(",", ":")) + " // _twconfig_")
-    api_values = {"viewmodel": game.viewmodel, "controls": 1, "camera mode": 0, "field of view": game.fov, "exposure": 1, "walk speed": 6.0,
-                  "jump power": 7.0, "gravity": 20.0, "camera distance": 4, "level": game.start_level}
-    shader_store = {name: {"projectData": {"vertShader": vs, "fragShader": fs}, "modifyDate": 1763400000000}
+    api_values = {"message": "", "status": "", "viewmodel": game.viewmodel, "controls": 1, "camera mode": game.camera, "field of view": game.fov,
+                  "exposure": 1, "walk speed": game.walk_speed, "jump power": game.jump_power, "gravity": 20.0,
+                  "camera distance": game.camera_distance, "level": game.start_level}
+    shader_store = {name: {"projectData": {"vertShader": vs.replace(shaders.ATLAS, atlas_src),
+                                           "fragShader": fs.replace(shaders.ATLAS, atlas_src)},
+                           "modifyDate": 1763400000000}
                     for name, (vs, fs) in shaders.SHADERS.items()}
     bg = A.svg("bg", f'<svg xmlns="http://www.w3.org/2000/svg" width="{STAGE_W}" height="{STAGE_H}" '
                      f'viewBox="0 0 {STAGE_W} {STAGE_H}"><rect width="{STAGE_W}" height="{STAGE_H}" fill="#07080b"/></svg>',
@@ -1026,8 +1109,10 @@ def viewmodel_lists(L, game, models):
         elif name in decor_place.KINDS:
             g, hs, ctr = models.kit(name)
             pr = (0, 0, 0, 0)
-            sc = 0.36 / max(hs.max() * 2, 1e-3)
-            off = (-ctr[0] * sc, -ctr[1] * sc, 0.05 - ctr[2] * sc)
+            sc = 0.2 / max(hs.max() * 2, 1e-3)
+            off = (0.07 - ctr[0] * sc, -0.1 - ctr[1] * sc, 0.12 - ctr[2] * sc)
+            arms = 1 if game.viewmodel_arms else 0
+            glow = (1.0, 0.75, 0.45)
         else:
             raise SystemExit(f"unknown viewmodel '{name}'. Use none, arms, device, or any prop or model name")
         L["VMN"].append(name)

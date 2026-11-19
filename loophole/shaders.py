@@ -62,46 +62,48 @@ float vnoise(vec2 p) {
 """
 
 
-def mip_glsl():
-    lines = ["vec3 mipInfo(float l) {"]
-    for i, (x, y, s) in enumerate(LAYOUT[:-1]):
-        lines.append(f"  if (l < {i}.5) return vec3({x}.0, {y}.0, {s}.0);")
-    x, y, s = LAYOUT[-1]
-    lines.append(f"  return vec3({x}.0, {y}.0, {s}.0);")
-    lines.append("}")
-    return "\n".join(lines)
-
-
-ATLAS = f"""
+def atlas_glsl(levels=None, cell_w=CELL_W, cell_h=CELL_H, atlas_w=ATLAS_W, h1=ATLAS_H, h2=ATLAS_H2, h3=ATLAS_H3):
+    levels = levels or LAYOUT
+    mi = ["vec3 mipInfo(float l) {"]
+    for i, (x, y, s) in enumerate(levels[:-1]):
+        mi.append(f"  if (l < {i}.5) return vec3({x}.0, {y}.0, {s}.0);")
+    x, y, s = levels[-1]
+    mi.append(f"  return vec3({x}.0, {y}.0, {s}.0);")
+    mi.append("}")
+    top = len(levels) - 1
+    return f"""
 uniform sampler2D uAtlas;
-{mip_glsl()}
+{chr(10).join(mi)}
 vec3 tap(float cid, vec2 uv, float l) {{
   vec3 mi = mipInfo(l);
-  vec2 cell = vec2(mod(cid, {COLS}.0) * {CELL_W}.0, floor(cid / {COLS}.0 + 0.001) * {CELL_H}.0);
+  vec2 cell = vec2(mod(cid, {COLS}.0) * {cell_w}.0, floor(cid / {COLS}.0 + 0.001) * {cell_h}.0);
   vec2 f = fract(uv);
   vec2 p = cell + mi.xy + vec2(f.x, 1.0 - f.y) * mi.z;
-  return texture2D(uAtlas, p / vec2({ATLAS_W}.0, {ATLAS_H}.0)).rgb;
+  return texture2D(uAtlas, p / vec2({atlas_w}.0, {h1}.0)).rgb;
 }}
 vec3 samp(float cid, vec2 uv, float lod) {{
   float l0 = floor(lod);
-  return mix(tap(cid, uv, l0), tap(cid, uv, min(l0 + 1.0, {len(LAYOUT) - 1}.0)), lod - l0);
+  return mix(tap(cid, uv, l0), tap(cid, uv, min(l0 + 1.0, {top}.0)), lod - l0);
 }}
 uniform sampler2D uAtlas2;
 uniform sampler2D uAtlas3;
 vec3 tapB(float atl, float cid, vec2 uv, float l) {{
   vec3 mi = mipInfo(l);
-  vec2 cell = vec2(mod(cid, {COLS}.0) * {CELL_W}.0, floor(cid / {COLS}.0 + 0.001) * {CELL_H}.0);
+  vec2 cell = vec2(mod(cid, {COLS}.0) * {cell_w}.0, floor(cid / {COLS}.0 + 0.001) * {cell_h}.0);
   vec2 f = fract(uv);
   vec2 p = cell + mi.xy + vec2(f.x, 1.0 - f.y) * mi.z;
-  if (atl < 2.5) return texture2D(uAtlas2, p / vec2({ATLAS_W}.0, {ATLAS_H2}.0)).rgb;
-  return texture2D(uAtlas3, p / vec2({ATLAS_W}.0, {ATLAS_H3}.0)).rgb;
+  if (atl < 2.5) return texture2D(uAtlas2, p / vec2({atlas_w}.0, {h2}.0)).rgb;
+  return texture2D(uAtlas3, p / vec2({atlas_w}.0, {h3}.0)).rgb;
 }}
 vec3 sampA(float atl, float cid, vec2 uv, float lod) {{
   if (atl < 1.5) return samp(cid, uv, lod);
   float l0 = floor(lod);
-  return mix(tapB(atl, cid, uv, l0), tapB(atl, cid, uv, min(l0 + 1.0, {len(LAYOUT) - 1}.0)), lod - l0);
+  return mix(tapB(atl, cid, uv, l0), tapB(atl, cid, uv, min(l0 + 1.0, {top}.0)), lod - l0);
 }}
 """
+
+
+ATLAS = atlas_glsl()
 
 WORLD_VS = HEAD + CAM_U + PROJECT + """
 attribute float aI;
@@ -886,7 +888,7 @@ void main() {
   if (((vIrr.w > 0.5 && vIrr.w < 2.5) || leaf) && uMode.w < 0.5) {
     float lodd = clamp(log2(max(dist / focal * 1400.0 / max(sqrt(ndv), 0.3), 1e-4)), 0.0, 7.0);
     vec3 da = dsamp(uDA, vLM, lodd);
-    vec3 dn = dsamp(uDN, vLM, lodd) * 2.0 - 1.0;
+    vec3 dn = dsamp(uDN, vLM, max(lodd - 1.0, 0.0)) * 2.0 - 1.0;
     vec3 dr = dsamp(uDR, vLM, max(lodd - 1.0, 0.0));
     alb = da * da;
     vec3 T = normalize(vTan - Ng * dot(vTan, Ng));
@@ -1568,7 +1570,41 @@ def merge(vs, fs):
     return "\n".join(lines[:1] + add + lines[1:]) + "\n"
 
 
+TEXT_VS = HEAD + """
+attribute float aSlot;
+attribute vec2 aCorner;
+uniform vec4 uG[96];
+uniform vec2 u_res;
+uniform vec4 uTA;
+varying vec2 vUV;
+varying float vA;
+void main() {
+  vec4 g = uG[int(aSlot + 0.5)];
+  if (g.w < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vA = 0.0; vUV = vec2(0.0); return; }
+  float asp = u_res.x / u_res.y;
+  vec2 p = g.xy + aCorner * vec2(g.z * 0.6667, g.z);
+  gl_Position = vec4(p.x / asp * 2.0 - 1.0, 1.0 - p.y * 2.0, 0.0, 1.0);
+  float code = g.w - 32.0;
+  vec2 cell = vec2(mod(code, 16.0), floor(code / 16.0));
+  vUV = (cell + vec2(aCorner.x, 1.0 - aCorner.y)) / vec2(16.0, 6.0);
+  vA = aSlot < 63.5 ? uTA.x : uTA.y;
+}
+"""
+
+TEXT_FS = HEAD + """
+uniform sampler2D uFont;
+varying vec2 vUV;
+varying float vA;
+void main() {
+  vec3 s = texture2D(uFont, vUV).rgb;
+  float a = s.r + s.g * 0.75 * (1.0 - s.r);
+  if (a * vA < 0.004) discard;
+  gl_FragColor = vec4(vec3(s.r), a) * vA;
+}
+"""
+
 SHADERS = {k: (merge(v, f), f) for k, (v, f) in {
+    "text": (TEXT_VS, TEXT_FS),
     "world": (WORLD_VS, WORLD_FS),
     "sky": (SKY_VS, SKY_FS),
     "part": (PART_VS, PART_FS),

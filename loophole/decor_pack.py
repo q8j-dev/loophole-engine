@@ -19,9 +19,14 @@ def available():
     return sorted(set(p.name[:-6] for p in TILES.glob("*_a.jpg")) | set(EXTRA_TILES))
 
 
+CAP = [1024]
+KEEP = set()
+
+
 def tile_size(name):
+    from .library import FOLIAGE
     with Image.open(tdir(name) / f"{name}_a.jpg") as im:
-        return im.size[0]
+        return im.size[0] if name in FOLIAGE or name in KEEP else min(im.size[0], CAP[0])
 
 
 def layout(names, width=4096):
@@ -87,17 +92,20 @@ def load(name, kind, s):
     return np.asarray(im, np.float32) / 255.0
 
 
-def jpg(a, q=90):
+def jpg(a, q=86, sub=0):
     b = io.BytesIO()
     Image.fromarray(np.ascontiguousarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8)), "RGB").save(
-        b, "JPEG", quality=q, subsampling=0)
+        b, "JPEG", quality=q, subsampling=sub, optimize=True)
     return b.getvalue()
 
 
-def build(names):
+def build(names, cap=1024, keep=()):
+    CAP[0] = cap
+    KEEP.clear()
+    KEEP.update(keep)
     lay, W, H = layout(names)
     A = np.zeros((H, W, 3), np.float32)
-    N = np.zeros((H, W, 3), np.float32)
+    N = np.zeros((H // 2, W // 2, 3), np.float32)
     N[..., 0] = 0.5
     N[..., 1] = 0.5
     N[..., 2] = 1.0
@@ -105,8 +113,8 @@ def build(names):
     R[..., 0] = 0.6
     for n, (x, y, s) in lay.items():
         A[y:y + s, x:x + s] = load(n, "a", s)
-        N[y:y + s, x:x + s] = load(n, "n", s)
+        N[y // 2:y // 2 + s // 2, x // 2:x // 2 + s // 2] = load(n, "n", s // 2)
         R[y // 2:y // 2 + s // 2, x // 2:x // 2 + s // 2] = load(n, "r", s // 2)
-    imgs = {"dA": (jpg(with_mips(A)), W, H * 3 // 2), "dN": (jpg(with_mips(N, True), 92), W, H * 3 // 2),
-            "dR": (jpg(with_mips(R)), W // 2, H * 3 // 4)}
+    imgs = {"dA": (jpg(with_mips(A), 86, 2), W, H * 3 // 2), "dN": (jpg(with_mips(N, True), 88), W // 2, H * 3 // 4),
+            "dR": (jpg(with_mips(R), 84), W // 2, H * 3 // 4)}
     return dict(layout=lay, PW=W, PH=H), imgs

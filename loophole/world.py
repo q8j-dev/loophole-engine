@@ -256,7 +256,8 @@ class Level:
                                 col=color_(color), power=power, name=name))
         return self
 
-    def prop(self, kind, x, y, z, yaw=0.0, scale=1.0, solid=None, up=(0, 1, 0), seed=None, light=True):
+    def prop(self, kind, x, y, z, yaw=0.0, scale=1.0, solid=None, up=(0, 1, 0), seed=None, light=True, name=None,
+             on=True):
         from . import library
         if light and kind in library.LIGHTS:
             off, col, pw = library.LIGHTS[kind]
@@ -264,7 +265,7 @@ class Level:
             o = (off[0] * math.cos(a) - off[2] * math.sin(a), off[1], off[0] * math.sin(a) + off[2] * math.cos(a))
             s_ = scale if isinstance(scale, (int, float)) else scale[1]
             self.light(x + o[0] * s_, y + o[1] * s_, z + o[2] * s_, color=col, power=pw * s_ * s_, fixture=None, haze=0.6,
-                       dynamic=False)
+                       dynamic=name is not None, name=name, on=on)
         if kind in library.TRUNK and (solid is None or solid):
             r = library.TRUNK[kind] * (scale if isinstance(scale, (int, float)) else scale[0])
             self.solid_boxes = getattr(self, "solid_boxes", []) + [(x - r, y, z - r, x + r, y + 6.0, z + r)]
@@ -338,6 +339,9 @@ class Level:
         return self
 
     def sign(self, text, x, y, z, facing="+z", height=1.6):
+        bad = sorted(set(ch for ch in str(text) if not (32 <= ord(ch) < 127)))
+        if bad:
+            raise ValueError(f"sign text can use letters, digits and basic punctuation, not {' '.join(bad)}")
         self.signs.append((x, y, z, globals()["facing"](facing), height, str(text)))
         return self
 
@@ -442,8 +446,20 @@ def color_(c):
 
 class Game:
     def __init__(self, title="My Game", viewmodel="none", viewmodels=None, hand_color="cyan", quality=3, fov=72,
-                 start_level=1, hands=None):
+                 start_level=1, hands=None, camera="first person", camera_distance=4.0, walk_speed=6.0,
+                 jump_power=7.0, textures="normal", viewmodel_arms=False):
         self.title = title
+        self.viewmodel_arms = viewmodel_arms
+        if textures not in ("normal", "high"):
+            raise ValueError("textures must be 'normal' or 'high'")
+        self.textures = textures
+        cams = {"first person": 0, "free": 1, "third person": 2, "top down": 3}
+        if camera not in cams:
+            raise ValueError(f"camera must be one of {', '.join(cams)}")
+        self.camera = cams[camera]
+        self.camera_distance = camera_distance
+        self.walk_speed = walk_speed
+        self.jump_power = jump_power
         if hands is not None:
             viewmodel = "device" if hands else "none"
         self.viewmodel = viewmodel

@@ -458,10 +458,12 @@ def sign_one(wb, ri, sg, text):
     if wall is None:
         return
     lmf = lm_fn(wall)
-    cap = g["w0"][3] - g["w0"][2]
-    sc = hgt / cap
+    text = [str(ord(ch)) for ch in text if f"w{ord(ch)}" in g.files]
+    if not text:
+        return
+    sc = hgt
     widths = [(g["w" + ch][1] - g["w" + ch][0]) * sc for ch in text]
-    gap = 0.12 * hgt
+    gap = 0.04 * hgt
     total = sum(widths) + gap * (len(text) - 1)
     cur = -total / 2
     if wall["mat"] in ("metal", "dark"):
@@ -476,7 +478,7 @@ def sign_one(wb, ri, sg, text):
         for t in tris:
             ps = []
             for (gx, gy) in t:
-                p = base + right * (cur + (gx - x0g) * sc) + up * (gy - g["w0"][2]) * sc + n * 0.003
+                p = base + right * (cur + (gx - x0g) * sc) + up * gy * sc + n * 0.003
                 ps.append(p)
             e1 = ps[1] - ps[0]
             e2 = ps[2] - ps[0]

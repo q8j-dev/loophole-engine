@@ -92,6 +92,13 @@ def quad_mesh():
     return m
 
 
+def text_quads(n=96):
+    m = Mesh({"aSlot": 1, "aCorner": 2})
+    for i in range(n):
+        m.quad(*[{"aSlot": i, "aCorner": c} for c in ([0, 0], [1, 0], [1, 1], [0, 1])])
+    return m
+
+
 def particles(n, seed):
     rng = np.random.default_rng(seed)
     m = Mesh({"aSeed": 4, "aCorner": 2})

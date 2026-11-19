@@ -28,7 +28,10 @@ def init():
     lockon = 0
     lmb = 1
     api_ctl = 1
-    api_cam = 0
+    api_cam = CAM0
+    lmsg = "-"
+    lstat = "-"
+    msgt = 0
     api_fov = FOV
     api_expo = 1
     api_fade = 0
@@ -41,7 +44,7 @@ def init():
     api_hold = 0
     api_look = 0
     api_used = 0
-    api_cdist = 4
+    api_cdist = CDIST0
     api_cyaw = 0
     api_cpitch = 20
     cyaw = 0
@@ -1928,6 +1931,53 @@ def post():
     set_vec3("uFlash", "comp", api_flash, api_flash, api_flash)
     draw_list("QUAD", "comp")
     api_flash = max(0, api_flash - dt * 2)
+    hud()
+
+
+@warp
+def hud():
+    if api_msg != lmsg or strlen(api_msg) != strlen(lmsg):
+        lmsg = api_msg
+        hud_text(api_msg, 0, 64, RTW / RTH * 0.5, 0.2, 0.085, 1)
+        msgt = 0
+    if api_stat != lstat or strlen(api_stat) != strlen(lstat):
+        lstat = api_stat
+        hud_text(api_stat, 64, 32, 0.045, 0.885, 0.068, 0)
+    msgt = min(1, msgt + dt * 3)
+    if strlen(api_msg) + strlen(api_stat) > 0:
+        set_vec4("uTA", "text", msgt, 1, 0, 0)
+        set_tex("uFont", "text", "font")
+        draw_list("TEXT", "text")
+
+
+@warp
+def hud_text(s, slot0, cap, x, y, size, center):
+    HC.clear()
+    hn = min(strlen(s), cap)
+    hw = 0
+    for ci in rep(hn):
+        hc = letter(ci, s)
+        hk = 32
+        if hc != " ":
+            costume("blank")
+            costume(join("ch", hc))
+            hk = costume_number() - CH0 + 33
+            if hk < 33 or hk > 126:
+                hk = 63
+        HC.append(hk)
+        hw += FADV[hk - 31] * size
+    hx = x - hw * 0.5 * center - 0.0833 * size
+    for ci in rep(cap):
+        if ci <= hn:
+            hk = HC[ci]
+            if hk > 32:
+                set_arr4(slot0 + ci, "uG", "text", hx, y, size, hk)
+            else:
+                set_arr4(slot0 + ci, "uG", "text", 0, 0, 0, 0)
+            hx += FADV[hk - 31] * size
+        else:
+            set_arr4(slot0 + ci, "uG", "text", 0, 0, 0, 0)
+    costume("blank")
 
 
 @warp
