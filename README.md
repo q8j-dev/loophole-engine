@@ -8,13 +8,13 @@ A 3D game engine for Scratch and TurboWarp. You describe a level in a short Pyth
 
 Every image on this page is a real TurboWarp frame captured by the playtest harness in `tools/harness`.
 
-| Meadow with wildflowers | Afterglow at dusk | Autumn forest at dusk |
+| Meadow with wildflowers | Sunbeams through the canopy | Autumn forest at dusk |
 | --- | --- | --- |
-| ![](docs/img/meadow.jpg) | ![](docs/img/valley.jpg) | ![](docs/img/dusk_forest.jpg) |
+| ![](docs/img/meadow.jpg) | ![](docs/img/sunbeams.jpg) | ![](docs/img/dusk_forest.jpg) |
 
-| Lab puzzle, first person | Orchard, third person | Crypt, top down |
-| --- | --- | --- |
-| ![](docs/img/lab.jpg) | ![](docs/img/orchard.jpg) | ![](docs/img/crypt.jpg) |
+| Afterglow valley at dusk | Lab puzzle, first person | Orchard, third person | Crypt, top down |
+| --- | --- | --- | --- |
+| ![](docs/img/valley.jpg) | ![](docs/img/lab.jpg) | ![](docs/img/orchard.jpg) | ![](docs/img/crypt.jpg) |
 
 ![Two facing portals in a narrow room make a recursive tunnel](docs/img/portals.jpg)
 

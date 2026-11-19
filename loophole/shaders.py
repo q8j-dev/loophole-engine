@@ -1513,7 +1513,7 @@ void main() {
     float cs = max(dot(dir, uSun.xyz), 0.0);
     float fall = pow(cs, 5.0) * 0.55 + pow(cs, 30.0) * 0.45;
     float here = sky ? 0.35 : 1.0;
-    h += uSunC.rgb * ill * fall * uRay.x * here * 0.35;
+    h += uSunC.rgb * ill * fall * uRay.x * here * 0.5;
   }
   gl_FragColor = vec4(sqrt(clamp(h * 0.25, 0.0, 1.0)), 1.0);
 }
