@@ -287,6 +287,20 @@ def camera_back():
     controls = 1
 
 
+@block("play cutscene %s and wait")
+def play_cutscene(name):
+    """Plays a cutscene made in world.py with level.cutscene(...). Jump or use skips it."""
+    cutscene = name
+    wait(0)
+    while cutscene != "":
+        wait(0)
+
+
+@block("skip cutscene")
+def skip_cutscene():
+    cutscene = ""
+
+
 @block("save game to slot %s")
 def save_slot(slot):
     """Saves the level, where the player is, the checkpoint, which things are collected or open, and everything in the save data list. It stays in this browser, even after closing it."""

@@ -30,7 +30,8 @@ A new project comes with a sprite called Helpers. Its My Blocks section has read
 | `go to level ()` | Loads a level. |
 | `fade to black in () seconds`, `fade in from black in () seconds` | Fades the screen. |
 | `fly camera to x () y () z () turn () tilt () in () seconds` | Glides a free camera, for cutscenes. |
-| `camera back to player` | Ends a cutscene. |
+| `camera back to player` | Ends a fly camera. |
+| `play cutscene [name] and wait`, `skip cutscene` | Plays a cutscene from `world.py` and waits for it to finish, or stops the one playing. |
 | `save game to slot ()`, `load game from slot ()`, `delete save slot ()` | Saves the level, the player's position, the checkpoint, which objects are collected or open, and the `save data` list on this computer, in TurboWarp's local storage. Loading an empty slot sets `save found` to 0. |
 | `make save code`, `load save code ()` | Turns the same save into `save code`, digits only, so it fits in a cloud variable or can be written down. Letters in `save data` come back in capitals. |
 
@@ -114,6 +115,7 @@ These combine the keyboard, a game controller and the touch controls, so one scr
 | `paused` | read, set | 1 while paused. Set it to 1 to pause, 0 to resume. |
 | `mouse locked` | read | 1 while the mouse is captured for looking around. |
 | `fps` | read | Frames per second. |
+| `cutscene` | read, set | Set it to a cutscene's name to play it. It goes back to empty when the cutscene ends. Set it to empty to stop one. |
 | `checkpoint x`, `checkpoint y`, `checkpoint z`, `checkpoint yaw` | read, set | Where the player respawns. Empty means the level's start. Set them to make your own checkpoint. |
 
 ## Lists
@@ -169,6 +171,8 @@ The engine sends these. Use them with "when I receive".
 | `portal` | The player placed a portal (only with `Game(portals=True)`). |
 | `sees player` and `sees <name>` | A character with a `mode` spotted the player. |
 | `lost <name>` | That character can no longer see the player. |
+| `checkpoint` | The player walked through a new checkpoint. |
+| `cutscene done` and `cutscene done <name>` | A cutscene finished or was skipped. |
 
 Use the plain broadcast (`touch`) when you want one script for many objects and check `last touched`. Use the named one (`touch rat1`) when only one object matters.
 

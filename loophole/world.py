@@ -50,6 +50,47 @@ class Obj:
         del self.__dict__["self"]
 
 
+class Cutscene:
+    def __init__(self, name, autoplay, skippable):
+        self.name = name
+        self.autoplay = bool(autoplay)
+        self.skippable = bool(skippable)
+        self.events = []
+
+    def _add(self, t, kind, nums=(), text=""):
+        nums = list(map(float, nums)) + [0.0] * (6 - len(nums))
+        self.events.append((float(t), kind, nums[:6], str(text)))
+        return self
+
+    def camera(self, t, pos, turn=0.0, tilt=0.0):
+        return self._add(t, 1, (pos[0], pos[1], pos[2], turn, tilt))
+
+    def subtitle(self, t, text, duration=3.0):
+        return self._add(t, 2, (duration,), text)
+
+    def fade(self, t, to=1.0, over=1.0):
+        return self._add(t, 3, (over, to))
+
+    def move(self, t, name, pos, over=1.0):
+        return self._add(t, 4, (over, pos[0], pos[1], pos[2]), name)
+
+    def sound(self, t, name):
+        return self._add(t, 5, (), name)
+
+    def open(self, t, name, value=1):
+        return self._add(t, 6, (value,), name)
+
+    def broadcast(self, t, message):
+        return self._add(t, 7, (), message)
+
+    @property
+    def length(self):
+        end = 0.0
+        for t, kind, nums, _ in self.events:
+            end = max(end, t + (nums[0] if kind in (2, 3, 4) else 0.0))
+        return end
+
+
 class Level:
     def __init__(self, game, name):
         self.sky_on = False
@@ -432,6 +473,11 @@ class Level:
             b = _box(x0, y0, z0, x1, y1, z1)
             self.paint("exit", b[0], b[1], b[2], b[3], b[1] + 0.01, b[5], facing="+y")
         return self
+
+    def cutscene(self, name, play_at_start=False, skippable=True):
+        cs = Cutscene(name, play_at_start, skippable)
+        self.cutscenes = getattr(self, "cutscenes", []) + [cs]
+        return cs
 
     def checkpoint(self, x0, y0, z0, x1, y1, z1, name="checkpoint"):
         self.triggers.append(dict(name=name, box=_box(x0, y0, z0, x1, y1, z1), kind=3, to=0))

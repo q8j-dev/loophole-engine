@@ -246,6 +246,34 @@ v.ambient("birds", -40, -40, 0, 40)
 
 Some sounds come for free: outdoor levels have a soft wind, forests have birds (snowy forests have wind), lakes and rivers lap at the shore, and a `firepit` crackles. A level plays up to 12 sounds.
 
+## Cutscenes
+
+A cutscene is a timeline of camera moves, subtitles, fades and object moves. Times are in seconds from the start.
+
+```python
+intro = lab.cutscene("intro", play_at_start=True)
+intro.camera(0, (6, 5, 13), turn=0, tilt=-15)
+intro.camera(3, (2, 3, 3), turn=-50, tilt=-12)
+intro.subtitle(0.5, "Welcome to the lab", duration=2)
+intro.move(1, "cube", (6, 0.34, 6), over=1.5)
+intro.open(2, "door")
+intro.sound(2, "door_open")
+intro.fade(3, to=1, over=0.5)
+```
+
+| Method | What it does |
+| --- | --- |
+| `level.cutscene(name, play_at_start=False, skippable=True)` | Makes a cutscene and returns it. With `play_at_start=True` it plays when the level starts. |
+| `camera(t, (x, y, z), turn=0, tilt=0)` | A camera position at time `t`. The camera glides smoothly between these. |
+| `subtitle(t, text, duration=3)` | Shows text at the bottom of the screen. |
+| `fade(t, to=1, over=1)` | Fades the screen to black (`to=1`) or back (`to=0`). |
+| `move(t, name, (x, y, z), over=1)` | Slides an object to a new spot. |
+| `open(t, name, value=1)` | Opens or closes a door. |
+| `sound(t, name)` | Plays a sound. |
+| `broadcast(t, message)` | Sends a broadcast to your scripts. |
+
+While a cutscene plays the player can't move. Jump or use skips to the end unless `skippable=False`. Afterwards the camera goes back to normal and `cutscene done` and `cutscene done <name>` are sent.
+
 ## Zones
 
 | Method | What it does |

@@ -40,7 +40,7 @@ API_VARS = {
     "api_ltrig": "last trigger", "api_water": "water depth", "api_wea": "weather", "api_msg": "message", "api_stat": "status", "quality": "quality",
     "api_touch": "touch controls", "api_gpad": "gamepad", "api_inx": "input x", "api_iny": "input y",
     "api_ijump": "input jump", "api_iuse": "input use", "api_cpx": "checkpoint x", "api_cpy": "checkpoint y",
-    "api_cpz": "checkpoint z", "api_cpyaw": "checkpoint yaw",
+    "api_cpz": "checkpoint z", "api_cpyaw": "checkpoint yaw", "api_cs": "cutscene",
 }
 API_LISTS = {
     "obj_name": "obj name", "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw",
@@ -52,7 +52,7 @@ API_LISTS = {
 }
 ALIASES = {**API_VARS, **API_LISTS}
 FIXED_BROADCASTS = ["level start", "player died", "paused", "resumed", "game complete", "collect", "touch", "enter",
-                    "leave", "sees player"]
+                    "leave", "sees player", "checkpoint", "cutscene done"]
 USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "player z", "player_yaw": "player yaw",
                 "player_pitch": "player pitch", "player_speed": "player speed", "on_ground": "player on ground",
                 "level": "level", "level_name": "level name", "level_time": "level time", "fps": "fps",
@@ -73,7 +73,7 @@ USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "pla
                 "input_use": "input use", "obj_mode": "obj mode", "obj_goal_x": "obj goal x", "obj_goal_z": "obj goal z",
                 "obj_sees_player": "obj sees player", "obj_vx": "obj vx", "obj_vy": "obj vy", "obj_vz": "obj vz",
                 "checkpoint_x": "checkpoint x", "checkpoint_y": "checkpoint y", "checkpoint_z": "checkpoint z",
-                "checkpoint_yaw": "checkpoint yaw", "save_data": "save data"}
+                "checkpoint_yaw": "checkpoint yaw", "save_data": "save data", "cutscene": "cutscene"}
 
 SH = ("shader", "menu", "penPlusShaders")
 UN = ("uniformName", "text", None)
@@ -338,6 +338,30 @@ def ground_relative(L):
 
 
 AUDIO_LISTS = ("AL0", "ALN", "ASN", "AK", "AX", "AY", "AZ", "AX1", "AZ1", "ANR", "AFR", "AV", "AOB")
+CUT_LISTS = ("CSNAME", "CSLV", "CS0", "CSN", "CSDUR", "CSAUTO", "CSKIP", "EVT", "EVK", "EVA", "EVB", "EVC", "EVD",
+             "EVE", "EVF2", "EVS", "EVF", "EVSX", "EVSY", "EVSZ")
+
+
+def cutscene_lists(L, Lv, li):
+    for cs in getattr(Lv, "cutscenes", []):
+        if not cs.events:
+            continue
+        evs = sorted(cs.events, key=lambda e: e[0])
+        L["CSNAME"].append(cs.name)
+        L["CSLV"].append(li)
+        L["CS0"].append(len(L["EVT"]) + 1)
+        L["CSN"].append(len(evs))
+        L["CSDUR"].append(r4(cs.length + 0.05))
+        L["CSAUTO"].append(int(cs.autoplay))
+        L["CSKIP"].append(int(cs.skippable))
+        for t, kind, nums, text in evs:
+            L["EVT"].append(r4(t))
+            L["EVK"].append(kind)
+            for k, v in zip(("EVA", "EVB", "EVC", "EVD", "EVE", "EVF2"), nums):
+                L[k].append(r4(v))
+            L["EVS"].append(text)
+            for k in ("EVF", "EVSX", "EVSY", "EVSZ"):
+                L[k].append(0)
 
 
 def audio_lists(L, Lv):
@@ -661,7 +685,7 @@ def build(world_path, out=None, log=print, cache=None):
     L = {k: [] for k in LIST_NAMES}
     for k in ["GTEX", "GB", "GC", "GH", "GIB", "GNC", "GOX", "GOY", "GOZ", "GR", "GIDW", "GCH0", "CHX", "CHY", "CHZ",
               "CHR", "CHS", "CHO", "CHN", "CHF", "LDET", "LWAT", "LWB0", "LWBN", "WBX0", "WBZ0", "WBX1", "WBZ1", "WBY", "SHX", "SHZ", "SHR", "SHY",
-              *AUDIO_LISTS, *nav.NAV_LISTS]:
+              *AUDIO_LISTS, *nav.NAV_LISTS, *CUT_LISTS]:
         L[k] = []
     groups = []
     lms = {}
@@ -761,6 +785,7 @@ def build(world_path, out=None, log=print, cache=None):
         level_lists(L, Lv, c, meta, li, models, broadcasts)
         L["ATYPES"] = sorted(set(L.get("ATYPES", [])) | audio_lists(L, Lv))
         L["_NAVMAX"] = max(L.get("_NAVMAX", 1), nav.nav_lists(L, Lv, c))
+        cutscene_lists(L, Lv, li)
     L["NDX"] = [1, -1, 0, 0, 1, 1, -1, -1]
     L["NDZ"] = [0, 0, 1, -1, 1, -1, 1, -1]
     for name in ("device", "arms", "player"):
@@ -1483,7 +1508,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     cfg_text = ("Configuration for https://turbowarp.org/\nYou can move, resize, and minimize this comment, "
                 "but don't edit it by hand. This comment can be deleted to remove the stored settings.\n"
                 + json.dumps(tw_cfg, separators=(",", ":")) + " // _twconfig_")
-    api_values = {"checkpoint x": "", "checkpoint y": "", "checkpoint z": "", "checkpoint yaw": "",
+    api_values = {"cutscene": "", "checkpoint x": "", "checkpoint y": "", "checkpoint z": "", "checkpoint yaw": "",
                   "touch controls": 1 if touch is True else 0, "weather": "clear", "message": "", "status": "", "quality": game.quality, "viewmodel": game.viewmodel, "controls": 1, "camera mode": game.camera, "field of view": game.fov,
                   "exposure": 1, "walk speed": game.walk_speed, "jump power": game.jump_power, "gravity": 20.0,
                   "camera distance": game.camera_distance, "camera pitch": game.camera_pitch,

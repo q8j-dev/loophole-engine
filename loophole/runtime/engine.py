@@ -25,6 +25,8 @@ def init():
     TT = 0
     quality = QUALITY
     ixl = "engine IX5"
+    csi = 0
+    api_cs = ""
     hovered = 0
     tdown = 0
     tmode = 0
@@ -553,6 +555,14 @@ def load_level(lv):
     objects_load(lv)
     triggers_load(lv)
     lights_load(lv)
+    if csi > 0:
+        api_cam = csprevcam
+        api_ctl = csprevctl
+        csi = 0
+        api_cs = ""
+    for csk in rep(len(CSNAME)):
+        if CSLV[csk] == lv and CSAUTO[csk] == 1:
+            api_cs = CSNAME[csk]
     set_tex("uLM", "world", join("lm", lv))
     envdirty = 1
     taareset = 1
@@ -820,7 +830,121 @@ def play_step():
     triggers_step()
     if py < LKILL[level]:
         die()
+    cutscene_step()
     api_out()
+
+
+@warp
+def cutscene_step():
+    if csi == 0:
+        if api_cs != "":
+            for csk in rep(len(CSNAME)):
+                if CSNAME[csk] == api_cs and (CSLV[csk] == level or csi == 0):
+                    csi = csk
+            if csi == 0:
+                api_cs = ""
+            else:
+                cst = 0
+                csprevcam = api_cam
+                csprevctl = api_ctl
+                cslast = ""
+                csskipheld = 1
+                api_ctl = 0
+                for csj in rep(CSN[csi]):
+                    EVF[CS0[csi] + csj - 1] = 0
+    else:
+        if api_cs == "":
+            cst = CSDUR[csi] + 1
+        cst += dt
+        if CSKIP[csi] == 1 and cst > 0.3:
+            if ijump == 1 or le == 1:
+                if csskipheld == 0:
+                    cst = CSDUR[csi] + 1
+            else:
+                csskipheld = 0
+        cka = 0
+        ckb = 0
+        for csj in rep(CSN[csi]):
+            ce = CS0[csi] + csj - 1
+            ck = EVK[ce]
+            ct = EVT[ce]
+            if ck == 1:
+                if ct <= cst:
+                    cka = ce
+                elif ckb == 0:
+                    ckb = ce
+            elif cst >= ct:
+                if ck == 2:
+                    if EVF[ce] == 0:
+                        EVF[ce] = 1
+                        api_msg = EVS[ce]
+                        cslast = EVS[ce]
+                    elif EVF[ce] == 1 and cst >= ct + EVA[ce]:
+                        EVF[ce] = 2
+                        if api_msg == EVS[ce]:
+                            api_msg = ""
+                elif ck == 3:
+                    if EVF[ce] == 0:
+                        EVF[ce] = 1
+                        EVSX[ce] = api_fade
+                    if EVF[ce] == 1:
+                        cf = min(1, (cst - ct) / max(EVA[ce], 0.01))
+                        api_fade = EVSX[ce] + (EVB[ce] - EVSX[ce]) * cf
+                        if cf >= 1:
+                            EVF[ce] = 2
+                elif ck == 4:
+                    co = index_of(obj_name, EVS[ce])
+                    if co > 0:
+                        if EVF[ce] == 0:
+                            EVF[ce] = 1
+                            EVSX[ce] = obj_x[co]
+                            EVSY[ce] = obj_y[co]
+                            EVSZ[ce] = obj_z[co]
+                        if EVF[ce] == 1:
+                            cf = min(1, (cst - ct) / max(EVA[ce], 0.01))
+                            cf = cf * cf * (3 - 2 * cf)
+                            obj_x[co] = EVSX[ce] + (EVB[ce] - EVSX[ce]) * cf
+                            obj_y[co] = EVSY[ce] + (EVC[ce] - EVSY[ce]) * cf
+                            obj_z[co] = EVSZ[ce] + (EVD[ce] - EVSZ[ce]) * cf
+                            if cf >= 1:
+                                EVF[ce] = 2
+                elif EVF[ce] == 0:
+                    EVF[ce] = 1
+                    if ck == 5:
+                        play(EVS[ce])
+                    elif ck == 6:
+                        co = index_of(obj_name, EVS[ce])
+                        if co > 0:
+                            obj_open[co] = EVA[ce]
+                    elif ck == 7:
+                        broadcast(EVS[ce])
+        if cka > 0 or ckb > 0:
+            api_cam = 1
+            if cka > 0 and ckb > 0:
+                cf = (cst - EVT[cka]) / max(EVT[ckb] - EVT[cka], 0.01)
+                cf = cf * cf * (3 - 2 * cf)
+                api_cx = EVA[cka] + (EVA[ckb] - EVA[cka]) * cf
+                api_cy = EVB[cka] + (EVB[ckb] - EVB[cka]) * cf
+                api_cz = EVC[cka] + (EVC[ckb] - EVC[cka]) * cf
+                api_cyaw = EVD[cka] + ((EVD[ckb] - EVD[cka] + 540) % 360 - 180) * cf
+                api_cpitch = EVE[cka] + (EVE[ckb] - EVE[cka]) * cf
+            else:
+                if cka == 0:
+                    cka = ckb
+                api_cx = EVA[cka]
+                api_cy = EVB[cka]
+                api_cz = EVC[cka]
+                api_cyaw = EVD[cka]
+                api_cpitch = EVE[cka]
+        if cst > CSDUR[csi]:
+            if cslast != "" and api_msg == cslast:
+                api_msg = ""
+            api_cam = csprevcam
+            api_ctl = csprevctl
+            broadcast("cutscene done")
+            broadcast(join("cutscene done ", CSNAME[csi]))
+            csi = 0
+            api_cs = ""
 
 
 @warp
