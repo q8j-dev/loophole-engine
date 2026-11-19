@@ -32,6 +32,7 @@ def init():
     api_ctl = 1
     api_cam = CAM0
     cullon = 1
+    detm = 0
     mklist(QON, 2)
     mklist(QCX, 2)
     mklist(QCY, 2)
@@ -192,7 +193,7 @@ def tick():
         frames = 0
         t0 = timer()
         if AUTOQ == 1 and state == 1 and quality > 1:
-            if fps < 36:
+            if fps < 36 or (fps < 50 and quality > 2):
                 lowq += 1
             else:
                 lowq = 0
@@ -401,7 +402,7 @@ def sky_load(lv):
     set_vec3("uFogSun", "world", SKY[sb], SKY[sb + 1], SKY[sb + 2])
     set_vec4("uSunC", "world", SKY[sb + 3], SKY[sb + 4], SKY[sb + 5], LSUN[level])
     set_vec4("uWind", "world", LWX[level], LWZ[level], LWS[level], 0)
-    set_vec4("uLOD", "world", 12, 26, 0, 0)
+    set_vec4("uLOD", "world", 20, 12, 0, 0)
     set_vec4("uRay", "haze", LRAY[level], 0, 0, 0)
     set_vec4("uWind", "grass", LWX[level], LWZ[level], LWS[level], 0)
     set_vec3("uSkyA", "world", SKY[sb + 6] * 0.35 + SKY[sb + 10] * 0.12, SKY[sb + 7] * 0.35 + SKY[sb + 11] * 0.12, SKY[sb + 8] * 0.35 + SKY[sb + 12] * 0.12)
@@ -1880,6 +1881,10 @@ def draw_scene(vq):
     model_id()
     set_vec4("uMode", "world", 0, 1, 0, 0)
     draw_geo(GIDW[level])
+    if LDET[level] > 0:
+        detm = 1
+        draw_geo(LDET[level])
+        detm = 0
     for dk in rep(nobj):
         if obj_visible[dk] == 1:
             draw_obj(dk)
@@ -2056,6 +2061,11 @@ def draw_geo(gi):
     set_tex("uGeo", "world", GTEX[gi])
     tex_filter(9729)
     set_vec4("uGeoP", "world", GOX[gi], GOY[gi], GOZ[gi], GR[gi])
+    if detm == 1 and GNC[gi] == 0:
+        gdx = GOX[gi] + GR[gi] * 0.5 - ccx
+        gdz = GOZ[gi] + GR[gi] * 0.5 - ccz
+        if sqrt(gdx * gdx + gdz * gdz) - GR[gi] * 0.8 > 32:
+            return
     if GNC[gi] == 0:
         set_vec4("uGeoI", "world", GB[gi], GC[gi], GH[gi], GIB[gi])
         draw_list("ICS", "world")
@@ -2070,7 +2080,9 @@ def draw_geo(gi):
                 gcz = CHZ[gch] - ccz
                 gr_ = CHR[gch]
                 gz_ = gcx * cfx + gcy * cfy + gcz * cfz
-                if gz_ < 0 - gr_:
+                if detm == 1 and sqrt(gcx * gcx + gcy * gcy + gcz * gcz) - gr_ > 32:
+                    gvis = 0
+                elif gz_ < 0 - gr_:
                     gvis = 0
                 elif abs(gcx * crx + gcy * cry + gcz * crz) * PFX - gr_ * (1 + PFX) > gz_:
                     gvis = 0

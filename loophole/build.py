@@ -519,7 +519,7 @@ def build(world_path, out=None, log=print, cache=None):
     log(f"loophole {ENGINE_VERSION}: building '{game.title}' ({len(game.levels)} level{'s' * (len(game.levels) != 1)})")
     L = {k: [] for k in LIST_NAMES}
     for k in ["GTEX", "GB", "GC", "GH", "GIB", "GNC", "GOX", "GOY", "GOZ", "GR", "GIDW", "GCH0", "CHX", "CHY", "CHZ",
-              "CHR"]:
+              "CHR", "LDET"]:
         L[k] = []
     groups = []
     lms = {}
@@ -562,19 +562,34 @@ def build(world_path, out=None, log=print, cache=None):
                 T_ = np.concatenate([T_, np.zeros((n, 3))])
             has_terrain = True
         used_ids.update(np.unique(M_).astype(int).tolist())
-        order, spheres = spatial_order(P_)
+        F_ = np.asarray(F_, float).copy()
+        bbv = np.nonzero(F_ > 5.5)[0]
+        if len(bbv):
+            hc = np.round(P_[bbv] * 37.0).astype(np.int64)
+            hv = ((hc[:, 0] * 73856093) ^ (hc[:, 1] * 19349663) ^ (hc[:, 2] * 83492791)) & 1023
+            F_[bbv[hv > 358]] = 7.0
+        tri_det = F_.reshape(-1, 3)[:, 0] > 6.5
         cols = [P_, N_, UV_, M_, A_, S_, I_, F_, T_]
-        P_, N_, UV_, M_, A_, S_, I_, F_, T_ = [x.reshape(-1, 3, *x.shape[1:])[order].reshape(x.shape) for x in cols]
-        pk = geo.Pack()
-        info = pk.add(P_, N_, UV_, M_, A_, S_, irr=I_, flag=F_, tan=T_)
-        gid_ = models.reg(info, f"g{li}")
-        L["GIDW"].append(gid_)
-        if info["count"] > geo.SCHUNK * 3:
-            L["GCH0"][gid_ - 1] = len(L["CHX"]) + 1
-            for (cx, cy, cz, cr) in spheres:
-                for k_, v_ in zip(("CHX", "CHY", "CHZ", "CHR"), (cx, cy, cz, cr)):
-                    L[k_].append(r4(v_))
-        groups.append((f"g{li}", pk))
+        for part, sel in (("", ~tri_det), ("d", tri_det)):
+            if part == "d" and not sel.any():
+                L["LDET"].append(0)
+                continue
+            sub = [x.reshape(-1, 3, *x.shape[1:])[sel].reshape(-1, *x.shape[1:]) for x in cols]
+            order, spheres = spatial_order(sub[0])
+            sub = [x.reshape(-1, 3, *x.shape[1:])[order].reshape(x.shape) for x in sub]
+            pk = geo.Pack()
+            info = pk.add(sub[0], sub[1], sub[2], sub[3], sub[4], sub[5], irr=sub[6], flag=sub[7], tan=sub[8])
+            gid_ = models.reg(info, f"g{li}{part}")
+            if part == "":
+                L["GIDW"].append(gid_)
+            else:
+                L["LDET"].append(gid_)
+            if info["count"] > geo.SCHUNK * 3:
+                L["GCH0"][gid_ - 1] = len(L["CHX"]) + 1
+                for (cx, cy, cz, cr) in spheres:
+                    for k_, v_ in zip(("CHX", "CHY", "CHZ", "CHR"), (cx, cy, cz, cr)):
+                        L[k_].append(r4(v_))
+            groups.append((f"g{li}{part}", pk))
         level_lists(L, Lv, c, meta, li, models, broadcasts)
     for name in ("device", "arms", "player"):
         gid, _, _ = models.builtin(name)

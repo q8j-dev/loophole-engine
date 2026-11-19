@@ -542,7 +542,7 @@ class Level:
             taken = [(x, z, 1.4) for x, z, _ in trees]
             under = [("bush", 3), ("fern", 4), ("grass", 3)]
             if "log" in self._kinds():
-                under.append(("log", 1))
+                under.append(("log", 0.35))
             self.scatter(under, x0, z0, x1, z1, spacing=2.2 / d ** 0.5, scale=(0.7, 1.2), seed=seed + 1,
                          clearance=0.4, taken=taken)
             rocks = [("boulder", 1), ("rock", 2), ("stump", 1)]

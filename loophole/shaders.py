@@ -186,16 +186,25 @@ void main() {
   vec3 aPos = (ta * 256.0 + tb) / 65535.0 * uGeoP.w + uGeoP.xyz;
   vTan = gt(7.0) / 255.0 * 2.0 - 1.0;
   float lodk = 1.0;
-  if (t5.z > 4.5 && t5.z < 6.5 && uLOD.x > 0.0) {
+  if (t5.z > 4.5 && t5.z < 7.5 && uLOD.x > 0.0) {
     vec3 lw = uMP + uMX * aPos.x + uMY * aPos.y + uMZ * aPos.z;
     float ld = length(lw - uCP);
-    bool bb = t5.z > 5.5;
-    vec3 hk = bb ? aPos : aPos * 0.0 + vTan * 13.0 + floor(aPos * 0.7);
+    vec3 hk = t5.z > 5.5 ? aPos : vTan * 13.0 + floor(aPos * 0.7);
     float hh = fract(sin(dot(floor(hk * 61.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-    lodk = bb ? clamp(1.0 - (ld - uLOD.x) / uLOD.y, 0.2, 1.0) : clamp(1.0 - (ld - uLOD.x * 1.5) / (uLOD.y * 1.6), 0.4, 1.0);
-    if (hh > lodk) {
-      gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
-      return;
+    float fd = smoothstep(uLOD.x, uLOD.x + uLOD.y, ld);
+    if (t5.z > 6.5) {
+      if (hh < fd) {
+        gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+        return;
+      }
+    } else if (t5.z > 5.5) {
+      lodk = mix(1.0, 0.35, fd);
+    } else {
+      float kp = clamp(1.0 - (ld - uLOD.x * 1.5) / (uLOD.y * 1.6), 0.4, 1.0);
+      if (hh > kp) {
+        gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+        return;
+      }
     }
   }
   vec3 tn = gt(2.0);
@@ -244,14 +253,14 @@ void main() {
   }
   vBA = ba;
   vec3 w = uMP + uMX * aPos.x + uMY * aPos.y + uMZ * aPos.z;
-  if (t5.z > 5.5 && t5.z < 6.5) {
+  if (t5.z > 5.5 && t5.z < 7.5) {
     vec3 off = vTan * 2.5 * inversesqrt(lodk);
     float ra = fract(sin(dot(floor(w * 7.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453) * 6.2831;
     vec2 ro = vec2(off.x * cos(ra) - off.y * sin(ra), off.x * sin(ra) + off.y * cos(ra));
     w += uCR * ro.x + uCU * ro.y;
     vTan = -uCF;
   }
-  if (t5.z > 4.5 && t5.z < 6.5) {
+  if (t5.z > 4.5 && t5.z < 7.5) {
     float sw = vAO;
     vAO = 1.0;
     vec3 tree = uMP;
@@ -571,7 +580,7 @@ void main() {
       return;
     }
   }
-  bool leaf = vIrr.w > 4.5 && vIrr.w < 6.5;
+  bool leaf = vIrr.w > 4.5 && vIrr.w < 7.5;
   if (vMat > 76.5 && vMat < 77.5) {
     vec2 bp = mod(floor(gl_FragCoord.xy), 4.0);
     float bay = mod(bp.x * 4.0 + bp.y * 13.0 + floor(u_timer * 60.0) * 5.0, 16.0) / 16.0;

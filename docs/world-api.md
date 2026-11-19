@@ -34,7 +34,7 @@ Game(title="My Game", viewmodel="none", viewmodels=None, hand_color="cyan", qual
 | `viewmodels` | Extra viewmodels a script can switch to by setting the `viewmodel` variable. |
 | `hand_color` | Glow colour of the device. |
 | `quality` | Starting render resolution from 1 (fastest) to 4 (sharpest). |
-| `auto_quality` | On by default. Steps `quality` down when the frame rate stays under about 36, so games stay playable on slow computers. |
+| `auto_quality` | On by default. Steps `quality` down to 2 when the frame rate stays under 50, and to 1 under 36, so games stay smooth on slower computers. |
 | `fov` | Vertical field of view in degrees. |
 | `start_level` | Level number to start on. |
 | `camera` | `"first person"`, `"third person"`, `"top down"` or `"free"`. Scripts can change it with `camera mode`. |
