@@ -424,7 +424,7 @@ def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=440, tint=(
     return m.save(name)
 
 
-def pine(name, seed, src, height=8.0, whorls=22):
+def pine(name, seed, src, height=8.0, whorls=14, bare=0.18, width=0.3, shape=1.0, droop=0.25, gap=0.22, tint=(0.46, 0.6, 0.42)):
     rng = np.random.default_rng(seed)
     tw = load_rgba(src, "pine_tree_01__twig_diff.jpg", "pine_tree_01__twig_alpha.png")
     twigs = sorted(sprites(tw, 4000, max_fill=0.5, max_frac=0.12), key=lambda s: -s.size[0] * s.size[1])[:2]
@@ -442,51 +442,54 @@ def pine(name, seed, src, height=8.0, whorls=22):
     for k in range(4):
         card = needle_card(twigs, 512, seed * 11 + k)
         al, nm, rm = rgba_to_maps(card, 0.65)
-        al = al * np.array([0.46, 0.6, 0.42])
+        al = al * np.array(tint)
         tile[k * 256:(k + 1) * 256, TILE // 2:] = al
         ntile[k * 256:(k + 1) * 256, TILE // 2:] = nm
         rtile[k * 256:(k + 1) * 256, TILE // 2:] = rm
     m = Mesh()
-    tp = [np.array([0.0, y, 0.0]) + np.array([rng.normal(0, 0.03), 0, rng.normal(0, 0.03)]) * (y > 0) for y in
-          np.linspace(0, height, 10)]
-    m.tube(tp, [0.2 * (1 - 0.85 * i / 9) + 0.02 for i in range(10)], 0.0, 0.5, 0.0, 1.0, segs=10,
+    lean = np.array([rng.normal(0, 0.06), 0, rng.normal(0, 0.06)]) * height
+    def axis(y):
+        f = y / height
+        return np.array([0.0, y, 0.0]) + lean * f * f
+    tp = [axis(y) + np.array([rng.normal(0, 0.03), 0, rng.normal(0, 0.03)]) * (y > 0) for y in np.linspace(0, height, 10)]
+    m.tube(tp, [0.22 * (1 - 0.85 * i / 9) + 0.02 for i in range(10)], 0.0, 0.5, 0.0, 1.0, segs=10,
            sway=[0.03 * i / 9 for i in range(10)])
-    for w in range(whorls):
-        t = (w + 1) / (whorls + 1)
-        y = height * (0.18 + 0.8 * t)
-        L0 = ((1 - t) * height * 0.32 + 0.35) * (1.12 if w % 2 == 0 else 0.82) * rng.uniform(0.85, 1.1)
-        nb = int(rng.integers(9, 13))
+    ys = []
+    y = height * bare
+    while y < height * 0.95:
+        ys.append(y)
+        y += height * (0.95 - bare) / whorls * rng.uniform(0.6, 1.5)
+    for wi, y in enumerate(ys):
+        t = (y - height * bare) / (height * (0.95 - bare))
+        L0 = ((1 - t) ** shape * height * width + 0.3) * rng.uniform(0.8, 1.15)
+        nb = int(rng.integers(5, 9))
+        off = rng.uniform(0, 2 * math.pi)
+        st = axis(y)
         for b in range(nb):
-            if rng.random() < 0.18:
+            if rng.random() < gap:
                 continue
-            L = L0 * rng.uniform(0.7, 1.2)
-            ang = 2 * math.pi * (b + rng.random() * 0.6) / nb + w * 0.7
-            d = np.array([math.cos(ang), 0.0, math.sin(ang)])
+            L = L0 * rng.uniform(0.6, 1.25)
+            ang = off + 2 * math.pi * (b + rng.uniform(-0.3, 0.3)) / nb
+            dr = droop * (0.4 + 0.8 * (1 - t)) + rng.normal(0, 0.08)
+            d = np.array([math.cos(ang), -dr + 0.15 * t, math.sin(ang)])
+            d /= np.linalg.norm(d)
+            side = np.cross(np.array([0.0, 1.0, 0.0]), d)
+            side /= np.linalg.norm(side)
+            vert = np.cross(d, side)
+            m.tube([st, st + d * L * 0.85], [0.035 * (1 - t * 0.6), 0.01], 0.0, 0.5, 0.0, 0.2, segs=3,
+                   sway=[0.05, 0.5])
             k = int(rng.integers(0, 4))
             rect = (0.5, k * 0.25, 1.0, (k + 1) * 0.25)
-            st = np.array([0.0, y, 0.0])
-            upv = d * 0.95 + np.array([0, 0.12 - 0.3 * (1 - t), 0])
-            upv /= np.linalg.norm(upv)
-            side = np.array([-d[2], 0, d[0]])
-            vert = np.cross(side, upv)
-            if vert[1] < 0:
-                vert = -vert
-            nrm = np.array([d[0] * 0.85, 0.5, d[2] * 0.85])
-            for sgn in (-1, 0, 1):
-                right = side * math.cos(sgn * 0.9) + vert * math.sin(sgn * 0.9)
-                m.card(st, right, upv, L * 0.7, L, rect, nrm, sway=0.6 + 0.4 * (1 - t), bend=0.22)
-        for f in range(3):
-            ang = rng.uniform(0, 2 * math.pi)
-            d = np.array([math.cos(ang), 0.0, math.sin(ang)])
-            k = int(rng.integers(0, 4))
-            fl = L * 0.55
-            m.card(np.array([0.0, y - fl * 0.2, 0.0]), np.array([-d[2], 0, d[0]]), d * 0.6 + np.array([0, 0.8, 0]),
-                   fl * 0.8, fl, (0.5, k * 0.25, 1.0, (k + 1) * 0.25), np.array([d[0] * 0.5, 0.85, d[2] * 0.5]),
-                   sway=0.3)
+            h = L * 0.62
+            nrm = d * 0.6 + np.array([0, 0.7, 0])
+            for upv in (side * 0.94 + vert * 0.34, vert * 0.9 + side * 0.3):
+                upv = upv / np.linalg.norm(upv)
+                m.card(st + d * L * 0.5 - upv * h * 0.5, d, upv, L, h, rect, nrm, sway=0.6 + 0.4 * (1 - t))
+    top = axis(height * 0.97)
     for q in range(3):
         ang = q * math.pi / 3
         right = np.array([math.cos(ang), 0, math.sin(ang)])
-        m.card(np.array([0, height * 0.9, 0]), right, np.array([0, 1.0, 0]), 0.6, height * 0.16,
+        m.card(top - np.array([0, height * 0.1, 0]), np.array([0, 1.0, 0]), right, height * 0.16, 0.5,
                (0.5, 0.0, 1.0, 0.25), np.array([0, 1.0, 0]), sway=1.0)
     save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
     return m.save(name)
@@ -604,7 +607,10 @@ def main():
     print("oak", broadleaf("oak", 3, src, bark))
     print("birch", broadleaf("birch", 9, src, bark, height=7.5, crown=2.1,
                              clusters=330, tint=(1.5, 1.45, 1.35), leaf_tint=np.array([1.05, 1.08, 0.9])))
-    print("pine", pine("pine", 5, src))
+    print("pine", pine("pine", 5, src, height=9.0, whorls=11, bare=0.4, width=0.26, shape=0.6, droop=0.1, gap=0.3,
+                       tint=(0.5, 0.6, 0.4)))
+    print("spruce", pine("spruce", 8, src, height=10.0, whorls=17, bare=0.1, width=0.26, shape=1.1, droop=0.42,
+                         gap=0.15, tint=(0.44, 0.58, 0.45)))
     print("bush", bush("bush", 2, src))
     print("grass", clump("grass", 4, src, "grass_medium_01__Diffuse.jpg", "grass_medium_01__Alpha.png", 5, size=0.7,
                          cards=3, count=3, spread=0.3, rough=0.75, tint=(0.95, 1.0, 0.85), region=(0.62, 1.0),
