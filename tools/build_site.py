@@ -14,6 +14,7 @@ EXAMPLES = [
     ("portals", "Portal Lab", ROOT / "examples" / "portals", "Portal-Lab.sb3"),
     ("woods", "Autumn Woods", ROOT / "examples" / "woods", "Autumn-Woods.sb3"),
     ("journey", "The Long Walk", ROOT / "examples" / "journey", "The-Long-Walk.sb3"),
+    ("racing", "Kart Cup", ROOT / "examples" / "racing", "Kart-Cup.sb3"),
 ]
 EXT = {"penPlus.js": "https://extensions.turbowarp.org/obviousAlexC/penPlus.js",
        "pointerlock.js": "https://extensions.turbowarp.org/pointerlock.js",

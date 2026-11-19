@@ -186,22 +186,35 @@ class Grid:
         dist = np.full(n, np.inf)
         act = np.arange(n)
         prev = self.idx(P + D * t0)
-        t = t0 + STEP
+        t = np.full(n, t0 + STEP)
         top = self.shape[1]
-        while len(act) and t < tmax:
-            I = self.idx(P[act] + D[act] * t)
+        if self.outdoor:
+            dil, csz = self.skip_map()
+            hz = np.sqrt(D[:, 0] ** 2 + D[:, 2] ** 2)
+            jump_len = np.maximum(STEP, csz / np.maximum(hz, 0.05))
+            upw = D[:, 1] >= 0
+        while len(act):
+            live = t[act] < tmax
+            act = act[live]
+            prev = prev[live]
+            if not len(act):
+                break
+            Q = P[act] + D[act] * t[act, None]
+            I = self.idx(Q)
             if self.outdoor:
                 up = np.any((I >= self.shape) | (I < 0), axis=1) & (I[:, 1] >= 0)
                 if up.any():
                     act = act[~up]
                     prev = prev[~up]
                     I = I[~up]
+                    Q = Q[~up]
             elif self.open_top:
                 up = I[:, 1] >= top
                 if up.any():
                     act = act[~up]
                     prev = prev[~up]
                     I = I[~up]
+                    Q = Q[~up]
             s = self.is_solid(I)
             if s.any():
                 a = act[s]
@@ -212,10 +225,19 @@ class Grid:
                 ok = ch.any(1)
                 cell[a[ok]] = Is[ok]
                 axis[a[ok]] = ax[ok]
-                dist[a[ok]] = t
+                dist[a[ok]] = t[a[ok]]
             prev = I[~s]
             act = act[~s]
-            t += STEP
+            Q = Q[~s]
+            stp = np.full(len(act), STEP)
+            if self.outdoor and len(act):
+                cx = np.floor((Q[:, 0] - self.origin[0]) / csz).astype(np.int64)
+                cz = np.floor((Q[:, 2] - self.origin[2]) / csz).astype(np.int64)
+                inm = (cx >= 0) & (cz >= 0) & (cx < dil.shape[0]) & (cz < dil.shape[1])
+                mh = np.full(len(act), -1e9)
+                mh[inm] = dil[cx[inm], cz[inm]]
+                stp = np.where(upw[act] & (Q[:, 1] > mh + 0.02), jump_len[act], STEP)
+            t[act] += stp
         return cell, axis, dist
 
 
