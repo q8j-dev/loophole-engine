@@ -375,7 +375,10 @@ function frame(lv) {
   if (framed === key) return;
   framed = key;
   const b = new THREE.Box3();
-  for (const [call, g] of groups) if (call >= 0) b.expandByObject(g);
+  for (const [call, g] of groups) {
+    const c = desc.calls[call];
+    if (call >= 0 && !(c && (c.method === 'sound' || c.method === 'ambient'))) b.expandByObject(g);
+  }
   if (b.isEmpty()) b.set(new THREE.Vector3(-10, 0, -10), new THREE.Vector3(10, 4, 10));
   const c = b.getCenter(new THREE.Vector3());
   const r = Math.max(6, b.getSize(new THREE.Vector3()).length() * 0.55);
