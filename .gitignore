@@ -8,4 +8,5 @@ dist/
 *.sb3.tmp
 tools/harness/node_modules
 tools/harness/ext/
+tools/harness/*.png
 .DS_Store
