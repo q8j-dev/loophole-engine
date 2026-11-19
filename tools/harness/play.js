@@ -41,8 +41,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     if (cmd === 'wait') await sleep(+a);
     else if (cmd === 'shot') await page.screenshot({path: path.join(out, a + '.png')});
     else if (cmd === 'log') await log(a || 'log');
-    else if (cmd === 'set') await page.evaluate((n, x) => setv(n, isNaN(+x) ? x : +x), a, b);
+    else if (cmd === 'set') await page.evaluate((n, x) => setv(n, x === undefined || x === '' || isNaN(+x) ? (x || '') : +x), a, b);
     else if (cmd === 'item') await page.evaluate((n, i, x) => { Lst(n).value[+i - 1] = isNaN(+x) ? x : +x; Lst(n)._monitorUpToDate = false; }, a, b, c);
+    else if (cmd === 'recstart') { global.recOn = true; global.recDone = (async () => { let i = 0; while (global.recOn) { await page.screenshot({path: path.join(out, `${a}_${String(i++).padStart(3, '0')}.png`)}); await sleep(+(b || 40)); } })(); }
+    else if (cmd === 'recstop') { global.recOn = false; await global.recDone; }
+    else if (cmd === 'rec') { for (let i = 0; i < +a; i++) { await page.screenshot({path: path.join(out, `${b}_${String(i).padStart(3, '0')}.png`)}); await sleep(+(c || 60)); } }
     else if (cmd === 'get') console.log('VAR', a, JSON.stringify(await page.evaluate(n => getv(n), a)));
     else if (cmd === 'list') console.log('LIST', a, JSON.stringify(await page.evaluate(n => Lst(n).value, a)));
     else if (cmd === 'pos') await page.evaluate((x, y, z) => { setv('player x', x); setv('player y', y); setv('player z', z); }, +a, +b, +c);

@@ -1632,7 +1632,7 @@ def frame_uniforms():
         set_vec2("uCut", "world", 0, 0)
         set_vec2("uCut", "haze", 0, 0)
     if api_cam >= 2:
-        set_vec2("uNF", "world", 1.2, 3.2)
+        set_vec2("uNF", "world", 0.6, 1.9)
     else:
         set_vec2("uNF", "world", 0, 0.001)
     if api_cam == 0:
