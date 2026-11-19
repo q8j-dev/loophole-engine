@@ -41,6 +41,7 @@ API_VARS = {
     "api_touch": "touch controls", "api_gpad": "gamepad", "api_inx": "input x", "api_iny": "input y",
     "api_ijump": "input jump", "api_iuse": "input use", "api_cpx": "checkpoint x", "api_cpy": "checkpoint y",
     "api_cpz": "checkpoint z", "api_cpyaw": "checkpoint yaw", "api_cs": "cutscene",
+    "api_hp": "health", "api_hpmax": "max health", "api_atk": "attack", "api_thr": "throw",
 }
 API_LISTS = {
     "obj_name": "obj name", "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw",
@@ -49,10 +50,11 @@ API_LISTS = {
     "snd_q": "sound queue", "light_name": "light name", "light_power": "light power", "trig_name": "trigger name",
     "trig_in": "trigger inside", "obj_mode": "obj mode", "obj_gx": "obj goal x", "obj_gz": "obj goal z",
     "obj_sees": "obj sees player", "OVX": "obj vx", "OVY": "obj vy", "OVZ": "obj vz", "save_data": "save data",
+    "obj_hp": "obj health",
 }
 ALIASES = {**API_VARS, **API_LISTS}
 FIXED_BROADCASTS = ["level start", "player died", "paused", "resumed", "game complete", "collect", "touch", "enter",
-                    "leave", "sees player", "checkpoint", "cutscene done"]
+                    "leave", "sees player", "checkpoint", "cutscene done", "defeated", "player hurt"]
 USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "player z", "player_yaw": "player yaw",
                 "player_pitch": "player pitch", "player_speed": "player speed", "on_ground": "player on ground",
                 "level": "level", "level_name": "level name", "level_time": "level time", "fps": "fps",
@@ -73,7 +75,9 @@ USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "pla
                 "input_use": "input use", "obj_mode": "obj mode", "obj_goal_x": "obj goal x", "obj_goal_z": "obj goal z",
                 "obj_sees_player": "obj sees player", "obj_vx": "obj vx", "obj_vy": "obj vy", "obj_vz": "obj vz",
                 "checkpoint_x": "checkpoint x", "checkpoint_y": "checkpoint y", "checkpoint_z": "checkpoint z",
-                "checkpoint_yaw": "checkpoint yaw", "save_data": "save data", "cutscene": "cutscene"}
+                "checkpoint_yaw": "checkpoint yaw", "save_data": "save data", "cutscene": "cutscene",
+                "health": "health", "max_health": "max health", "obj_health": "obj health", "attack": "attack",
+                "throw": "throw"}
 
 SH = ("shader", "menu", "penPlusShaders")
 UN = ("uniformName", "text", None)
@@ -699,6 +703,8 @@ def build(world_path, out=None, log=print, cache=None):
         tiles.update(d[0] for d in Lv.decor)
         tiles.update(o.model for o in Lv.objects if o.model in decor_place.KINDS)
     tiles.update(v for v in game.viewmodels if v in decor_place.KINDS)
+    if getattr(game, "projectiles", 0) and getattr(game, "projectile", None) in decor_place.KINDS:
+        tiles.add(game.projectile)
     if game.player_model != "suit":
         tiles.add(game.player_model)
     if any(getattr(Lv, "lilies", None) for Lv in game.levels):
@@ -711,6 +717,12 @@ def build(world_path, out=None, log=print, cache=None):
     used_ids = set()
     has_terrain = False
     for li, Lv in enumerate(game.levels, start=1):
+        if getattr(game, "projectiles", 0) and not getattr(Lv, "_shots", False):
+            Lv._shots = True
+            from .world import Obj
+            for k in range(game.projectiles):
+                Lv.objects.append(Obj(f"shot{k + 1}", game.projectile, (0.0, -50.0, 0.0), scale=game.projectile_scale,
+                                      visible=False, solid=False, shadow=False, kind=6))
         c = voxelize(Lv, li)
         meta, lm, dirr, tl, rirr = baked(c, Lv, cache, log)
         lms[li] = lm
@@ -825,7 +837,7 @@ LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "
               "DPRY2", "DPRS2", "DPRT2", "DBX", "DBY", "DBZ", "DBCX", "DBCY", "DBCZ", "DSX", "DSY", "DSZ", "DKIND",
               "DPHYS", "DCARRY", "DUSE", "DSHAD", "DSOLID", "DVIS", "DX", "DY", "DZ", "DYAW", "DPITCH", "DROLL",
               "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DHR", "DHG", "DHB", "DBOB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
-              "DPSP", "DPLOOP", "DPFACE", "DMODE", "DSIGHT", "DFOV", "DMASS", "DFRIC", "DBNC", "DPUSH", "DWGT", "DSWG", "DLEN", "DLGT", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
+              "DPSP", "DPLOOP", "DPFACE", "DMODE", "DSIGHT", "DFOV", "DMASS", "DFRIC", "DBNC", "DPUSH", "DWGT", "DSWG", "DLEN", "DLGT", "DHP", "DDMG", "DRNG", "DCHR", "NBM", "NCB0", "NCNJ", "NCCL", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
 
 
 def portal_blockers(L, Lv, c, rects, h0):
@@ -1189,6 +1201,9 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
         if getattr(o, "mode", None):
             broadcasts.add(f"sees {o.name}")
             broadcasts.add(f"lost {o.name}")
+        if getattr(o, "health", 0):
+            broadcasts.add(f"defeated {o.name}")
+            broadcasts.add(f"hit {o.name}")
 
 
 def object_lists(L, o, names, models, Lv):
@@ -1281,6 +1296,10 @@ def object_lists(L, o, names, models, Lv):
     if lname and lname not in getattr(Lv, "_light_index", {}):
         raise SystemExit(f"{Lv.name}: '{o.name}' carries light '{lname}', but no light has name=\"{lname}\"")
     L["DLGT"].append(getattr(Lv, "_light_index", {}).get(lname, 0) if lname else 0)
+    L["DHP"].append(r4(float(getattr(o, "health", 0))))
+    L["DDMG"].append(r4(float(getattr(o, "damage", 1))))
+    L["DRNG"].append(r4(float(getattr(o, "attack_range", 1.5))))
+    L["DCHR"].append(npc_char(L, o.model))
     acc = 0.0
     for i, p in enumerate(path):
         if i > 0:
@@ -1425,6 +1444,9 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     consts = {"NAVMAX": max(1, L.get("_NAVMAX", 1)), "SH2": STAGE_H / 2, "SW2": STAGE_W / 2, "TOUCHA": 1 if touch == "auto" else 0, "TOUCH0": 1 if touch is True else 0,
               "GPAD": 1 if pad else 0, "GP_JUMP": (pad or Game.PAD)["jump"], "GP_USE": (pad or Game.PAD)["use"],
               "GP_CROUCH": (pad or Game.PAD)["crouch"], "GP_PAUSE": (pad or Game.PAD)["pause"],
+              "GP_ATK": (pad or Game.PAD).get("attack", 4), "GP_THR": (pad or Game.PAD).get("throw", 6),
+              "COMBAT": int(bool(getattr(game, "combat_on", False))), "HP0": getattr(game, "health", 3),
+              "PDMG": getattr(game, "melee_damage", 1.0),
               "CHV": geo.CHUNK * 3, "NLEV": len(game.levels), "START_LEVEL": max(1, min(len(game.levels), game.start_level)),
               "QUALITY": game.quality, "FOV": game.fov, "VMDEF": game.viewmodel,
               "CAM0": game.camera, "CDIST0": game.camera_distance, "CPITCH0": game.camera_pitch, "WALK": game.walk_speed, "JUMPV": game.jump_power, "GRAV": 20.0, "FRIC": 5.0, "STOPSPD": 1.9, "ACCEL": 10.0, "AIRACC": 12.0,
@@ -1508,7 +1530,8 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     cfg_text = ("Configuration for https://turbowarp.org/\nYou can move, resize, and minimize this comment, "
                 "but don't edit it by hand. This comment can be deleted to remove the stored settings.\n"
                 + json.dumps(tw_cfg, separators=(",", ":")) + " // _twconfig_")
-    api_values = {"cutscene": "", "checkpoint x": "", "checkpoint y": "", "checkpoint z": "", "checkpoint yaw": "",
+    api_values = {"health": getattr(game, "health", 3), "max health": getattr(game, "health", 3),
+                  "cutscene": "", "checkpoint x": "", "checkpoint y": "", "checkpoint z": "", "checkpoint yaw": "",
                   "touch controls": 1 if touch is True else 0, "weather": "clear", "message": "", "status": "", "quality": game.quality, "viewmodel": game.viewmodel, "controls": 1, "camera mode": game.camera, "field of view": game.fov,
                   "exposure": 1, "walk speed": game.walk_speed, "jump power": game.jump_power, "gravity": 20.0,
                   "camera distance": game.camera_distance, "camera pitch": game.camera_pitch,
@@ -1580,6 +1603,30 @@ def viewmodel_lists(L, game, models):
         L["VMARM"].append(arms)
         for k, v in zip(["VMR", "VMGC", "VMB"], glow):
             L[k].append(r4(v))
+
+
+def npc_char(L, model):
+    from . import character
+    kinds = L.setdefault("_NCHARS", {})
+    if model in kinds:
+        return kinds[model]
+    path = character.anim_path(model)
+    if not path.exists():
+        return 0
+    a = np.load(path)
+    fr = a["frames"]
+    clips = [tuple(map(int, c)) for c in a["clips"]]
+    while len(clips) < len(character.CLIP_ORDER):
+        clips.append(clips[0])
+    for k in ("NBM", "NCB0", "NCNJ", "NCCL"):
+        L.setdefault(k, [])
+    L["NCB0"].append(len(L["NBM"]))
+    L["NCNJ"].append(int(fr.shape[1]))
+    for s, n in clips[:len(character.CLIP_ORDER)]:
+        L["NCCL"] += [s, n]
+    L["NBM"].extend(r4(v) for v in fr.reshape(-1))
+    kinds[model] = len(kinds) + 1
+    return kinds[model]
 
 
 def char_lists(L, game, models):

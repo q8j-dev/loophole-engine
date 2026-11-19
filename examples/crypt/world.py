@@ -2,6 +2,7 @@ from loophole import Game
 
 game = Game("Crypt Crawl", camera="top down", camera_distance=5.5, camera_pitch=56, walk_speed=5.5, player_model="knight")
 game.script("game.py")
+game.combat(health=5)
 
 c = game.level("Crypt")
 c.style("dungeon")
@@ -68,11 +69,11 @@ c.pickup("goblet1", "goblet", 1.6, 0.5, -8.5, scale=2.4, spin=90)
 c.pickup("goblet2", "goblet", 20.4, 0.5, -19.5, scale=2.4, spin=90)
 c.pickup("goblet3", "goblet", 11, 0.5, -20.6, scale=2.4, spin=90)
 
-rat = dict(scale=11, solid=False, highlight=(0.35, 0.03, 0.01), mode="patrol", sight=7, fov=150)
-c.object("rat1", "rat", 2, 0, -4.5, path=[(2, 0, -4.5), (20, 0, -4.5)], speed=2.6, **rat)
-c.object("rat2", "rat", 20, 0, -9.5, path=[(20, 0, -9.5), (14.5, 0, -9.5), (14.5, 0, -15), (7.5, 0, -15),
-                                         (7.5, 0, -9.5), (2, 0, -9.5)], speed=2.2, **rat)
-c.object("rat3", "rat", 2, 0, -15, path=[(2, 0, -15), (2, 0, -20), (20, 0, -20), (20, 0, -15)], speed=2.8, **rat)
+skeleton = dict(solid=False, mode="patrol", sight=7, fov=150, attack_range=1.4, highlight=(0.10, 0.14, 0.2))
+c.object("skeleton1", "skeleton", 2, 0, -4.5, path=[(2, 0, -4.5), (20, 0, -4.5)], speed=1.8, health=3, **skeleton)
+c.object("skeleton2", "skeleton_minion", 20, 0, -9.5, path=[(20, 0, -9.5), (14.5, 0, -9.5), (14.5, 0, -15), (7.5, 0, -15),
+                                                            (7.5, 0, -9.5), (2, 0, -9.5)], speed=1.6, health=2, scale=0.9, **skeleton)
+c.object("skeleton3", "skeleton", 2, 0, -15, path=[(2, 0, -15), (2, 0, -20), (20, 0, -20), (20, 0, -15)], speed=1.9, health=3, **skeleton)
 
 c.object("gate", "statue", 11, 0, -23, scale=1.35, kind=1, slide=-3.6, open_speed=0.5, solid=True, yaw=180)
 c.object("chest", "treasure", 11, 0, -31, scale=1.6, solid=True, highlight=(0.5, 0.36, 0.1))
@@ -83,4 +84,4 @@ intro.camera(0, (11, 2.4, -25.5), turn=0, tilt=-12)
 intro.camera(3.5, (6, 3.6, -14), turn=120, tilt=-22)
 intro.camera(7, (11, 3.3, 9.2), turn=0, tilt=-32)
 intro.subtitle(0.4, "Deep under the old chapel lies a treasure vault", duration=3)
-intro.subtitle(3.8, "Find the 3 golden goblets. Watch out for the rats!", duration=3)
+intro.subtitle(3.8, "Find the 3 golden goblets. Press F to swing your sword!", duration=3)

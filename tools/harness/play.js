@@ -37,6 +37,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     window.key = (k, d) => S.vm.postIOData('keyboard', {key: k === 'space' ? ' ' : k, isDown: d});
     window.lockOn = () => { const e = S.vm.runtime.ext_pointerlock; if (e) { e.isLocked = () => true; } const c = S.vm.renderer && S.vm.renderer.canvas; if (c) { Object.defineProperty(document, 'pointerLockElement', {configurable: true, get: () => c}); document.dispatchEvent(new Event('pointerlockchange')); } };
     if (!window.NOLOCK) lockOn();
+    window.swingNear = () => {
+      const now = performance.now();
+      if (window.fdown) { if (now - window.fdown > 90) { key('f', false); window.fdown = 0; window.flast = now; } return; }
+      if (window.flast && now - window.flast < 450) return;
+      const hp = Lst('obj health').value, ox = Lst('obj x').value, oz = Lst('obj z').value, vis = Lst('obj visible').value;
+      const px = getv('player x'), pz = getv('player z');
+      for (let i = 0; i < hp.length; i++) if (+hp[i] > 0 && +vis[i] === 1 && Math.hypot(ox[i] - px, oz[i] - pz) < 2.3) { key('f', true); window.fdown = now; return; }
+    };
   });
   await sleep(+(process.env.BOOT || 3500));
   const cdpTouch = process.env.TOUCH ? await page.createCDPSession() : null;
@@ -164,10 +172,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         const jp = await page.evaluate(() => [getv('player x'), getv('player y'), getv('player z')]);
         if (global.lastp && Math.hypot(jp[0] - global.lastp[0], jp[1] - global.lastp[1], jp[2] - global.lastp[2]) > 2) { global.lastp = null; break; }
         global.lastp = jp;
+        if (global.autofight) await page.evaluate(() => window.swingNear && window.swingNear());
         await sleep(30);
       }
       await page.evaluate(() => { for (const k of ['w', 'a', 's', 'd']) key(k, false); });
       await sleep(250);
+    }
+    else if (cmd === 'autofight') global.autofight = a !== '0';
+    else if (cmd === 'fight') {
+      const t0 = Date.now();
+      while (Date.now() - t0 < +(a || 3000)) { await page.evaluate(() => window.swingNear()); await sleep(30); }
+      await page.evaluate(() => key('f', false));
     }
     else if (cmd === 'hideui') await page.evaluate(() => { const o = S.vm.runtime.targets.find(t => t.isOriginal && t.getName() === 'Overlay'); if (o) { o.setVisible(false); o.show = () => {}; for (const th of S.vm.runtime.threads.filter(t => t.target === o)) S.vm.runtime._stopThread(th); } });
     else console.log('unknown command', cmd);

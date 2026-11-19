@@ -1,10 +1,7 @@
 @when_broadcast("level start")
 def begin():
     goblets = 0
-    health = 3
-    hurt = 0
-    resting = 0
-    alive = 1
+    beaten = 0
     controls = 1
     fade = 0
     message = "Find the 3 golden goblets"
@@ -27,76 +24,65 @@ def got_goblet():
 
 
 def chase(name):
-    if alive == 1 and resting == 0:
-        obj_mode[index_of(obj_name, name)] = "follow"
-        message = "A rat spotted you!"
+    obj_mode[index_of(obj_name, name)] = "follow"
+    message = "A skeleton spotted you! Press F to fight"
 
 
 def give_up(name):
-    wait(2)
-    rat_number = index_of(obj_name, name)
-    if obj_mode[rat_number] == "follow" and obj_sees_player[rat_number] == 0:
-        obj_mode[rat_number] = "patrol"
+    wait(3)
+    number = index_of(obj_name, name)
+    if obj_mode[number] == "follow" and obj_sees_player[number] == 0 and obj_health[number] > 0:
+        obj_mode[number] = "patrol"
 
 
-@when_broadcast("sees rat1")
+@when_broadcast("sees skeleton1")
 def chase1():
-    chase("rat1")
+    chase("skeleton1")
 
 
-@when_broadcast("sees rat2")
+@when_broadcast("sees skeleton2")
 def chase2():
-    chase("rat2")
+    chase("skeleton2")
 
 
-@when_broadcast("sees rat3")
+@when_broadcast("sees skeleton3")
 def chase3():
-    chase("rat3")
+    chase("skeleton3")
 
 
-@when_broadcast("lost rat1")
+@when_broadcast("lost skeleton1")
 def lost1():
-    give_up("rat1")
+    give_up("skeleton1")
 
 
-@when_broadcast("lost rat2")
+@when_broadcast("lost skeleton2")
 def lost2():
-    give_up("rat2")
+    give_up("skeleton2")
 
 
-@when_broadcast("lost rat3")
+@when_broadcast("lost skeleton3")
 def lost3():
-    give_up("rat3")
+    give_up("skeleton3")
 
 
-@when_broadcast("touch")
-def bitten():
-    if alive == 1 and hurt == 0 and "rat" in last_touched:
-        biter = index_of(obj_name, last_touched)
-        obj_mode[biter] = "flee"
-        hurt = 1
-        health -= 1
-        flash = 0.8
-        show_status()
-        if health <= 0:
-            alive = 0
-            controls = 0
-            message = "The rats got you..."
-            wait(1.5)
-            for i in range(30):
-                fade = (i + 1) / 30
-                wait(0.02)
-            go_to_level = 1
-        else:
-            message = "Ouch! A rat bit you"
-            resting = 1
-            wait(1.2)
-            hurt = 0
-            for rat in range(len(obj_mode)):
-                if obj_mode[rat + 1] == "follow" or obj_mode[rat + 1] == "flee":
-                    obj_mode[rat + 1] = "patrol"
-            wait(2.8)
-            resting = 0
+@when_broadcast("player hurt")
+def hurt():
+    show_status()
+    if health > 0:
+        message = "Ouch!"
+
+
+@when_broadcast("defeated")
+def beat_one():
+    beaten += 1
+    message = join(join("Skeletons beaten: ", beaten), "/3")
+
+
+@when_broadcast("player died")
+def died():
+    message = "The skeletons got you..."
+    wait(2)
+    show_status()
 
 
 @when_broadcast("game complete")

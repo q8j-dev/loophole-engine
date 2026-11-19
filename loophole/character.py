@@ -10,11 +10,15 @@ CLIPS = {
     "walk": ["walking_a", "walk", "walking"],
     "run": ["running_a", "run", "running", "jog"],
     "jump": ["jump_idle", "jump", "fall", "falling"],
+    "attack": ["1h_melee_attack_chop", "unarmed_melee_attack_punch_a", "melee_attack", "attack", "punch"],
+    "hit": ["hit_a", "hit", "hurt"],
+    "death": ["death_c_skeletons", "death_a", "death", "die"],
 }
+CLIP_ORDER = ("idle", "walk", "run", "jump", "attack", "hit", "death")
 FPS = 15
 MAXJ = 32
 ANIMS = {}
-BUILTIN = ("knight", "mage", "rogue", "barbarian")
+BUILTIN = ("knight", "mage", "rogue", "barbarian", "skeleton", "skeleton_minion")
 
 
 def anim_path(name):
@@ -78,9 +82,9 @@ def sample(acc, ch, t):
     return vals[i] + (vals[i + 1] - vals[i]) * f
 
 
-def convert(path, out_dir, name, height=1.8, keep=None, size=512, facing="+z"):
+def convert(path, out_dir, name, height=1.8, keep=None, size=512, facing="+z", attach=()):
     g = open_gltf(path)
-    js, acc, mats = g["js"], g["accessor"], g["mats"]
+    js, acc, mats = g["js"], g["accessor"], list(g["mats"])
     nodes = js["nodes"]
     parent = {}
     for i, nd in enumerate(nodes):
@@ -197,13 +201,43 @@ def convert(path, out_dir, name, height=1.8, keep=None, size=512, facing="+z"):
             M_all.append(np.full(len(idx), prim.get("material", -1)))
     if not P_all:
         raise SystemExit(f"{Path(path).name}: no visible meshes")
+    body = np.concatenate(P_all)
+    names = [nd.get("name", "") for nd in nodes]
+    for apath, slot in attach:
+        if slot not in names:
+            raise SystemExit(f"{Path(path).name}: no node called '{slot}' to attach {Path(apath).name} to")
+        si = names.index(slot)
+        ja = joint_anc(si)
+        ag = open_gltf(apath)
+        aj, aacc = ag["js"], ag["accessor"]
+        moff = len(mats)
+        mats.extend(ag["mats"])
+        for nd in aj["nodes"]:
+            if "mesh" not in nd:
+                continue
+            for prim in aj["meshes"][nd["mesh"]]["primitives"]:
+                at = prim["attributes"]
+                Pa = aacc(at["POSITION"])
+                Na = aacc(at["NORMAL"]) if "NORMAL" in at else None
+                UVa = aacc(at["TEXCOORD_0"]) if "TEXCOORD_0" in at else np.zeros((len(Pa), 2))
+                ia = aacc(prim["indices"]).astype(np.int64).ravel() if "indices" in prim else np.arange(len(Pa))
+                M = G0[si]
+                Pw = (np.c_[Pa, np.ones(len(Pa))] @ M.T)[:, :3]
+                Nw = (Na @ np.linalg.inv(M[:3, :3])) if Na is not None else None
+                if Nw is not None:
+                    Nw = Nw / np.maximum(np.linalg.norm(Nw, axis=1, keepdims=True), 1e-9)
+                P_all.append(Pw[ia])
+                N_all.append(Nw[ia] if Nw is not None else flat_normals(Pw[ia]))
+                UV_all.append(UVa[ia])
+                B_all.append(np.full(len(ia), ja if ja is not None else -1))
+                M_all.append(np.full(len(ia), moff + prim.get("material", 0)))
     P = np.concatenate(P_all)
     N = np.concatenate(N_all)
     UV = np.concatenate(UV_all)
     B = np.concatenate(B_all)
     MI = np.concatenate(M_all)
 
-    lo, hi = P.min(0), P.max(0)
+    lo, hi = body.min(0), body.max(0)
     s = height / max(hi[1] - lo[1], 1e-6)
     T = np.eye(4)
     T[:3, :3] *= s
@@ -223,7 +257,7 @@ def convert(path, out_dir, name, height=1.8, keep=None, size=512, facing="+z"):
 
     clips = {}
     frames = []
-    for k in ("idle", "walk", "run", "jump"):
+    for k in CLIP_ORDER:
         an = chosen[k] or base_clip
         a = anims[an]
         dur = max(float(acc(smp["input"]).max()) for smp in a["samplers"])
@@ -272,7 +306,7 @@ def convert(path, out_dir, name, height=1.8, keep=None, size=512, facing="+z"):
     np.savez_compressed(out_dir / "kit" / f"kit_{name}.npz", pos=P.astype(np.float32), nrm=N.astype(np.float32),
                         uv=UVo.astype(np.float32), tan=Tn.astype(np.float32), bone=bone)
     np.savez_compressed(out_dir / "anim" / f"{name}.npz", frames=frames,
-                        clips=np.array([clips[k] for k in ("idle", "walk", "run", "jump")], np.int32),
+                        clips=np.array([clips[k] for k in CLIP_ORDER], np.int32),
                         fps=np.array([FPS], np.float32))
     from .decor_pack import jpg
     (out_dir / "tiles" / f"{name}_a.jpg").write_bytes(jpg(np.sqrt(np.clip(al, 0, 1) ** 2.2), 92))

@@ -45,7 +45,8 @@ class Obj:
                  solid=True, physics=False, carry=False, use=False, shadow=True, glow=1.0, glow_color=None,
                  collect=False, spin=0.0, path=None, speed=2.0, loop=True, face_path=True, kind=0, opens=None,
                  slide=0.0, open_speed=0.8, texture=None, highlight=None, bob=0.0, mode=None, sight=12.0, fov=140.0,
-                 mass=1.0, friction=0.5, bounce=0.0, push=True, weight=0.5, swing=0.0, length=0.0):
+                 mass=1.0, friction=0.5, bounce=0.0, push=True, weight=0.5, swing=0.0, length=0.0,
+                 health=0, damage=1, attack_range=1.5):
         self.__dict__.update(locals())
         del self.__dict__["self"]
 
@@ -797,8 +798,17 @@ class Game:
         return self
 
     KEYS = {"forward": "w", "back": "s", "left": "a", "right": "d", "jump": "space", "use": "e", "crouch": "shift",
-            "pause": "p", "restart": "r"}
-    PAD = {"jump": 1, "use": 3, "crouch": 2, "pause": 10}
+            "pause": "p", "restart": "r", "attack": "f", "throw": "g"}
+    PAD = {"jump": 1, "use": 3, "crouch": 2, "pause": 10, "attack": 4, "throw": 6}
+
+    def combat(self, health=3, damage=1, projectile=None, projectiles=4, projectile_scale=3.0):
+        self.combat_on = True
+        self.health = int(health)
+        self.melee_damage = float(damage)
+        self.projectile = projectile
+        self.projectiles = int(projectiles) if projectile else 0
+        self.projectile_scale = float(projectile_scale)
+        return self
 
     def controls(self, keys=None, gamepad=None, touch="auto"):
         k = dict(self.KEYS)

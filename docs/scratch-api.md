@@ -22,6 +22,9 @@ A new project comes with a sprite called Helpers. Its My Blocks section has read
 | `rumble controller () for () seconds` | Shakes a connected game controller, strength 0 to 1. |
 | `make [name] follow the player`, `make [name] wander`, `make [name] patrol its path`, `make [name] run away from the player`, `make [name] stop` | Changes what a character does. |
 | `make [name] walk to x () z ()` | Sends a character to a spot. It finds its own way around walls. |
+| `swing sword`, `throw` | The same as pressing F or G. Needs `game.combat()` in `world.py`; `throw` also needs a `projectile`. |
+| `damage [name] by ()` | Takes health from an enemy. At 0 it is defeated. |
+| `heal player by ()` | Gives the player health, up to `max health`. |
 | `show message [text]`, `show message [text] for () seconds` | Big text near the bottom of the screen. |
 | `set status [text]` | Small text in the top left corner. |
 | `teleport player to x () y () z ()` | Moves the player. |
@@ -103,6 +106,16 @@ These combine the keyboard, a game controller and the touch controls, so one scr
 | `input use` | read | 1 while use is held. |
 | `touch controls` | read, set | 1 while the on-screen joystick and buttons are showing. Set it to 1 or 0 to show or hide them. |
 | `gamepad` | read | 1 while a game controller is connected. |
+| `attack`, `throw` | set | Set to 1 to swing or throw once, as if the player pressed F or G. |
+
+### Combat
+
+These work after `game.combat()` in `world.py`.
+
+| Variable | Use | Meaning |
+| --- | --- | --- |
+| `health` | read, set | The player's health. Enemy hits lower it, and at 0 the player respawns with `max health`. |
+| `max health` | read, set | Health after a respawn. Starts at `game.combat(health=...)`. |
 
 ### Game flow
 
@@ -141,6 +154,7 @@ Each object in the current level has one item in every `obj` list, in the order 
 | `obj goal x`, `obj goal z` | read, set | Where a character in `goto` mode walks to. |
 | `obj vx`, `obj vy`, `obj vz` | read, set | Speed of a physics object in metres per second. Set `obj vy` to 6 to throw it up. |
 | `obj sees player` | read | 1 while that character can see the player. |
+| `obj health` | read, set | Health of objects made with `health=`. Set it to 0 to defeat one. |
 | `save data` | read, set | Anything you want kept in a save, like score or health. The save blocks store every item and put them back on load. |
 | `sound queue` | add | Add a sound name and the engine plays it: `alarm`, `arrive`, `boost`, `button`, `click`, `door_close`, `door_open`, `fail`, `hum`, `impact`, `jump`, `land`, `pickup`, `release`, `rumble`, `success`, `unpress`, `whoosh`. |
 
@@ -173,6 +187,9 @@ The engine sends these. Use them with "when I receive".
 | `lost <name>` | That character can no longer see the player. |
 | `checkpoint` | The player walked through a new checkpoint. |
 | `cutscene done` and `cutscene done <name>` | A cutscene finished or was skipped. |
+| `hit <name>` | The player hit that enemy. |
+| `defeated` and `defeated <name>` | An enemy's health reached 0. |
+| `player hurt` | An enemy hit the player. `health` is already lower. |
 
 Use the plain broadcast (`touch`) when you want one script for many objects and check `last touched`. Use the named one (`touch rat1`) when only one object matters.
 

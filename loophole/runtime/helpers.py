@@ -185,6 +185,33 @@ def play_sound_at(name, x, y, z):
     play(name)
 
 
+@block("swing sword")
+def swing_sword():
+    """Hits whatever is in front of the player. Needs game.combat() in world.py."""
+    attack = 1
+
+
+@block("throw")
+def throw_projectile():
+    throw = 1
+
+
+@block("damage %s by %s")
+def damage_object(name, amount):
+    number = index_of(obj_name, name)
+    if number > 0 and obj_health[number] > 0:
+        obj_health[number] = obj_health[number] - amount
+        if obj_health[number] < 1:
+            obj_health[number] = 0
+
+
+@block("heal player by %s")
+def heal_player(amount):
+    health = health + amount
+    if health > max_health:
+        health = max_health
+
+
 @block("rumble controller %s for %s seconds")
 def rumble_controller(strength, seconds):
     """Shakes a connected game controller. Strength goes from 0 to 1."""

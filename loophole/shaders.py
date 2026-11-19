@@ -2086,6 +2086,7 @@ uniform vec4 uJoy;
 uniform vec4 uKnob;
 uniform vec4 uB1;
 uniform vec4 uB2;
+uniform vec4 uB3;
 float px;
 void over(inout vec4 c, vec3 rgb, float a) {
   c.rgb = rgb * a + c.rgb * (1.0 - a);
@@ -2098,7 +2099,13 @@ void button(inout vec4 col, vec2 p, vec4 b, float icon, float k) {
   over(col, vec3(1.0), ring(p, b.xyz, 0.007) * 0.75 * k);
   vec2 q = (p - b.xy) / b.z;
   float g = 0.0;
-  if (icon < 0.5) {
+  if (icon > 1.5) {
+    vec2 r = vec2(q.x + q.y, q.y - q.x) * 0.7071;
+    float blade = step(abs(r.x), 0.085) * step(-0.12, r.y) * step(r.y, 0.62);
+    float guard = step(abs(r.y + 0.2), 0.055) * step(abs(r.x), 0.28);
+    float grip = step(abs(r.x), 0.055) * step(-0.52, r.y) * step(r.y, -0.2);
+    g = max(blade, max(guard, grip));
+  } else if (icon < 0.5) {
     float stem = step(abs(q.x), 0.11) * step(-0.5, q.y) * step(q.y, 0.05);
     float head = step(0.0, q.y) * step(q.y, 0.52) * step(abs(q.x), (0.52 - q.y) * 0.95);
     g = max(stem, head);
@@ -2120,6 +2127,7 @@ void main() {
   over(col, vec3(1.0), disc(p, uKnob.xyz) * (0.5 + 0.35 * uKnob.w) * k);
   button(col, p, uB1, 0.0, k);
   button(col, p, uB2, 1.0, k);
+  if (uB3.z > 0.0) button(col, p, uB3, 2.0, k);
   if (col.a < 0.003) discard;
   gl_FragColor = col;
 }

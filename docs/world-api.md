@@ -55,20 +55,21 @@ Game(title="My Game", viewmodel="none", viewmodels=None, hand_color="cyan", qual
 | `game.model(name, path, scale=1.0, texture=1024, up="y")` | Imports an `.obj`, `.gltf` or `.glb` file as a prop. Use `up="z"` for files exported Z-up. |
 | `game.character(name, path, height=1.8, keep=None, facing="+z")` | Imports a rigged `.glb` or `.gltf` character. It needs a skeleton and an idle or walk animation. Clips named like Idle, Walk, Run and Jump are used automatically. Meshes attached to hand bones are hidden unless you list their node names in `keep`. Up to 32 bones. |
 | `game.controls(keys=None, gamepad=None, touch="auto")` | Changes the controls. See below. |
+| `game.combat(health=3, damage=1, projectile=None, projectiles=4, projectile_scale=3.0)` | Turns on fighting. See [Combat](#combat). |
 
 ### Controls
 
 Keyboard and mouse, game controllers and touch screens all work at once.
 
-- **Keyboard:** WASD to move, mouse to look, space to jump, E to use, shift to crouch, P to pause, R to restart. Arrow keys also look.
-- **Game controller:** left stick moves, right stick looks, A jumps, X uses, B crouches, Start pauses. The controller rumbles when the player dies or collects something.
+- **Keyboard:** WASD to move, mouse to look, space to jump, E to use, shift to crouch, P to pause, R to restart. Arrow keys also look. With `game.combat()`, F swings and G throws.
+- **Game controller:** left stick moves, right stick looks, A jumps, X uses, B crouches, Start pauses, Y swings, RB throws. The controller rumbles when the player dies or collects something.
 - **Touch:** on a tablet or touch Chromebook a joystick appears in the bottom left and jump and use buttons in the bottom right. Up and down on the joystick walk, left and right turn. Drag anywhere else to look around.
 
 ```python
 game.controls(keys={"jump": "up arrow", "use": "f"}, gamepad={"jump": 2}, touch=True)
 ```
 
-`keys` renames any of `forward`, `back`, `left`, `right`, `jump`, `use`, `crouch`, `pause` and `restart` to a Scratch key name. `gamepad` sets the controller button numbers for `jump`, `use`, `crouch` and `pause` (1 is A, 2 is B, 3 is X, 4 is Y, 10 is Start), or `gamepad=False` turns controllers off. `touch="auto"` shows the touch controls when someone touches the screen, `True` always shows them and `False` never does.
+`keys` renames any of `forward`, `back`, `left`, `right`, `jump`, `use`, `crouch`, `pause`, `restart`, `attack` and `throw` to a Scratch key name. `gamepad` sets the controller button numbers for `jump`, `use`, `crouch`, `pause`, `attack` and `throw` (1 is A, 2 is B, 3 is X, 4 is Y, 10 is Start), or `gamepad=False` turns controllers off. `touch="auto"` shows the touch controls when someone touches the screen, `True` always shows them and `False` never does.
 
 ## Level geometry
 
@@ -178,7 +179,7 @@ v.wall_prop("sconce", 8.3, 1.8, -4.5, facing="-x")
 | Village | `woodbarrel`, `winebarrel`, `woodcrate`, `bench`, `firepit`, `streetlamp`, `walllamp`, `toolcart`, `bucket` |
 | Treasure | `apple`, `goblet`, `treasure`, `statue`, `catstatue`, `rat` |
 | Lab | `crate`, `barrel`, `machine`, `tank`, `rack`, `terminal`, `trolley`, `reel`, `toolbox`, `pipe`, `valve`, `duct`, `jbox`, `fan`, `panel`, `tray`, `ramp`, `drain` |
-| Characters | `knight`, `mage`, `rogue`, `barbarian` |
+| Characters | `knight`, `mage`, `rogue`, `barbarian`, `skeleton`, `skeleton_minion` |
 
 Lab helpers: `pipe(*points, radius=1)`, `catwalk(x0, y, z0, x1, z1, rails="both")`, `column(x, z, y0, y1)`, `vent(x0, z0, x1, z1)` and `sparks(x, y, z)`.
 
@@ -213,8 +214,8 @@ Options for any object: `yaw`, `pitch`, `roll`, `scale`, `visible`, `solid`, `ph
 Give an object a `mode` and it moves by itself, finding its way around walls, props and hazards:
 
 ```python
-c.object("rat1", "rat", 2, 0, -4.5, scale=11, solid=False, mode="patrol", sight=7,
-         path=[(2, 0, -4.5), (20, 0, -4.5)], speed=2.6)
+c.object("guard", "skeleton", 2, 0, -4.5, solid=False, mode="patrol", sight=7,
+         path=[(2, 0, -4.5), (20, 0, -4.5)], speed=1.8)
 c.object("ghost", "statue", 10, 0, 5, mode="wander", speed=1.5)
 ```
 
@@ -227,6 +228,21 @@ c.object("ghost", "statue", 10, 0, 5, mode="wander", speed=1.5)
 | `stop` | Stands still. |
 
 `sight` is how far it can see in metres (default 12) and `fov` how wide it looks in degrees (default 140). Walls block its view. When it first sees the player it sends `sees <name>` and `sees player`, and when it loses sight it sends `lost <name>`. Scripts change the mode through the `obj mode` list or the Helpers blocks, so a guard can patrol until it spots you and then give chase. The build works out where characters can walk, at half-metre steps indoors.
+
+Any character model (`knight`, `mage`, `rogue`, `barbarian`, `skeleton`, `skeleton_minion`, or one imported with `game.character`) animates by itself: idle when standing, walk or run when moving, and attack, hit and death clips in a fight.
+
+## Combat
+
+```python
+game.combat(health=5, projectile="apple")
+c.object("skeleton1", "skeleton", 2, 0, -4.5, mode="patrol", health=3, damage=1, path=[...])
+```
+
+`game.combat` gives the player `health` hearts. F (Y on a controller, or the sword button on touch screens) swings at whatever is in front of the player for `damage` points, and in third person and top down the player turns to face the nearest enemy first. With a `projectile` model, G (RB) throws one; `projectiles` sets how many can be in the air at once.
+
+Objects with `health` above 0 can be hit. A hit flashes them, knocks them back and sends `hit <name>`. At 0 they play their death clip, sink away and send `defeated <name>` and `defeated`. A patrolling or wandering enemy that gets hit starts to follow the player.
+
+A following enemy with `damage` above 0 attacks when the player is within `attack_range` metres (default 1.5). Each swing takes 1.7 seconds with a short wind-up and a rest afterwards, so players can dodge or hit back. When the player is hurt, the screen flashes, the controller rumbles and `player hurt` is sent. At 0 health the player respawns at the last checkpoint with full health.
 
 ## Sounds
 

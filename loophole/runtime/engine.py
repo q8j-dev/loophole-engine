@@ -27,6 +27,13 @@ def init():
     ixl = "engine IX5"
     csi = 0
     csnoauto = 0
+    api_hpmax = HP0
+    api_hp = HP0
+    phurt = 0
+    patk = 0
+    pthr = 0
+    latk = 0
+    lthr = 0
     api_cs = ""
     hovered = 0
     tdown = 0
@@ -299,6 +306,22 @@ def tick():
     api_iny = round(iny * 100) / 100
     api_ijump = ijump
     api_iuse = le
+    katk = 0
+    if key("@attack") or gatk == 1 or api_atk == 1:
+        if latk == 0:
+            katk = 1
+        latk = 1
+    else:
+        latk = 0
+    api_atk = 0
+    kthr = 0
+    if key("@throw") or gthr == 1 or api_thr == 1:
+        if lthr == 0:
+            kthr = 1
+        lthr = 1
+    else:
+        lthr = 0
+    api_thr = 0
 
 
 @warp
@@ -324,6 +347,7 @@ def touch_step():
     tly = 0
     tjump = 0
     tuse = 0
+    tatk = 0
     if api_touch == 1:
         tasp = SW2 / SH2
         tjx = 0 - tasp + 0.46
@@ -332,6 +356,8 @@ def touch_step():
         tb1y = -0.5
         tb2x = tasp - 0.68
         tb2y = -0.3
+        tb3x = tasp - 0.36
+        tb3y = -0.05
         if mdn == 1 and tdown == 0:
             tmode = 4
             if sqrt((mxn - tjx) * (mxn - tjx) + (myn - tjy) * (myn - tjy)) < 0.48:
@@ -340,6 +366,8 @@ def touch_step():
                 tmode = 2
             elif sqrt((mxn - tb2x) * (mxn - tb2x) + (myn - tb2y) * (myn - tb2y)) < 0.2:
                 tmode = 3
+            elif COMBAT == 1 and sqrt((mxn - tb3x) * (mxn - tb3x) + (myn - tb3y) * (myn - tb3y)) < 0.2:
+                tmode = 5
             tlastx = mxn
             tlasty = myn
         if mdn == 1:
@@ -356,6 +384,8 @@ def touch_step():
                 tjump = 1
             elif tmode == 3:
                 tuse = 1
+            elif tmode == 5:
+                tatk = 1
             elif tmode == 4:
                 tlx = (mxn - tlastx) * 95 * sens
                 tly = (myn - tlasty) * 95 * sens
@@ -374,6 +404,8 @@ def touch_step():
     gjump = 0
     gcrouch = 0
     gpause = 0
+    gatk = 0
+    gthr = 0
     gpc = 0
     if GPAD == 1:
         if gp_on():
@@ -390,6 +422,12 @@ def touch_step():
                 gcrouch = 1
             if gp_btn(GP_PAUSE):
                 gpause = 1
+            if gp_btn(GP_ATK):
+                gatk = 1
+            if gp_btn(GP_THR):
+                gthr = 1
+    if tatk == 1:
+        gatk = 1
     api_gpad = gpc
 
 
@@ -483,6 +521,9 @@ def respawn():
         pz = api_cpz
         yaw = api_cpyaw
         pitch = 0
+    if COMBAT == 1:
+        api_hp = api_hpmax
+        phurt = 1
     vx = 0
     vy = 0
     vz = 0
@@ -695,6 +736,17 @@ def objects_load(lv):
     mklist(OWGX, nobj)
     mklist(OWGZ, nobj)
     mklist(OWT, nobj)
+    mklist(OFL, nobj)
+    mklist(OHIT, nobj)
+    mklist(OKBX, nobj)
+    mklist(OKBZ, nobj)
+    mklist(ODEAD, nobj)
+    mklist(OATK, nobj)
+    mklist(OAHT, nobj)
+    mklist(OAC, nobj)
+    mklist(OAT, nobj)
+    mklist(OSP, nobj)
+    obj_hp.clear()
     obj_mode.clear()
     obj_gx.clear()
     obj_gz.clear()
@@ -703,6 +755,7 @@ def objects_load(lv):
         od = o0 + oi - 1
         OLY[oi] = -9999
         obj_mode.append(DMODE[od])
+        obj_hp.append(DHP[od])
         obj_gx.append(DX[od])
         obj_gz.append(DZ[od])
         obj_sees.append(0)
@@ -825,6 +878,7 @@ def play_step():
         mdy = 0
     player_move()
     objects_step()
+    combat_step()
     feel()
     if FR % 2 == 0:
         aim_ray()
@@ -853,6 +907,8 @@ def cutscene_step():
                 cst = 0
                 csprevcam = api_cam
                 csprevctl = api_ctl
+                csprevyaw = api_cyaw
+                csprevpitch = api_cpitch
                 cslast = ""
                 csskipheld = 1
                 api_ctl = 0
@@ -947,6 +1003,9 @@ def cutscene_step():
                 api_msg = ""
             api_cam = csprevcam
             api_ctl = csprevctl
+            if csprevcam != 1:
+                api_cyaw = csprevyaw
+                api_cpitch = csprevpitch
             broadcast("cutscene done")
             broadcast(join("cutscene done ", CSNAME[csi]))
             csi = 0
@@ -1318,10 +1377,55 @@ def objects_step():
                 set_arr4(DLGT[od], "uLt", "haze", obj_x[ok_], obj_y[ok_], obj_z[ok_], LTW[slk])
         if DSPIN[od] != 0:
             obj_yaw[ok_] = (obj_yaw[ok_] + DSPIN[od] * dt) % 360
-        if obj_mode[ok_] != "" and obj_visible[ok_] == 1:
+        if OFL[ok_] > 0:
+            OFL[ok_] = max(0, OFL[ok_] - dt * 4)
+        if OHIT[ok_] > 0:
+            OHIT[ok_] = OHIT[ok_] - dt
+        if abs(OKBX[ok_]) + abs(OKBZ[ok_]) > 0.05:
+            kbx = obj_x[ok_] + OKBX[ok_] * dt
+            kbz = obj_z[ok_] + OKBZ[ok_] * dt
+            nav_h(kbx, kbz)
+            if nh > -900 or NGW[level] == 0:
+                obj_x[ok_] = kbx
+                obj_z[ok_] = kbz
+            OKBX[ok_] = OKBX[ok_] * max(0, 1 - dt * 7)
+            OKBZ[ok_] = OKBZ[ok_] * max(0, 1 - dt * 7)
+        if DHP[od] > 0 and ODEAD[ok_] == 0 and obj_hp[ok_] <= 0:
+            hurt_obj(ok_, 0, 0, 0)
+        if ODEAD[ok_] > 0:
+            ODEAD[ok_] = ODEAD[ok_] - dt
+            if ODEAD[ok_] <= 0:
+                ODEAD[ok_] = -1
+                obj_visible[ok_] = 0
+        OSP[ok_] = 0
+        if ODEAD[ok_] != 0:
+            OSP[ok_] = 0
+        elif obj_mode[ok_] != "" and obj_visible[ok_] == 1:
             npc_step(ok_)
         elif DPN[od] > 1 and obj_visible[ok_] == 1:
             path_step(ok_)
+            OSP[ok_] = DPSP[od]
+        if DCHR[od] > 0:
+            nclip = 0
+            if ODEAD[ok_] != 0:
+                nclip = 6
+            elif OHIT[ok_] > 0:
+                nclip = 5
+            elif OATK[ok_] > 0.6:
+                nclip = 4
+            elif OSP[ok_] > 2.8:
+                nclip = 2
+            elif OSP[ok_] > 0.15:
+                nclip = 1
+            if nclip != OAC[ok_]:
+                OAC[ok_] = nclip
+                OAT[ok_] = 0
+            if nclip == 1:
+                OAT[ok_] = OAT[ok_] + dt * max(0.7, min(1.6, OSP[ok_] / 1.5))
+            else:
+                OAT[ok_] = OAT[ok_] + dt
+        if DKIND[od] == 6 and obj_visible[ok_] == 1:
+            shot_step(ok_)
         if obj_visible[ok_] == 1:
             ttch = 0
             if px + PW > OAX0[ok_] - 0.15 and px - PW < OAX1[ok_] + 0.15 and pz + PW > OAZ0[ok_] - 0.15 and pz - PW < OAZ1[ok_] + 0.15 and py < OAY1[ok_] + 0.1 and py + PHT > OAY0[ok_] - 0.1:
@@ -1574,7 +1678,19 @@ def npc_step(k):
                 nav_path(nox, noz, ngx, ngz)
                 OWX[k] = nwx
                 OWZ[k] = nwz
-    if OGO[k] == 1:
+    if COMBAT == 1 and nm == "follow" and DDMG[od] > 0 and state == 1:
+        if OATK[k] > 0:
+            OATK[k] = OATK[k] - dt
+            if OATK[k] < 1.15 and OAHT[k] == 0:
+                OAHT[k] = 1
+                if npd < DRNG[od] * 1.4 and abs(py - obj_y[k]) < 1.8:
+                    hurt_player(DDMG[od], npx / max(npd, 0.1), npz / max(npd, 0.1))
+        elif npd < DRNG[od] and abs(py - obj_y[k]) < 1.8 and OHIT[k] <= 0:
+            OATK[k] = 1.7
+            OAHT[k] = 0
+            atan2_(npx, 0 - npz)
+            obj_yaw[k] = at
+    if OGO[k] == 1 and OATK[k] <= 0:
         nmx = OWX[k] - nox
         nmz = OWZ[k] - noz
         nmd = sqrt(nmx * nmx + nmz * nmz)
@@ -1583,6 +1699,7 @@ def npc_step(k):
             if nm == "follow" or nm == "flee":
                 nsp = nsp * 1.35
             nst = min(nmd, nsp * dt)
+            OSP[k] = nst / dt
             nnx = nox + nmx / nmd * nst
             nnz = noz + nmz / nmd * nst
             nav_h(nox, noz)
@@ -1595,6 +1712,160 @@ def npc_step(k):
                     obj_y[k] = obj_y[k] + (nh + OBY[k] - obj_y[k]) * min(1, dt * 12)
             atan2_(nmx, 0 - nmz)
             obj_yaw[k] = obj_yaw[k] + ((at - obj_yaw[k] + 540) % 360 - 180) * min(1, dt * 8)
+
+
+@warp
+def combat_step():
+    if phurt > 0:
+        phurt = phurt - dt
+    if patk > 0:
+        patk = patk - dt
+    if pthr > 0:
+        pthr = pthr - dt
+    if api_ctl == 0:
+        return
+    cbfx = sin(yaw)
+    cbfz = 0 - cos(yaw)
+    if katk == 1 and patk <= 0 and COMBAT == 1:
+        patk = 0.5
+        play("whoosh")
+        dip = max(dip, 0.3)
+        if api_cam == 2 or api_cam == 3:
+            cbn = 0
+            cbd = 2.8
+            for ck in rep(nobj):
+                if obj_hp[ck] > 0 and obj_visible[ck] == 1 and ODEAD[ck] == 0 and abs(obj_y[ck] - py) < 2:
+                    cdx = obj_x[ck] - px
+                    cdz = obj_z[ck] - pz
+                    cd = sqrt(cdx * cdx + cdz * cdz)
+                    if cd < cbd:
+                        cbd = cd
+                        cbn = ck
+            if cbn > 0:
+                atan2_(obj_x[cbn] - px, 0 - (obj_z[cbn] - pz))
+                yaw = at
+                cbfx = sin(yaw)
+                cbfz = 0 - cos(yaw)
+        for ck in rep(nobj):
+            if obj_hp[ck] > 0 and obj_visible[ck] == 1 and ODEAD[ck] == 0:
+                cdx = obj_x[ck] - px
+                cdz = obj_z[ck] - pz
+                cd = sqrt(cdx * cdx + cdz * cdz)
+                if cd < 2.6 and abs(obj_y[ck] - py) < 2:
+                    if (cdx * cbfx + cdz * cbfz) / max(cd, 0.01) > 0.25 or cd < 0.9:
+                        hurt_obj(ck, PDMG, cdx / max(cd, 0.01), cdz / max(cd, 0.01))
+    if kthr == 1 and pthr <= 0:
+        pthr = 0.35
+        csh = 0
+        for ck in rep(nobj):
+            if csh == 0 and DKIND[LO0[level] + ck - 1] == 6 and obj_visible[ck] == 0:
+                csh = ck
+        if csh > 0:
+            cpy = sin(pitch)
+            cpc = cos(pitch)
+            obj_x[csh] = px + cbfx * cpc * 0.6
+            obj_y[csh] = py + 1.3 + cpy * 0.6
+            obj_z[csh] = pz + cbfz * cpc * 0.6
+            OVX[csh] = cbfx * cpc * 15
+            OVY[csh] = cpy * 15 + 2.5
+            OVZ[csh] = cbfz * cpc * 15
+            OTH[csh] = 3
+            obj_visible[csh] = 1
+            play("whoosh")
+
+
+@warp
+def hurt_obj(k, dmg, kx, kz):
+    obj_hp[k] = obj_hp[k] - dmg
+    OKBX[k] = kx * 6
+    OKBZ[k] = kz * 6
+    OFL[k] = 1
+    OHIT[k] = 0.45
+    OATK[k] = 0
+    play("impact")
+    broadcast(join("hit ", obj_name[k]))
+    if obj_hp[k] <= 0:
+        obj_hp[k] = 0
+        ODEAD[k] = 2.6
+        obj_solid[k] = 0
+        play("boost")
+        broadcast(join("defeated ", obj_name[k]))
+        broadcast("defeated")
+    elif obj_mode[k] == "patrol" or obj_mode[k] == "wander" or obj_mode[k] == "stop":
+        obj_mode[k] = "follow"
+
+
+@warp
+def hurt_player(dmg, kx, kz):
+    if phurt <= 0 and state == 1:
+        api_hp = api_hp - dmg
+        phurt = 0.9
+        api_flash = 0.6
+        play("impact")
+        vx += kx * 6
+        vz += kz * 6
+        vy = 3.5
+        onground = 0
+        if gpc == 1:
+            rumble(0.6, 0.6, 0.25)
+        broadcast("player hurt")
+        if api_hp <= 0:
+            api_hp = 0
+            die()
+
+
+@warp
+def shot_step(k):
+    OTH[k] = OTH[k] - dt
+    OVY[k] = OVY[k] - 9.8 * dt
+    obj_x[k] = obj_x[k] + OVX[k] * dt
+    obj_y[k] = obj_y[k] + OVY[k] * dt
+    obj_z[k] = obj_z[k] + OVZ[k] * dt
+    obj_yaw[k] = obj_yaw[k] + 720 * dt
+    shit = 0
+    nav_h(obj_x[k], obj_z[k])
+    if OTH[k] <= 0 or (NGW[level] > 0 and (nh < -900 or obj_y[k] < nh)):
+        shit = 1
+    for sk in rep(nobj):
+        if shit == 0 and obj_hp[sk] > 0 and obj_visible[sk] == 1 and ODEAD[sk] == 0:
+            sdx = obj_x[sk] - obj_x[k]
+            sdz = obj_z[sk] - obj_z[k]
+            sdy = obj_y[sk] + 0.9 - obj_y[k]
+            if sdx * sdx + sdz * sdz < 0.8 and abs(sdy) < 1.1:
+                hurt_obj(sk, PDMG, OVX[k] / 15, OVZ[k] / 15)
+                shit = 1
+    if shit == 1:
+        obj_visible[k] = 0
+        obj_y[k] = -50
+
+
+@warp
+def npc_pose(k, od):
+    pck = DCHR[od]
+    pnj = NCNJ[pck]
+    pcb = (pck - 1) * 14 + OAC[k] * 2
+    pcs = NCCL[pcb + 1]
+    pcn = NCCL[pcb + 2]
+    pcf = OAT[k] * CFPS
+    if OAC[k] >= 4:
+        pcf = min(pcf, pcn - 1.001)
+    else:
+        pcf = pcf % pcn
+    pi0 = floor(pcf)
+    pfr = pcf - pi0
+    pi1 = pi0 + 1
+    if pi1 >= pcn:
+        pi1 = 0
+        if OAC[k] >= 4:
+            pi1 = pcn - 1
+    pb0 = NCB0[pck] + (pcs + pi0) * pnj * 12
+    pb1 = NCB0[pck] + (pcs + pi1) * pnj * 12
+    pq = 0
+    for pj in rep(pnj):
+        set_arr4(pj * 3 - 2, "uBM", "world", NBM[pb0 + pq + 1] + (NBM[pb1 + pq + 1] - NBM[pb0 + pq + 1]) * pfr, NBM[pb0 + pq + 2] + (NBM[pb1 + pq + 2] - NBM[pb0 + pq + 2]) * pfr, NBM[pb0 + pq + 3] + (NBM[pb1 + pq + 3] - NBM[pb0 + pq + 3]) * pfr, NBM[pb0 + pq + 4] + (NBM[pb1 + pq + 4] - NBM[pb0 + pq + 4]) * pfr)
+        set_arr4(pj * 3 - 1, "uBM", "world", NBM[pb0 + pq + 5] + (NBM[pb1 + pq + 5] - NBM[pb0 + pq + 5]) * pfr, NBM[pb0 + pq + 6] + (NBM[pb1 + pq + 6] - NBM[pb0 + pq + 6]) * pfr, NBM[pb0 + pq + 7] + (NBM[pb1 + pq + 7] - NBM[pb0 + pq + 7]) * pfr, NBM[pb0 + pq + 8] + (NBM[pb1 + pq + 8] - NBM[pb0 + pq + 8]) * pfr)
+        set_arr4(pj * 3, "uBM", "world", NBM[pb0 + pq + 9] + (NBM[pb1 + pq + 9] - NBM[pb0 + pq + 9]) * pfr, NBM[pb0 + pq + 10] + (NBM[pb1 + pq + 10] - NBM[pb0 + pq + 10]) * pfr, NBM[pb0 + pq + 11] + (NBM[pb1 + pq + 11] - NBM[pb0 + pq + 11]) * pfr, NBM[pb0 + pq + 12] + (NBM[pb1 + pq + 12] - NBM[pb0 + pq + 12]) * pfr)
+        pq += 12
 
 
 @warp
@@ -2596,7 +2867,7 @@ def draw_obj(k):
         og_ = og_ * (1 + OOPN[k] * 2)
     set_vec3("uEmit", "world", DGR[od] * og_, DGG[od] * og_, DGB[od] * og_)
     set_vec3("uMP", "world", obj_x[k], obj_y[k] + OOPN[k] * DSLIDE[od] + DBOB[od] * (0.5 + 0.5 * sin(TT * 160 + k * 47)), obj_z[k])
-    set_vec3("uRim", "world", DHR[od], DHG[od], DHB[od])
+    set_vec3("uRim", "world", max(DHR[od], OFL[k]), max(DHG[od], OFL[k] * 0.9), max(DHB[od], OFL[k] * 0.8))
     set_vec3("uMX", "world", bxx * osx_, bxy * osx_, bxz * osx_)
     set_vec3("uMY", "world", byx * osy2, byy * osy2, byz * osy2)
     set_vec3("uMZ", "world", bzx * osz_, bzy * osz_, bzz * osz_)
@@ -2605,7 +2876,12 @@ def draw_obj(k):
         set_vec4("uPR", "world", DPRX[od], DPRY[od], DPRS[od], DPRT[od])
     else:
         set_vec4("uMode", "world", 1, 1, 0, 0)
+    if DCHR[od] > 0:
+        npc_pose(k, od)
+        set_vec4("uSkin", "world", 2, 0, 0, 0)
     draw_geo(DG[od])
+    if DCHR[od] > 0:
+        set_vec4("uSkin", "world", 0, 0, 0, 0)
     if DG2[od] > 0:
         set_vec3("uMP", "world", obj_x[k], obj_y[k] + 0.06 - OOPN[k] * 0.05, obj_z[k])
         set_vec4("uPR", "world", DPRX2[od], DPRY2[od], DPRS2[od], DPRT2[od])
@@ -2654,7 +2930,10 @@ def char_pose():
         cclip = 0 - 1
     nclip = 0
     crate = 1
-    if onground == 0:
+    if patk > 0:
+        nclip = 4
+        crate = 1.6
+    elif onground == 0:
         nclip = 3
     elif hsp > WALK * 0.62:
         nclip = 2
@@ -2932,6 +3211,7 @@ def hud():
         set_vec4("uKnob", "ui", tkx, tky, 0.12, tka)
         set_vec4("uB1", "ui", tasp - 0.3, -0.5, 0.17, tjump)
         set_vec4("uB2", "ui", tasp - 0.68, -0.3, 0.14, tuse)
+        set_vec4("uB3", "ui", tasp - 0.36, -0.05, 0.14 * COMBAT, tatk)
         draw_list("engine QUAD", "ui")
 
 
