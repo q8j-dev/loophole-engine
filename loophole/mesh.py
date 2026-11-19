@@ -32,9 +32,9 @@ class Mesh:
     def items(self, prec=4):
         out = {}
         for k, arr in self.data.items():
-            out[k] = [round(x, prec) for x in arr]
+            out[k] = [int(x) if x == int(x) else round(x, prec) for x in arr]
         first = json.dumps(out, separators=(",", ":"))
-        return [first] + ["{}"] * (self.ntri - 1)
+        return [first] + [0] * (self.ntri - 1)
 
 
 WKEYS = {"aPos": 3, "aNrm": 3, "aLM": 2, "aMat": 1}

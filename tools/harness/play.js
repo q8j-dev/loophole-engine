@@ -48,6 +48,41 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     else if (cmd === 'rec') { for (let i = 0; i < +a; i++) { await page.screenshot({path: path.join(out, `${b}_${String(i).padStart(3, '0')}.png`)}); await sleep(+(c || 60)); } }
     else if (cmd === 'click') { await page.evaluate(bt => S.vm.postIOData('mouse', {isDown: true, button: +bt, x: 240, y: 180, canvasWidth: 480, canvasHeight: 360}), a); await sleep(150); await page.evaluate(bt => S.vm.postIOData('mouse', {isDown: false, button: +bt, x: 240, y: 180, canvasWidth: 480, canvasHeight: 360}), a); }
     else if (cmd === 'throttle') { const cdp = await page.createCDPSession(); await cdp.send('Emulation.setCPUThrottlingRate', {rate: +a}); }
+    else if (cmd === 'prof') console.log('PROF', await page.evaluate(async ms => {
+      const gl = S.renderer.gl;
+      const st = {};
+      const wrap = (obj, name, key) => { const o = obj[name]; obj[name] = function () { const t = performance.now(); const r = o.apply(this, arguments); const e = st[key] || (st[key] = [0, 0, 0]); e[0]++; e[1] += performance.now() - t; if (typeof r === 'string') e[2] += r.length; return r; }; return () => { obj[name] = o; }; };
+      const un = [wrap(JSON, 'stringify', 'stringify'), wrap(JSON, 'parse', 'parse'), wrap(gl, 'bufferData', 'bufferData'), wrap(gl, 'drawArrays', 'drawArrays'), wrap(gl, 'uniform4fv', 'uniform4fv'), wrap(gl, 'useProgram', 'useProgram'), wrap(gl, 'bindFramebuffer', 'bindFramebuffer')];
+      const hist = {};
+      const os = JSON.stringify;
+      JSON.stringify = function (v) { const t = performance.now(); const r = os.apply(this, arguments); const k = Array.isArray(v) ? 'L' + v.length : 'x'; const e = hist[k] || (hist[k] = [0, 0]); e[0]++; e[1] += performance.now() - t; return r; };
+      un.push(() => { JSON.stringify = os; });
+      let frames = 0, busy = 0;
+      const t0 = performance.now();
+      const cnt = () => { frames++; if (performance.now() - t0 < ms) requestAnimationFrame(cnt); };
+      requestAnimationFrame(cnt);
+      await new Promise(r => setTimeout(r, ms));
+      un.reverse().forEach(f => f());
+      return 'frames ' + frames + ' (' + (ms / frames).toFixed(1) + 'ms/f)\n' + Object.entries(st).map(([k, v]) => k + ' ' + (v[0] / frames).toFixed(1) + '/f ' + (v[1] / frames).toFixed(2) + 'ms/f' + (v[2] ? ' ' + (v[2] / v[0] / 1024).toFixed(0) + 'KB avg' : '')).join('\n') + '\n' + Object.entries(hist).sort((a, b) => b[1][1] - a[1][1]).map(([k, v]) => k + ' ' + (v[0] / frames).toFixed(1) + '/f ' + (v[1] / frames).toFixed(2) + 'ms/f').join('  ');
+    }, +(a || 3000)));
+    else if (cmd === 'cpuprof') {
+      const cdp = await page.createCDPSession();
+      await cdp.send('Profiler.enable');
+      await cdp.send('Profiler.setSamplingInterval', {interval: 200});
+      await cdp.send('Profiler.start');
+      await sleep(+(a || 3000));
+      const {profile} = await cdp.send('Profiler.stop');
+      const self = {};
+      const dt = {};
+      for (let i = 0; i < profile.samples.length; i++) dt[profile.samples[i]] = (dt[profile.samples[i]] || 0) + (profile.timeDeltas[i] || 0);
+      for (const n of profile.nodes) {
+        const f = n.callFrame;
+        const k = (f.functionName || '(anon)') + ' ' + (f.url || '').split('/').pop().slice(0, 30) + ':' + f.lineNumber;
+        self[k] = (self[k] || 0) + (dt[n.id] || 0);
+      }
+      const tot = Object.values(self).reduce((x, y) => x + y, 0);
+      console.log('CPU', Object.entries(self).sort((x, y) => y[1] - x[1]).slice(0, +(b || 30)).map(([k, v]) => (100 * v / tot).toFixed(1) + '% ' + k).join('\n'));
+    }
     else if (cmd === 'get') console.log('VAR', a, JSON.stringify(await page.evaluate(n => getv(n), a)));
     else if (cmd === 'list') console.log('LIST', a, JSON.stringify(await page.evaluate(n => Lst(n).value, a)));
     else if (cmd === 'pos') await page.evaluate((x, y, z) => { setv('player x', x); setv('player y', y); setv('player z', z); }, +a, +b, +c);

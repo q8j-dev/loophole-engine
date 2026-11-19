@@ -18,7 +18,7 @@ def bucket(ntri):
 
 def index_items(ntri):
     first = '{"aI":[' + ",".join(str(i) for i in range(ntri * 3)) + "]}"
-    return [first] + ["{}"] * (ntri - 1)
+    return [first] + [0] * (ntri - 1)
 
 
 def q16(x):
@@ -26,8 +26,9 @@ def q16(x):
     return v >> 8, v & 255
 
 
-CHUNK = 16384
+CHUNK = 8192
 SCHUNK = 4096
+IX = [256 << k for k in range(7)]
 
 
 class Pack:

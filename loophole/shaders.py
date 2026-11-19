@@ -198,7 +198,7 @@ void main() {
         return;
       }
     } else if (t5.z > 5.5) {
-      lodk = mix(1.0, 0.35, fd);
+      lodk = mix(1.0, 0.35, fd) * mix(1.0, 0.5, uLOD.z);
     } else {
       float kp = clamp(1.0 - (ld - uLOD.x * 1.5) / (uLOD.y * 1.6), 0.6, 1.0);
       if (hh > kp) {
@@ -658,9 +658,10 @@ void main() {
       if (pr > 0.0) lcol += lalb * uLc[i].rgb * pr / (d2 + 0.05) * (0.5 + 0.5 * abs(dot(LN, L)));
     }
     lcol *= mix(1.0, exp(-ldist * uHaze.x * 0.35), 0.7);
-    if (uFog.w > 0.0) {
+    if (uFog.w > 0.0 || uFogS.w > 0.0) {
       float fh = exp(-max(vW.y - uFogS.x, 0.0) * uFogS.y);
       float fa = (1.0 - exp(-ldist * uFog.w * uWet.z * fh)) * uFogS.z;
+      if (uFogS.w > 0.0) fa = max(fa, smoothstep(uFogS.w * 0.45, uFogS.w, ldist));
       float fs = pow(max(dot(-lV, uFogSun), 0.0), 8.0);
       lcol = mix(lcol, uFog.rgb * (1.0 + fs * 0.9), fa);
     }
@@ -1284,9 +1285,10 @@ void main() {
   col += uSunC.rgb * uSunC.w * snowSp * clamp(so * 1.6 - 0.3, 0.0, 1.0) * 2.5;
   float ext = exp(-dist * uHaze.x * 0.35);
   col = col * mix(1.0, ext, 0.7);
-  if (uFog.w > 0.0) {
+  if (uFog.w > 0.0 || uFogS.w > 0.0) {
     float fh = exp(-max(vW.y - uFogS.x, 0.0) * uFogS.y);
     float fa = (1.0 - exp(-dist * uFog.w * uWet.z * fh)) * uFogS.z;
+    if (uFogS.w > 0.0) fa = max(fa, smoothstep(uFogS.w * 0.45, uFogS.w, dist));
     float fs = pow(max(dot(-V, uFogSun), 0.0), 8.0);
     col = mix(col, uFog.rgb * (1.0 + fs * 0.9), fa);
   }
@@ -1732,11 +1734,12 @@ void main() {
   if (y < 0.0) col = mix(col, uSkyG.rgb, smoothstep(0.0, 0.12, -y));
   float grey = dot(col, vec3(0.3, 0.5, 0.2));
   col = mix(col, vec3(grey) * vec3(0.92, 0.96, 1.02) * 0.75, uWet.w * 0.8);
-  if (uFog.w > 0.0) {
+  if (uFog.w > 0.0 || uFogS.w > 0.0) {
     float fs = pow(sd, 8.0) * (1.0 - uWet.w);
     vec3 fc = uFog.rgb * (1.0 + fs * 0.9);
     float fk = clamp((uWet.z - 1.0) / 6.0, 0.0, 1.0);
-    col = mix(col, fc, max((1.0 - smoothstep(-0.02, 0.22 + fk * 0.6, y)) * 0.85 * uFogS.z, fk * 0.85));
+    float fq = uFogS.w > 0.0 ? 1.0 : 0.0;
+    col = mix(col, fc, max((1.0 - smoothstep(-0.02 - fq * 0.04, 0.22 + fk * 0.6 + fq * 0.1, y)) * mix(0.85, 1.0, fq) * uFogS.z, fk * 0.85));
   }
   gl_FragColor = enc(col, 1.0);
 }
@@ -1873,8 +1876,9 @@ void main() {
   alb = mix(alb, vec3(0.5, 0.52, 0.56), uWet.y * 0.6 * vShade);
   vec3 col = alb * E * vShade * 1.1 * (1.0 + vGust * 0.22 * vShade);
   float dist = length(uCP - vW);
-  if (uFog.w > 0.0) {
+  if (uFog.w > 0.0 || uFogS.w > 0.0) {
     float fa = (1.0 - exp(-dist * uFog.w * uWet.z)) * uFogS.z;
+    if (uFogS.w > 0.0) fa = max(fa, smoothstep(uFogS.w * 0.45, uFogS.w, dist));
     col = mix(col, uFog.rgb, fa);
   }
   gl_FragColor = enc(col, 1.0);
@@ -2118,9 +2122,10 @@ WATER_FS = WORLD_FS[:WORLD_FS.index("void main() {")] + """void main() {
     wc = mix(wc, vec3(0.8) * wlit * 0.55, foam);
     wa = max(wa, foam);
     float wdist = length(uCP - vW);
-    if (uFog.w > 0.0) {
+    if (uFog.w > 0.0 || uFogS.w > 0.0) {
       float wfh = exp(-max(vW.y - uFogS.x, 0.0) * uFogS.y);
       float wfa = (1.0 - exp(-wdist * uFog.w * uWet.z * wfh)) * uFogS.z;
+      if (uFogS.w > 0.0) wfa = max(wfa, smoothstep(uFogS.w * 0.45, uFogS.w, wdist));
       wc = mix(wc, uFog.rgb * wa, wfa);
     }
     vec3 wcn = wc / max(wa, 0.001);

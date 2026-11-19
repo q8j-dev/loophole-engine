@@ -1,10 +1,30 @@
 # Loophole Engine
 
-A 3D game engine for Scratch and TurboWarp. You describe a level in a short Python file, run `loophole build`, and get an `.sb3` that opens in TurboWarp. Gameplay is ordinary Scratch blocks reading and setting ordinary variables.
+A 3D game engine for Scratch and TurboWarp. You describe a level in a short Python file and Loophole builds it into an `.sb3` that opens in TurboWarp. Gameplay is ordinary Scratch blocks reading and setting ordinary variables.
+
+## Start here
+
+**Play an example.** No install. Open one in TurboWarp straight from the table, or download the `.sb3` from the [v0.1.0 release](https://github.com/q8j-dev/loophole-engine/releases/tag/v0.1.0) and load it in [TurboWarp](https://turbowarp.org/editor) with File > Load from your computer. Click the green flag, then click the stage.
+
+| Game | What it is | Play | Download |
+| --- | --- | --- | --- |
+| Starter lab | The template `loophole new` makes: a small lab with a cube, a button and a door | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Starter.sb3) | [Starter.sb3](https://github.com/q8j-dev/loophole-engine/releases/download/v0.1.0/Starter.sb3) (5.9 MB) |
+| Afterglow | Lab puzzle, then a dusk valley where you light three lanterns | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Afterglow.sb3) | [Afterglow.sb3](https://github.com/q8j-dev/loophole-engine/releases/download/v0.1.0/Afterglow.sb3) (28 MB) |
+| Orchard Dash | Third-person race for 12 apples past patrolling rats | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Orchard-Dash.sb3) | [Orchard-Dash.sb3](https://github.com/q8j-dev/loophole-engine/releases/download/v0.1.0/Orchard-Dash.sb3) (13 MB) |
+| Crypt Crawl | Top-down torchlit crypt with goblets and giant rats | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Crypt-Crawl.sb3) | [Crypt-Crawl.sb3](https://github.com/q8j-dev/loophole-engine/releases/download/v0.1.0/Crypt-Crawl.sb3) (7 MB) |
+| Portal Lab | Portal puzzles with a cube, a ledge and a slime pit | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Portal-Lab.sb3) | [Portal-Lab.sb3](https://github.com/q8j-dev/loophole-engine/releases/download/v0.1.0/Portal-Lab.sb3) (10 MB) |
+| Autumn Woods | A forest to walk through, made with two `forest()` calls | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Autumn-Woods.sb3) | [Autumn-Woods.sb3](https://github.com/q8j-dev/loophole-engine/releases/download/v0.1.0/Autumn-Woods.sb3) (18 MB) |
+| The Long Walk | Autumn woods, a lake to swim across, a snowy pass and a warm cabin | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/The-Long-Walk.sb3) | [The-Long-Walk.sb3](https://github.com/q8j-dev/loophole-engine/releases/download/v0.1.0/The-Long-Walk.sb3) (30 MB) |
+
+**Make a game in your browser.** [Loophole Studio](https://q8j-dev.github.io/loophole-engine/) runs the real build in the page. Pick a template, edit `world.py`, press Build game, and it plays beside the code. Download the `.sb3` to add Scratch blocks in TurboWarp. The first build downloads about 40 MB; later builds start in a few seconds.
+
+**Install the command line tool** to build from your own folders and keep projects in git. See [Make a game in five minutes](#make-a-game-in-five-minutes) below.
 
 ![Autumn woods made with one line of world.py, with sunbeams through the canopy](docs/img/woods.jpg)
 
 ![Orchard Dash gameplay in TurboWarp](docs/img/orchard.gif)
+
+## Gallery
 
 Every image on this page is a real TurboWarp frame captured by the playtest harness in `tools/harness`.
 
@@ -94,17 +114,7 @@ If you prefer typing to dragging blocks, `game.script("game.py")` compiles a Pyt
 
 ## Examples
 
-Each example uses only the public API and has a scripted playthrough in `tools/harness/runs`.
-
-- [examples/showcase](examples/showcase): Afterglow. A first-person lab puzzle with a cube, button and door, followed by a dusk valley where you find three lanterns to light the house. The held item switches from the lab device to a lantern.
-- [examples/orchard](examples/orchard): Orchard Dash. A third-person race to collect 12 apples before the timer runs out, with rats patrolling the rows. You play the rogue.
-- [examples/crypt](examples/crypt): Crypt Crawl. A top-down crypt lit by torches. Collect three goblets to sink the statue that blocks the treasure vault, and keep away from the giant rats. You play the knight.
-
-- [examples/journey](examples/journey): The Long Walk. Walk from autumn woods past a lake you can swim across to a snowy pass and a warm cabin.
-- [examples/woods](examples/woods): Autumn Woods. A forest to walk through, made with two `forest()` calls.
-- [examples/portals](examples/portals): Portal Lab. Carry a cube up to a ledge through a portal, fall into a floor portal to be flung across a slime pit, and put the cube on the button that opens the exit.
-
-Build one with `loophole build examples/orchard`.
+The source of every game in the table above is in [examples](examples), and the starter is in [loophole/templates/starter](loophole/templates/starter). Each uses only the public API and has a scripted playthrough in `tools/harness/runs`. Build one with `loophole build examples/orchard`.
 
 ## Documentation
 

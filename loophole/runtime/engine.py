@@ -24,6 +24,12 @@ def init():
     t0 = timer()
     TT = 0
     quality = QUALITY
+    ixl = "engine IX5"
+    farq = 0
+    detd = 32
+    lodd = 60
+    lodz = 0
+    gtp = 0
     lowq = 0
     lastq = 0
     sens = 1.0
@@ -249,6 +255,7 @@ def flow():
     quality = max(1, min(4, round(quality)))
     if quality != lastq:
         make_rts()
+        fog_q()
     if api_goto > 0:
         gq_ = api_goto
         api_goto = 0
@@ -454,6 +461,23 @@ def sky_load(lv):
     set_vec4("uWind2", "world", LWX[lv], LWZ[lv], 0, 0)
     set_vec4("uFog", "grass", SKY[sb + 17], SKY[sb + 18], SKY[sb + 19], SKY[sb + 20])
     set_vec4("uFogS", "grass", SKY[sb + 21], SKY[sb + 22], 1, 0)
+    fog_q()
+
+
+@warp
+def fog_q():
+    sb = (level - 1) * 24 + 1
+    farq = 0
+    detd = 32
+    lodd = 30 + quality * 10
+    if quality == 1:
+        detd = 14
+        lodd = 16
+        if LSKY[level] == 1:
+            farq = 60
+    set_vec4("uFogS", "world", SKY[sb + 21], SKY[sb + 22], 1, farq)
+    set_vec4("uFogS", "sky", SKY[sb + 21], SKY[sb + 22], 1, farq)
+    set_vec4("uFogS", "grass", SKY[sb + 21], SKY[sb + 22], 1, farq)
 
 
 @warp
@@ -1470,11 +1494,13 @@ def render():
     wx1 = 1
     wy1 = 1
     tp = FR % 2
-    gbuffer()
+    if quality > 1 or FR % 2 == 0 or taareset == 1:
+        gtp = 1 - gtp
+        gbuffer()
     target_rt("scene")
     clear_rt("scene")
     tex_filter(9728)
-    set_tex("uPGB", "world", join("gb", 1 - tp))
+    set_tex("uPGB", "world", join("gb", 1 - gtp))
     tex_filter(9729)
     set_tex("uHist", "world", join("hh", 1 - tp))
     set_vec4("uSSR", "world", 1, 0, 0, 0)
@@ -1637,11 +1663,11 @@ def cam_free():
 @warp
 def gbuffer():
     gbm = 1
-    target_rt(join("gb", tp))
-    clear_rt(join("gb", tp))
+    target_rt(join("gb", gtp))
+    clear_rt(join("gb", gtp))
     tex_filter(9728)
-    set_tex("uPGB", "world", join("gb", 1 - tp))
-    set_tex("uGBn", "world", join("gb", 1 - tp))
+    set_tex("uPGB", "world", join("gb", 1 - gtp))
+    set_tex("uGBn", "world", join("gb", 1 - gtp))
     tex_filter(9729)
     set_tex("uHist", "world", join("hh", 1 - tp))
     set_vec4("uGB", "world", 1, 0, 0, 0)
@@ -1659,7 +1685,7 @@ def gbuffer():
 def sky_pass():
     if LSKY[level] == 1:
         cam_u("sky")
-        draw_list("QUAD", "sky")
+        draw_list("engine QUAD", "sky")
 
 
 @warp
@@ -1667,10 +1693,10 @@ def haze_pass():
     target_rt("hz")
     clear_rt("hz")
     tex_filter(9728)
-    set_tex("uGBc", "haze", join("gb", tp))
+    set_tex("uGBc", "haze", join("gb", gtp))
     tex_filter(9729)
     cam_u("haze")
-    draw_list("QUAD", "haze")
+    draw_list("engine QUAD", "haze")
     blur_pass("hz2", "hz", 2 / RTW, 0)
     blur_pass("hz", "hz2", 0, 2 / RTH)
     blur_pass("hz2", "hz", 4 / RTW, 0)
@@ -1686,7 +1712,7 @@ def taa():
     set_tex("uPrev", "taa", join("hh", 1 - tp))
     set_tex("uHz", "taa", "hz")
     tex_filter(9728)
-    set_tex("uGBc", "taa", join("gb", tp))
+    set_tex("uGBc", "taa", join("gb", gtp))
     tex_filter(9729)
     cam_u("taa")
     set_vec2("uTx", "taa", 1 / RTW, 1 / RTH)
@@ -1695,7 +1721,7 @@ def taa():
         taareset = 1
     set_vec4("uTA", "taa", taareset, 0, 0, 0)
     prev_u("taa")
-    draw_list("QUAD", "taa")
+    draw_list("engine QUAD", "taa")
     taareset = 0
     pcx = ccx
     pcy = ccy
@@ -1824,7 +1850,7 @@ def env_blur(dst, src, dx, dy):
     clear_rt(dst)
     set_tex("uSrc", "eblur", src)
     set_vec2("uDir", "eblur", dx, dy)
-    draw_list("QUAD", "eblur")
+    draw_list("engine QUAD", "eblur")
 
 
 @warp
@@ -1932,7 +1958,7 @@ def draw_scene(vq):
     model_id()
     set_vec4("uMode", "world", 0, 1, 0, 0)
     draw_geo(GIDW[level])
-    if LDET[level] > 0:
+    if LDET[level] > 0 and (quality > 1 or gbm == 0):
         detm = 1
         draw_geo(LDET[level])
         detm = 0
@@ -1948,19 +1974,19 @@ def draw_scene(vq):
         cam_u("grass")
         set_vec3("uPlr", "grass", px, py, pz)
         set_vec4("uGB", "grass", gbm, 0, 0, 0)
-        draw_list("GRASS", "grass")
+        draw_list("engine GRASS", "grass")
     if gbm == 0:
         if LSKY[level] == 0:
             set_vec4("uPM", "part", 0, LFY[level], LCY_[level], 0)
             set_vec3("uCol", "part", 1.0, 0.95, 0.85)
-            draw_list("DUST", "part")
+            draw_list("engine DUST", "part")
         vj = LV0[level]
         for vji in times(LVNN[level]):
             set_vec3("uQC", "part", (VX0[vj] + VX1[vj]) / 2, VY0[vj], (VZ0[vj] + VZ1[vj]) / 2)
             set_vec3("uQR", "part", (VX1[vj] - VX0[vj]) / 2, 0, (VZ1[vj] - VZ0[vj]) / 2)
             set_vec4("uPM", "part", 4, VY1[vj] - VY0[vj], 1.0, 0)
             set_vec3("uCol", "part", 0.75, 0.9, 1.1)
-            draw_list("VENTP", "part")
+            draw_list("engine VENTP", "part")
             vj += 1
         sj = LSP0[level]
         for sji in times(LSPN[level]):
@@ -1970,7 +1996,7 @@ def draw_scene(vq):
                 set_vec3("uQN", "part", 0, -1, 0)
                 set_vec4("uPM", "part", 3, spt, 0.9, 0)
                 set_vec3("uCol", "part", 3.0, 2.2, 1.2)
-                draw_list("IMPACT", "part")
+                draw_list("engine IMPACT", "part")
             sj += 1
     if LWAT[level] > 0 and gbm == 0 and cullon == 1:
         draw_water(LWAT[level])
@@ -2119,23 +2145,30 @@ def draw_geo(gi):
     if detm == 1 and GNC[gi] == 0:
         gdx = GOX[gi] + GR[gi] * 0.5 - ccx
         gdz = GOZ[gi] + GR[gi] * 0.5 - ccz
-        if sqrt(gdx * gdx + gdz * gdz) - GR[gi] * 0.8 > 32:
+        if sqrt(gdx * gdx + gdz * gdz) - GR[gi] * 0.8 > detd:
             return
     if GNC[gi] == 0:
         set_vec4("uGeoI", "world", GB[gi], GC[gi], GH[gi], GIB[gi])
-        draw_list("ICS", "world")
+        ixsel(GC[gi])
+        draw_list(ixl, "world")
     else:
         gco = 0
         gch = GCH0[gi]
         for gk in rep(GNC[gi]):
             gvis = 1
+            gfar = 1
             if gch > 0 and cullon == 1:
                 gcx = CHX[gch] - ccx
                 gcy = CHY[gch] - ccy
                 gcz = CHZ[gch] - ccz
                 gr_ = CHR[gch]
                 gz_ = gcx * cfx + gcy * cfy + gcz * cfz
-                if detm == 1 and sqrt(gcx * gcx + gcy * gcy + gcz * gcz) - gr_ > 32:
+                gd_ = sqrt(gcx * gcx + gcy * gcy + gcz * gcz) - gr_
+                if gd_ < lodd:
+                    gfar = 0
+                if detm == 1 and gd_ > detd:
+                    gvis = 0
+                elif farq > 0 and gd_ > farq:
                     gvis = 0
                 elif gz_ < 0 - gr_:
                     gvis = 0
@@ -2143,11 +2176,45 @@ def draw_geo(gi):
                     gvis = 0
                 elif abs(gcx * cux + gcy * cuy + gcz * cuz) * PFY - gr_ * (1 + PFY) > gz_:
                     gvis = 0
+            if gch > 0:
+                if gvis == 1:
+                    if gfar != lodz:
+                        lodz = gfar
+                        set_vec4("uLOD", "world", 20, 12, lodz, 0)
+                    if gfar == 1:
+                        set_vec4("uGeoI", "world", GB[gi] + CHS[gch] + CHO[gch], CHF[gch], GH[gi], GIB[gi])
+                        ixsel(CHF[gch])
+                    else:
+                        set_vec4("uGeoI", "world", GB[gi] + CHS[gch], CHN[gch], GH[gi], GIB[gi])
+                        ixsel(CHN[gch])
+                    draw_list(ixl, "world")
                 gch += 1
-            if gvis == 1:
-                set_vec4("uGeoI", "world", GB[gi] + gco, min(49152, GC[gi] - gco), GH[gi], GIB[gi])
-                draw_list("IC", "world")
-            gco += 49152
+            else:
+                set_vec4("uGeoI", "world", GB[gi] + gco, min(CHV, GC[gi] - gco), GH[gi], GIB[gi])
+                ixsel(min(CHV, GC[gi] - gco))
+                draw_list(ixl, "world")
+            gco += CHV
+        if lodz == 1:
+            lodz = 0
+            set_vec4("uLOD", "world", 20, 12, 0, 0)
+
+
+@warp
+def ixsel(cnt):
+    if cnt <= 768:
+        ixl = "engine IX0"
+    elif cnt <= 1536:
+        ixl = "engine IX1"
+    elif cnt <= 3072:
+        ixl = "engine IX2"
+    elif cnt <= 6144:
+        ixl = "engine IX3"
+    elif cnt <= 12288:
+        ixl = "engine IX4"
+    elif cnt <= 24576:
+        ixl = "engine IX5"
+    else:
+        ixl = "engine IX6"
 
 
 @warp
@@ -2222,7 +2289,7 @@ def post():
     set_tex("uSrc", "bright", join("hh", tp))
     set_vec2("uTx", "bright", 1 / RTW, 1 / RTH)
     set_vec4("uBP", "bright", 0.85, 0.9, 0, 0)
-    draw_list("QUAD", "bright")
+    draw_list("engine QUAD", "bright")
     blur_pass("b2", "b1", 4 / RTW, 0)
     blur_pass("b1", "b2", 0, 4 / RTH)
     blur_pass("b3", "b1", 4 / RTW, 0)
@@ -2233,7 +2300,7 @@ def post():
     set_tex("uSrc", "lum", join("hh", tp))
     set_tex("uPrev", "lum", join("lum", 1 - tp))
     set_vec4("uLA", "lum", 1 - exp(0 - dt * 1.8), lumreset, 0, 0)
-    draw_list("QUAD", "lum")
+    draw_list("engine QUAD", "lum")
     lumreset = 0
     target_rt("Scratch Stage")
     pen_clear()
@@ -2247,7 +2314,7 @@ def post():
     set_vec4("uPost", "comp", EXPO * LEXP[level] * api_expo, 0.55, 0.45, 0.55)
     set_vec4("uFx", "comp", max(tfade, api_fade), 0, 0.45, 0)
     set_vec3("uFlash", "comp", api_flash, api_flash, api_flash)
-    draw_list("QUAD", "comp")
+    draw_list("engine QUAD", "comp")
     api_flash = max(0, api_flash - dt * 2)
     hud()
 
@@ -2265,7 +2332,7 @@ def hud():
     if strlen(api_msg) + strlen(api_stat) > 0:
         set_vec4("uTA", "text", msgt, 1, 0, 0)
         set_tex("uFont", "text", "font")
-        draw_list("TEXT", "text")
+        draw_list("engine TEXT", "text")
 
 
 @warp
@@ -2304,7 +2371,7 @@ def blur_pass(dst, src, dx, dy):
     clear_rt(dst)
     set_tex("uSrc", "blur", src)
     set_vec2("uDir", "blur", dx, dy)
-    draw_list("QUAD", "blur")
+    draw_list("engine QUAD", "blur")
 
 
 @warp
@@ -2779,7 +2846,7 @@ def draw_portal(q, open_, tex):
     else:
         set_vec3("uCol", "portal", COLBR, COLBG, COLBB)
     set_tex("uView", "portal", tex)
-    draw_list("DISC", "portal")
+    draw_list("engine DISC", "portal")
 
 
 @warp
@@ -2825,7 +2892,7 @@ def draw_precip():
             set_vec4("uPrec", "precip", wetk, 0, 0, 0)
             set_vec3("uPCol", "precip", 1.2, 1.3, 1.45)
         set_vec4("uWindP", "precip", LWX[level], LWZ[level], 1.5 + LWS[level] * 2, 0)
-        draw_list("PRECIP", "precip")
+        draw_list("engine PRECIP", "precip")
 
 
 @warp
@@ -2834,8 +2901,8 @@ def draw_water(gi):
     cam_u("water")
     prev_u("water")
     tex_filter(9728)
-    set_tex("uGBn", "water", join("gb", tp))
-    set_tex("uPGB", "water", join("gb", 1 - tp))
+    set_tex("uGBn", "water", join("gb", gtp))
+    set_tex("uPGB", "water", join("gb", 1 - gtp))
     tex_filter(9729)
     set_tex("uHist", "water", join("hh", 1 - tp))
     set_tex("uEnv", "water", "env")
@@ -2843,7 +2910,7 @@ def draw_water(gi):
     set_tex("uEnvC", "water", "envc")
     set_vec4("uEnvP", "water", LPX[level], LPY[level], LPZ[level], 1)
     set_vec4("uFog", "water", SKY[sb + 17], SKY[sb + 18], SKY[sb + 19], SKY[sb + 20])
-    set_vec4("uFogS", "water", SKY[sb + 21], SKY[sb + 22], 1, 0)
+    set_vec4("uFogS", "water", SKY[sb + 21], SKY[sb + 22], 1, farq)
     set_vec3("uFogSun", "water", SKY[sb], SKY[sb + 1], SKY[sb + 2])
     set_vec4("uSunC", "water", SKY[sb + 3], SKY[sb + 4], SKY[sb + 5], LSUN[level])
     set_vec3("uSkyA", "water", SKY[sb + 6] * 0.35 + SKY[sb + 10] * 0.12, SKY[sb + 7] * 0.35 + SKY[sb + 11] * 0.12, SKY[sb + 8] * 0.35 + SKY[sb + 12] * 0.12)
@@ -2864,11 +2931,13 @@ def draw_water(gi):
     set_vec4("uGeoP", "water", GOX[gi], GOY[gi], GOZ[gi], GR[gi])
     if GNC[gi] == 0:
         set_vec4("uGeoI", "water", GB[gi], GC[gi], GH[gi], GIB[gi])
-        draw_list("ICS", "water")
+        ixsel(GC[gi])
+        draw_list(ixl, "water")
     else:
         gco = 0
         for gk in rep(GNC[gi]):
-            set_vec4("uGeoI", "water", GB[gi] + gco, min(49152, GC[gi] - gco), GH[gi], GIB[gi])
-            draw_list("IC", "water")
-            gco += 49152
+            set_vec4("uGeoI", "water", GB[gi] + gco, min(CHV, GC[gi] - gco), GH[gi], GIB[gi])
+            ixsel(min(CHV, GC[gi] - gco))
+            draw_list(ixl, "water")
+            gco += CHV
 

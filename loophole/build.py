@@ -11,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import bake, decor_place, geo, kit, props, sbc, shaders
+from . import bake, decor_place, geo, kit, lod, props, sbc, shaders
 from . import level as lvl
 from .materials import KILL, MATID, PORTAL, TABLE
 from .world import Game, color
@@ -548,7 +548,7 @@ def build(world_path, out=None, log=print, cache=None):
     log(f"loophole {ENGINE_VERSION}: building '{game.title}' ({len(game.levels)} level{'s' * (len(game.levels) != 1)})")
     L = {k: [] for k in LIST_NAMES}
     for k in ["GTEX", "GB", "GC", "GH", "GIB", "GNC", "GOX", "GOY", "GOZ", "GR", "GIDW", "GCH0", "CHX", "CHY", "CHZ",
-              "CHR", "LDET", "LWAT", "LWB0", "LWBN", "WBX0", "WBZ0", "WBX1", "WBZ1", "WBY", "SHX", "SHZ", "SHR", "SHY"]:
+              "CHR", "CHS", "CHO", "CHN", "CHF", "LDET", "LWAT", "LWB0", "LWBN", "WBX0", "WBZ0", "WBX1", "WBZ1", "WBY", "SHX", "SHZ", "SHR", "SHY"]:
         L[k] = []
     groups = []
     lms = {}
@@ -579,6 +579,7 @@ def build(world_path, out=None, log=print, cache=None):
         lms[li] = lm
         tlms[li] = tl
         P_, N_, UV_, M_, A_, S_, I_, F_, T_ = kit.build(c, meta, dirr)
+        nkb = len(P_) - len(decor_place.build(c)[0])
         if c.terrain is not None:
             t = c.terrain
             RP, RN = t["ring"]
@@ -610,13 +611,24 @@ def build(world_path, out=None, log=print, cache=None):
                    ^ (pq[:, 2] * 40503)) & 1023
             tri_det[cn5[hv5 > 430]] = True
         cols = [P_, N_, UV_, M_, A_, S_, I_, F_, T_]
+        lcls, linst, lcols, llinst = lod.split(c, cols, nkb)
         for part, sel in (("", ~tri_det), ("d", tri_det)):
             if part == "d" and not sel.any():
                 L["LDET"].append(0)
                 continue
             sub = [x.reshape(-1, 3, *x.shape[1:])[sel].reshape(-1, *x.shape[1:]) for x in cols]
+            ntri_s = len(sub[0]) // 3
+            big = ntri_s > geo.SCHUNK
             order, spheres = spatial_order(sub[0])
-            sub = [x.reshape(-1, 3, *x.shape[1:])[order].reshape(x.shape) for x in sub]
+            if big and part == "" and lcols is not None:
+                seq, cinfo = lod.layout(order, lcls[sel], linst[sel], len(llinst), llinst, geo.CHUNK)
+                sub = [np.concatenate([x.reshape(-1, 3, *x.shape[1:]), np.asarray(lc, float).reshape(-1, 3, *x.shape[1:])])[seq]
+                       .reshape(-1, *x.shape[1:]) for x, lc in zip(sub, lcols)]
+            elif big:
+                seq, cinfo = lod.layout(order, np.full(ntri_s, lod.SHARED, np.int8), linst[sel], 0, np.zeros(0, np.int64), geo.CHUNK)
+                sub = [x.reshape(-1, 3, *x.shape[1:])[seq].reshape(x.shape) for x in sub]
+            else:
+                sub = [x.reshape(-1, 3, *x.shape[1:])[order].reshape(x.shape) for x in sub]
             pk = geo.Pack()
             info = pk.add(sub[0], sub[1], sub[2], sub[3], sub[4], sub[5], irr=sub[6], flag=sub[7], tan=sub[8])
             gid_ = models.reg(info, f"g{li}{part}")
@@ -624,11 +636,14 @@ def build(world_path, out=None, log=print, cache=None):
                 L["GIDW"].append(gid_)
             else:
                 L["LDET"].append(gid_)
-            if info["count"] > geo.SCHUNK * 3:
+            if big:
+                L["GNC"][gid_ - 1] = len(cinfo)
                 L["GCH0"][gid_ - 1] = len(L["CHX"]) + 1
-                for (cx, cy, cz, cr) in spheres:
+                for (cx, cy, cz, cr), ci in zip(spheres, cinfo):
                     for k_, v_ in zip(("CHX", "CHY", "CHZ", "CHR"), (cx, cy, cz, cr)):
                         L[k_].append(r4(v_))
+                    for k_, v_ in zip(("CHS", "CHO", "CHN", "CHF"), ci):
+                        L[k_].append(int(v_))
             groups.append((f"g{li}{part}", pk))
         level_lists(L, Lv, c, meta, li, models, broadcasts)
     for name in ("device", "arms", "player"):
@@ -1215,7 +1230,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     for cname in game.portal_colors:
         cc = np.array(color(cname), float)
         pcol.append(tuple(r4(v) for v in cc / max(cc.max(), 1e-3)))
-    consts = {"NLEV": len(game.levels), "START_LEVEL": max(1, min(len(game.levels), game.start_level)),
+    consts = {"CHV": geo.CHUNK * 3, "NLEV": len(game.levels), "START_LEVEL": max(1, min(len(game.levels), game.start_level)),
               "QUALITY": game.quality, "FOV": game.fov, "VMDEF": game.viewmodel,
               "CAM0": game.camera, "CDIST0": game.camera_distance, "CPITCH0": game.camera_pitch, "WALK": game.walk_speed, "JUMPV": game.jump_power, "GRAV": 20.0, "FRIC": 5.0, "STOPSPD": 1.9, "ACCEL": 10.0, "AIRACC": 12.0,
               "AIRCAP": 0.8, "STEPH": 0.55, "EYE": 1.6, "EYEC": 1.05, "PHT": 1.75, "PHTC": 1.2, "PW": 0.3,
@@ -1236,15 +1251,16 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     gc = Compiler(proj, src, list(API_LISTS.values()), consts=consts, aliases=ALIASES)
     gblocks = gc.compile()
     eng_lists = {}
+    draw_lists = {}
     from . import mesh as M
     meshes = {"QUAD": M.quad_mesh(), "DUST": M.particles(320, 5), "IMPACT": M.particles(56, 21),
               "VENTP": M.particles(140, 13), "GRASS": M.grass_cards(3000, 9), "TEXT": M.text_quads(128), "PRECIP": M.particles(2400, 31), "DISC": M.portal_disc()}
     for name, m in meshes.items():
-        eng_lists[proj.uid("l")] = [name, m.items()]
-    eng_lists[proj.uid("l")] = ["IC", geo.index_items(geo.CHUNK)]
-    eng_lists[proj.uid("l")] = ["ICS", geo.index_items(geo.SCHUNK)]
+        draw_lists[proj.list_id("engine " + name)] = ["engine " + name, m.items(3 if name in ("GRASS", "PRECIP", "DUST") else 4)]
+    for k, n in enumerate(geo.IX):
+        draw_lists[proj.list_id(f"engine IX{k}")] = [f"engine IX{k}", geo.index_items(n)]
     for name, lid in gc.new_lists.items():
-        if name in ("IC", "ICS") or name in meshes:
+        if name.startswith("engine "):
             continue
         eng_lists[lid] = [name, L.get(name, [])]
     blank = A.svg("blank", '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"></svg>', 1, 1)
@@ -1308,7 +1324,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
                 STAGE_W // 2, STAGE_H // 2)
     old = read_sb3(out) if out.exists() else None
     pj = merge_project(old, engine, gsprite, overlay_sprite(A, proj), proj, api_values, shader_store, cfg_text, bg, A,
-                       game)
+                       game, draw_lists)
     js = json.dumps(pj, separators=(",", ":"))
     files = dict(old["files"]) if old else {}
     keep = referenced_assets(pj)
@@ -1406,7 +1422,7 @@ def referenced_assets(pj):
     return keep
 
 
-def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store, cfg_text, bg, A, game):
+def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store, cfg_text, bg, A, game, draw_lists):
     api_v = {proj.var_id(n): n for n in list(API_VARS.values()) + list(game.globals)}
     api_l = {proj.list_id(n): n for n in API_LISTS.values()}
     bcs = {bid: n for n, bid in proj.broadcasts.items()}
@@ -1430,6 +1446,9 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
                 del stage["lists"][old_id]
                 rewrite_ids(po, old_id, lid)
             stage["lists"][lid] = [n, []]
+        for k in [k for k, v in stage["lists"].items() if v[0].startswith("engine ")]:
+            del stage["lists"][k]
+        stage["lists"].update(draw_lists)
         bnames = {v.lower(): k for k, v in stage.get("broadcasts", {}).items()}
         for bid, n in bcs.items():
             if n.lower() in bnames and bnames[n.lower()] != bid:
@@ -1448,7 +1467,7 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
         monitors += [m for m in hud_monitors(proj, game) if m["id"] not in have]
     else:
         stage = {"isStage": True, "name": "Stage", "variables": {vid: [n, api_values.get(n, 0)] for vid, n in api_v.items()},
-                 "lists": {lid: [n, []] for lid, n in api_l.items()}, "broadcasts": bcs, "blocks": {},
+                 "lists": {**{lid: [n, []] for lid, n in api_l.items()}, **draw_lists}, "broadcasts": bcs, "blocks": {},
                  "comments": {"twconfig": {"blockId": None, "x": 0, "y": 0, "width": 350, "height": 170,
                                            "minimized": True, "text": cfg_text}},
                  "currentCostume": 0, "costumes": [bg], "sounds": [], "volume": 100, "layerOrder": 0, "tempo": 60,
