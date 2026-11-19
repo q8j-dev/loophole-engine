@@ -11,7 +11,7 @@ def begin():
     lap = 0
     racing = 0
     next_checkpoint = 1
-    message = "Walk to the purple kart and press E to get in"
+    message = "Walk up to a kart and press E to drive"
     show_status()
 
 

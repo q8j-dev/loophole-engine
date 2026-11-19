@@ -844,6 +844,11 @@ class Level:
         self.roads.append(r)
         return r
 
+    def hint(self, text, seconds=8.0):
+        self.hint_text = str(text)
+        self.hint_time = float(seconds)
+        return self
+
     def flatten(self, x0, z0, x1, z1, height=0.0, falloff=6.0):
         if not self.terrain_def:
             raise ValueError("call level.terrain(...) before level.flatten(...)")

@@ -34,6 +34,9 @@ def init():
     pthr = 0
     drv = 0
     drvcam = 0
+    lptx = ""
+    pta = 0
+    msgw = 0
     skt = 0
     api_drv = ""
     latk = 0
@@ -555,6 +558,7 @@ def sounds_step():
 def load_level(lv):
     if drv > 0:
         leave_car()
+    hints = 1
     QON[1] = 0
     QON[2] = 0
     if lv != level or FR < 2:
@@ -884,6 +888,17 @@ def api_out():
 def play_step():
     ltime += dt
     api_time = round(ltime * 100) / 100
+    if hints > 0 and LHINT[level] != "":
+        if hints == 1 and ltime > 0.5 and csi == 0:
+            hints = 0
+            if api_msg == "":
+                api_msg = LHINT[level]
+                hints = 2
+                hintend = ltime + LHINTT[level]
+        elif hints == 2 and ltime > hintend:
+            hints = 0
+            if api_msg == LHINT[level]:
+                api_msg = ""
     if kr == 1:
         begin(level)
         return
@@ -2775,9 +2790,11 @@ def frame_uniforms():
     if api_cam == 3 and LCUT[level] > 0:
         set_vec2("uCut", "world", 1, py + LCUT[level])
         set_vec2("uCut", "haze", 1, py + LCUT[level])
+        set_vec2("uCut", "taa", 1, py + LCUT[level])
     else:
         set_vec2("uCut", "world", 0, 0)
         set_vec2("uCut", "haze", 0, 0)
+        set_vec2("uCut", "taa", 0, 0)
     if api_cam >= 2:
         set_vec2("uNF", "world", 0.6, 1.9)
     else:
@@ -3258,21 +3275,24 @@ def post():
 def hud():
     if api_msg != lmsg or strlen(api_msg) != strlen(lmsg):
         lmsg = api_msg
-        hud_text(api_msg, 0, 96, RTW / RTH * 0.5, 0.2, 0.085, 1)
+        hud_text(api_msg, 0, 84, RTW / RTH * 0.5, 0.2, 0.085, 1)
+        msgw = hw
         msgt = 0
     if api_stat != lstat or strlen(api_stat) != strlen(lstat):
         lstat = api_stat
         hud_text(api_stat, 96, 32, 0.045, 0.885, 0.068, 0)
     msgt = min(1, msgt + dt * 3)
-    if strlen(api_msg) + strlen(api_stat) > 0:
-        set_vec4("uTA", "text", msgt, 1, 0, 0)
-        set_tex("uFont", "text", "font")
-        draw_list("engine TEXT", "text")
+    use_prompt()
     if api_touch == 1:
         tuifade = min(1, tuifade + dt * 4)
     else:
         tuifade = max(0, tuifade - dt * 4)
-    if tuifade > 0:
+    if strlen(api_msg) > 0:
+        set_vec4("uMB", "ui", 0, -0.515, msgw + 0.07, 0.125)
+        set_num("uMBa", "ui", msgt)
+    else:
+        set_num("uMBa", "ui", 0)
+    if tuifade > 0 or strlen(api_msg) > 0:
         tasp = SW2 / SH2
         set_vec4("uJoy", "ui", 0 - tasp + 0.46, -0.5, 0.3, tuifade)
         tkx = 0 - tasp + 0.46
@@ -3287,6 +3307,42 @@ def hud():
         set_vec4("uB2", "ui", tasp - 0.68, -0.3, 0.14, tuse)
         set_vec4("uB3", "ui", tasp - 0.36, -0.05, 0.14 * COMBAT, tatk)
         draw_list("engine QUAD", "ui")
+    if strlen(api_msg) + strlen(api_stat) + strlen(lptx) > 0:
+        set_vec4("uTA", "text", msgt, 1, pta, 0)
+        set_tex("uFont", "text", "font")
+        draw_list("engine TEXT", "text")
+
+
+@warp
+def use_prompt():
+    ptx = ""
+    if state == 1 and api_ctl == 1 and csi == 0:
+        if drv == 0:
+            for pk_ in rep(nobj):
+                if ptx == "" and DKIND[LO0[level] + pk_ - 1] == 7 and obj_visible[pk_] == 1:
+                    if (obj_x[pk_] - px) * (obj_x[pk_] - px) + (obj_z[pk_] - pz) * (obj_z[pk_] - pz) < 7.84 and abs(obj_y[pk_] - py) < 1.5:
+                        ptx = "Drive"
+            if ptx == "":
+                if api_hold > 0:
+                    ptx = "Drop"
+                elif api_look > 0 and lookd < USED:
+                    if DCARRY[LO0[level] + api_look - 1] == 1:
+                        ptx = "Pick up"
+                    elif DUSE[LO0[level] + api_look - 1] == 1:
+                        ptx = "Use"
+    if ptx != "":
+        pkey = USEKEY
+        if gpc == 1:
+            pkey = "X"
+        if api_touch == 1:
+            pkey = "Use"
+        ptx = join(join(pkey, "  "), ptx)
+        pta = min(1, pta + dt * 6)
+    else:
+        pta = max(0, pta - dt * 6)
+    if ptx != lptx and (ptx != "" or pta <= 0):
+        lptx = ptx
+        hud_text(ptx, 84, 12, RTW / RTH * 0.5, 0.33, 0.06, 1)
 
 
 @warp

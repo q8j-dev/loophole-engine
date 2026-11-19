@@ -51,7 +51,7 @@ def skid(rng, dur=0.55):
     x = 0.55 * squeal + 0.6 * band_noise(rng, n, 1200, 5000)
     env = np.minimum(1, t / 0.04) * np.minimum(1, (dur - t) / 0.12)
     x = x * env
-    return np.clip(x / (np.abs(x).max() + 1e-12) * 0.55, -0.95, 0.95)
+    return np.clip(x / (np.abs(x).max() + 1e-12) * 0.32, -0.95, 0.95)
 
 
 def write(name, y, man, lame):

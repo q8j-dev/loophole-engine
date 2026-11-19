@@ -844,7 +844,7 @@ LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "
               "DPRY2", "DPRS2", "DPRT2", "DBX", "DBY", "DBZ", "DBCX", "DBCY", "DBCZ", "DSX", "DSY", "DSZ", "DKIND",
               "DPHYS", "DCARRY", "DUSE", "DSHAD", "DSOLID", "DVIS", "DX", "DY", "DZ", "DYAW", "DPITCH", "DROLL",
               "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DHR", "DHG", "DHB", "DBOB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
-              "DPSP", "DPLOOP", "DPFACE", "DMODE", "DSIGHT", "DFOV", "DMASS", "DFRIC", "DBNC", "DPUSH", "DWGT", "DSWG", "DLEN", "DLGT", "DHP", "DDMG", "DRNG", "DCHR", "NBM", "NCB0", "NCNJ", "NCCL", "DVS", "DVTOP", "DVACC", "DVGRIP", "VPV", "VRAD", "VHW", "VHH", "RSTX", "RSTZ", "RSTDX", "RSTDZ", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
+              "DPSP", "DPLOOP", "DPFACE", "DMODE", "DSIGHT", "DFOV", "DMASS", "DFRIC", "DBNC", "DPUSH", "DWGT", "DSWG", "DLEN", "DLGT", "DHP", "DDMG", "DRNG", "DCHR", "NBM", "NCB0", "NCNJ", "NCCL", "DVS", "DVTOP", "DVACC", "DVGRIP", "VPV", "VRAD", "VHW", "VHH", "RSTX", "RSTZ", "RSTDX", "RSTDZ", "LHINT", "LHINTT", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
 
 
 def portal_blockers(L, Lv, c, rects, h0):
@@ -987,6 +987,8 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
     for b in getattr(Lv, "solid_boxes", []):
         rects += box_rects(np.array(b[:3]), np.array(b[3:]))
     L["LNAME"].append(Lv.name)
+    L["LHINT"].append(getattr(Lv, "hint_text", ""))
+    L["LHINTT"].append(r4(getattr(Lv, "hint_time", 8.0)))
     portal_blockers(L, Lv, c, rects, len(L["HAX"]) + 1)
     L["LH0"].append(len(L["HAX"]) + 1)
     L["LHN"].append(len(rects))
@@ -1365,9 +1367,13 @@ def overlay():
     while True:
         if api_locked == 1 and api_paused == 0:
             costume("crosshair")
+            if api_cam == 0:
+                show()
+            else:
+                hide()
         else:
             costume("click")
-        show()
+            show()
 """
     src = src.replace("go_front()", "front()")
     c = Compiler(proj, src, list(API_LISTS.values()), aliases=ALIASES)
@@ -1493,7 +1499,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     keys = getattr(game, "keys", None) or dict(Game.KEYS)
     pad = getattr(game, "pad", dict(Game.PAD))
     touch = getattr(game, "touch", "auto")
-    consts = {"NAVMAX": max(1, L.get("_NAVMAX", 1)), "SH2": STAGE_H / 2, "SW2": STAGE_W / 2, "TOUCHA": 1 if touch == "auto" else 0, "TOUCH0": 1 if touch is True else 0,
+    consts = {"USEKEY": (keys.get("use", "e").upper() if len(keys.get("use", "e")) == 1 else keys.get("use", "e")), "NAVMAX": max(1, L.get("_NAVMAX", 1)), "SH2": STAGE_H / 2, "SW2": STAGE_W / 2, "TOUCHA": 1 if touch == "auto" else 0, "TOUCH0": 1 if touch is True else 0,
               "GPAD": 1 if pad else 0, "GP_JUMP": (pad or Game.PAD)["jump"], "GP_USE": (pad or Game.PAD)["use"],
               "GP_CROUCH": (pad or Game.PAD)["crouch"], "GP_PAUSE": (pad or Game.PAD)["pause"],
               "GP_ATK": (pad or Game.PAD).get("attack", 4), "GP_THR": (pad or Game.PAD).get("throw", 6),

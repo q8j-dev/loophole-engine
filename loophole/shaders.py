@@ -584,15 +584,36 @@ float occ(vec3 p, vec3 n, vec4 s) {
 uniform vec2 uNF;
 uniform vec3 uRim;
 float snowSp = 0.0;
+vec3 capStone(vec3 p) {
+  vec2 q = p.xz;
+  float row = floor(q.y / 0.55);
+  vec2 b = vec2(q.x / 1.1 + 0.5 * mod(row, 2.0), q.y / 0.55);
+  vec2 cell = floor(b);
+  vec2 f = fract(b);
+  float h = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
+  float edge = min(min(f.x, 1.0 - f.x) * 1.1, min(f.y, 1.0 - f.y) * 0.55);
+  float mortar = smoothstep(0.0, 0.035, edge);
+  float n = fract(sin(dot(floor(q * 9.0), vec2(12.9898, 78.233))) * 43758.5453);
+  vec3 c = vec3(0.022, 0.019, 0.017) * (0.8 + 0.4 * h) * (0.92 + 0.16 * n);
+  return mix(vec3(0.007, 0.006, 0.006), c, mortar);
+}
 void main() {
   gate(vW);
   if (uCut.x > 0.5) {
     if (vW.y > uCut.y) discard;
+    if (uO1.w > 0.05) {
+      vec3 tp = uO1.xyz - uCP;
+      float lp = length(tp);
+      vec3 dp = tp / lp;
+      vec3 rr = vW - uCP;
+      float tt = dot(rr, dp);
+      if (tt > 0.3 && tt < lp - 0.7 && vW.y > uO1.y - 0.3 && length(rr - dp * tt) < 1.5) discard;
+    }
     if (gl_FrontFacing) {
       vec3 cd = normalize(vW - uCP);
       vec3 cp = uCP + cd * ((uCP.y - uCut.y) / max(-cd.y, 0.05));
       if (uGB.x > 0.5) { gbOut(cp); return; }
-      gl_FragColor = enc(vec3(0.0), 1.0);
+      gl_FragColor = enc(capStone(cp), 1.0);
       return;
     }
   }
@@ -1653,6 +1674,20 @@ uniform vec3 uPF;
 uniform vec4 uPP;
 uniform vec4 uTA;
 uniform vec4 uAO;
+uniform vec2 uCut;
+vec3 capStone(vec3 p) {
+  vec2 q = p.xz;
+  float row = floor(q.y / 0.55);
+  vec2 b = vec2(q.x / 1.1 + 0.5 * mod(row, 2.0), q.y / 0.55);
+  vec2 cell = floor(b);
+  vec2 f = fract(b);
+  float h = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
+  float edge = min(min(f.x, 1.0 - f.x) * 1.1, min(f.y, 1.0 - f.y) * 0.55);
+  float mortar = smoothstep(0.0, 0.035, edge);
+  float n = fract(sin(dot(floor(q * 9.0), vec2(12.9898, 78.233))) * 43758.5453);
+  vec3 c = vec3(0.022, 0.019, 0.017) * (0.8 + 0.4 * h) * (0.92 + 0.16 * n);
+  return mix(vec3(0.007, 0.006, 0.006), c, mortar);
+}
 uniform vec2 uTx;
 uniform vec2 u_res;
 vec3 dec(vec3 e) { return e * e * 4.0; }
@@ -1697,6 +1732,11 @@ void main() {
     aov = clamp(1.0 - occ / 8.0 * uAO.x, 0.25, 1.0);
   }
   vec3 c = tm(dec(texture2D(uCur, uv).rgb) * aov + hz);
+  if (uCut.x > 0.5 && d < 0.01) {
+    vec2 nd = uv * 2.0 - 1.0 - uJit;
+    vec3 rd = normalize(uCF + uCR * (nd.x / uProj.x) - uCU * (nd.y / uProj.y));
+    if (rd.y < -0.01) c = tm(capStone(uCP + rd * ((uCP.y - uCut.y) / -rd.y)));
+  }
   vec3 m1 = c;
   vec3 m2 = c * c;
   for (int k = 0; k < 8; k++) {
@@ -2158,7 +2198,7 @@ void main() {
   float code = g.w - 32.0;
   vec2 cell = vec2(mod(code, 16.0), floor(code / 16.0));
   vUV = (cell + vec2(aCorner.x, 1.0 - aCorner.y)) / vec2(16.0, 6.0);
-  vA = aSlot < 95.5 ? uTA.x : uTA.y;
+  vA = aSlot < 83.5 ? uTA.x : (aSlot < 95.5 ? uTA.z : uTA.y);
 }
 """
 
@@ -2181,6 +2221,8 @@ uniform vec4 uKnob;
 uniform vec4 uB1;
 uniform vec4 uB2;
 uniform vec4 uB3;
+uniform vec4 uMB;
+uniform float uMBa;
 float px;
 void over(inout vec4 c, vec3 rgb, float a) {
   c.rgb = rgb * a + c.rgb * (1.0 - a);
@@ -2216,6 +2258,11 @@ void main() {
   px = 2.0 / u_res.y;
   float k = uJoy.w;
   vec4 col = vec4(0.0);
+  if (uMBa > 0.0) {
+    vec2 q = abs(p - uMB.xy) - uMB.zw + 0.06;
+    float bd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 0.06;
+    over(col, vec3(0.03, 0.035, 0.05), (1.0 - smoothstep(-px * 1.5, px * 1.5, bd)) * 0.42 * uMBa);
+  }
   over(col, vec3(0.04, 0.06, 0.1), disc(p, uJoy.xyz) * 0.28 * k);
   over(col, vec3(1.0), ring(p, uJoy.xyz, 0.007) * 0.6 * k);
   over(col, vec3(1.0), disc(p, uKnob.xyz) * (0.5 + 0.35 * uKnob.w) * k);
