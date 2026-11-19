@@ -638,9 +638,45 @@ def clump(name, seed, src, diff, alpha, picks, size=0.9, cards=4, count=1, sprea
             ang = q * math.pi / cards + rng.uniform(0, 0.4)
             right = np.array([math.cos(ang), 0, math.sin(ang)])
             s = size * rng.uniform(0.8, 1.15)
-            rect = rects[int(rng.integers(0, len(rects)))]
+            rect = rects[int(rng.integers(0, len(rects) - (1 if flowers else 0)))]
             m.card(base, right, np.array([rng.normal(0, 0.1), 1.0, rng.normal(0, 0.1)]) / 1.01, s, s, rect,
                    np.array([0, 1.0, 0]), sway=1.0)
+    save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
+    return m.save(name)
+
+
+def fern(name, seed, src, size=1.0, fronds=13, tint=(0.62, 0.72, 0.5)):
+    rng = np.random.default_rng(seed)
+    im = load_rgba(src, "fern_02__Diffuse.jpg", "fern_02__Alpha.png")
+    sp = sorted(sprites(im, 6000), key=lambda s: -s.size[0] * s.size[1])[:4]
+    T = TILE // 2
+    tile = np.zeros((T, T, 3), np.float32)
+    ntile = np.zeros_like(tile)
+    ntile[..., :2] = 0.5
+    ntile[..., 2] = 1.0
+    rtile = np.zeros_like(tile)
+    cw = T // 4
+    for k, s in enumerate(sp):
+        sc = min(cw / s.size[0], T / s.size[1])
+        r = s.resize((max(1, int(s.size[0] * sc)), max(1, int(s.size[1] * sc))), Image.LANCZOS)
+        cell = Image.new("RGBA", (cw, T), (0, 0, 0, 0))
+        cell.alpha_composite(r, ((cw - r.size[0]) // 2, T - r.size[1]))
+        al, nm, rm = rgba_to_maps(cell, 0.6)
+        tile[:, k * cw:(k + 1) * cw] = al * np.array(tint)
+        ntile[:, k * cw:(k + 1) * cw] = nm
+        rtile[:, k * cw:(k + 1) * cw] = rm
+    m = Mesh()
+    for f in range(fronds):
+        ang = 2 * math.pi * f / fronds + rng.uniform(-0.25, 0.25)
+        out = np.array([math.cos(ang), 0.0, math.sin(ang)])
+        tilt = math.radians(rng.uniform(28, 62))
+        upv = out * math.sin(tilt) + np.array([0, 1.0, 0]) * math.cos(tilt)
+        right = np.array([-out[2], 0.0, out[0]])
+        L = size * rng.uniform(0.7, 1.05)
+        k = int(rng.integers(0, len(sp)))
+        rect = (k / 4, 0.0, (k + 1) / 4, 1.0)
+        m.card(out * 0.04, right, upv, L * 0.26, L, rect, upv * 0.3 + np.array([0, 0.9, 0]), sway=1.0,
+               bend=rng.uniform(0.25, 0.45), rows=4)
     save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
     return m.save(name)
 
@@ -704,8 +740,7 @@ def main():
     print("grass", clump("grass", 4, src, "grass_medium_01__Diffuse.jpg", "grass_medium_01__Alpha.png", 5, size=0.7,
                          cards=3, count=3, spread=0.3, rough=0.75, tint=(0.88, 0.92, 0.7), region=(0.62, 1.0),
                          flowers=True))
-    print("fern", clump("fern", 6, src, "fern_02__Diffuse.jpg", "fern_02__Alpha.png", 0, size=1.0, cards=6, count=1,
-                        rough=0.6, tint=(0.7, 0.78, 0.54)))
+    print("fern", fern("fern", 6, src))
 
 
 if __name__ == "__main__":
