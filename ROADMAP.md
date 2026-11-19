@@ -56,6 +56,7 @@ Status: `[ ]` not started, `[~]` works but has known gaps, `[x]` built and check
 - [x] Level styles: lab, house, dungeon, outdoor, plain
 - [x] Viewmodel is data-driven: none, arms, device, or any prop or model, switchable from the `viewmodel` variable
 - [x] Prop library made in Blender from Poly Haven models (32 props) plus generated foliage with alpha-cut leaves and wind sway
+- [x] Foliage pass: baked leaf-cluster sprites drawn as crown-facing billboards with spherised normals, translucency, two-sided baked light and crown self-shadowing, coverage-preserving alpha mips, per-cluster colour variation, tiered irregular pines, crisp varied grass cards in the G-buffer, and TAA tuned for thin foliage. Checked at 3, 10 and 30 m and in a slow pan.
 - [x] Signs with letters, digits and punctuation
 
 ### 5. Game variety
@@ -76,7 +77,7 @@ Status: `[ ]` not started, `[~]` works but has known gaps, `[x]` built and check
 
 ## Known gaps
 
-- Tree canopies seen from very close still break into ragged leaf cards, and the temporal anti-aliasing smears foliage during fast camera turns.
+- Broadleaf canopies are camera-facing leaf-cluster sprites. They hold up from about 3 m outward, but standing inside a crown still shows individual sprites. Pines are crossed needle cards and read slightly soft up close.
 - Distant hills beyond the playable area are low in detail.
 - Portals work only in first person, and portal views render at half resolution.
 - The Portal Lab playthrough is timing-sensitive in the harness: it passes as written in `tools/harness/runs/portals.txt`, but removing the extra `log` steps after the first teleport has made the walk west along the ledge stall in some runs. The cause is not yet found.
