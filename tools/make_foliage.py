@@ -693,7 +693,7 @@ def bush(name, seed, src, size=1.3, cards=22):
     for k in range(2):
         c = round_cluster(leaves, T, seed * 13 + k, n=70, leaf_scale=0.17).resize((T // 2, T), Image.LANCZOS)
         al, nm, rm = rgba_to_maps(c, 0.55)
-        tile[:, k * T // 2:(k + 1) * T // 2] = al * np.array([0.85, 0.95, 0.8])
+        tile[:, k * T // 2:(k + 1) * T // 2] = al * np.array([0.66, 0.78, 0.56])
         ntile[:, k * T // 2:(k + 1) * T // 2] = nm
         rtile[:, k * T // 2:(k + 1) * T // 2] = rm
     m = Mesh()
