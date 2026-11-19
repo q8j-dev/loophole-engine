@@ -399,6 +399,8 @@ def sky_load(lv):
     set_vec4("uFogS", "world", SKY[sb + 21], SKY[sb + 22], 1, 0)
     set_vec3("uFogSun", "world", SKY[sb], SKY[sb + 1], SKY[sb + 2])
     set_vec4("uSunC", "world", SKY[sb + 3], SKY[sb + 4], SKY[sb + 5], LSUN[level])
+    set_vec4("uWind", "world", LWX[level], LWZ[level], LWS[level], 0)
+    set_vec4("uWind", "grass", LWX[level], LWZ[level], LWS[level], 0)
     set_vec3("uSkyA", "world", SKY[sb + 6] * 0.35 + SKY[sb + 10] * 0.12, SKY[sb + 7] * 0.35 + SKY[sb + 11] * 0.12, SKY[sb + 8] * 0.35 + SKY[sb + 12] * 0.12)
     set_vec4("uFog", "sky", SKY[sb + 17], SKY[sb + 18], SKY[sb + 19], SKY[sb + 20])
     set_vec4("uFogS", "sky", SKY[sb + 21], SKY[sb + 22], 1, 0)
@@ -417,7 +419,8 @@ def sky_load(lv):
     set_vec4("uTHP", "world", THX[lv], THZ[lv], THW[lv], THD[lv])
     set_vec4("uTHR", "grass", THMN[lv], THRG[lv], 0, 0)
     set_vec4("uGR", "grass", GRX[lv], GRY[lv], GRW[lv], GRH[lv])
-    set_vec4("uGS", "grass", 26, 13, 1, 1)
+    set_vec4("uGS", "grass", 26, 13, GRDN[lv], GRSZ[lv])
+    set_vec4("uGT", "grass", GRFL[lv], 0, GRDRY[lv], 0)
     set_vec4("uFog", "grass", SKY[sb + 17], SKY[sb + 18], SKY[sb + 19], SKY[sb + 20])
     set_vec4("uFogS", "grass", SKY[sb + 21], SKY[sb + 22], 1, 0)
 
@@ -1880,6 +1883,7 @@ def draw_scene(vq):
         draw_portals()
     if LGRASS[level] == 1:
         cam_u("grass")
+        set_vec3("uPlr", "grass", px, py, pz)
         set_vec4("uGB", "grass", gbm, 0, 0, 0)
         draw_list("GRASS", "grass")
     if gbm == 0:

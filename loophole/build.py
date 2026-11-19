@@ -594,7 +594,7 @@ TPM = {}
 LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "HV1", "HKILL", "HPORT", "LSX", "LSY",
               "LSZ", "LSYAW", "LSPIT", "LKILL", "LO0", "LON", "LT0", "LTN", "TNAME", "TKIND", "TARG", "TX0", "TY0",
               "TZ0", "TX1", "TY1", "TZ1", "LL0", "LLN", "LNM", "LTX", "LTY", "LTZ", "LTW", "LDDX", "LDDY", "LDDZ",
-              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LFLK", "LCUT", "LK0", "LKN", "KH", "KU0", "KU1", "KV0", "KV1", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
+              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LFLK", "LCUT", "LWX", "LWZ", "LWS", "LK0", "LKN", "KH", "KU0", "KU1", "KV0", "KV1", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
               "AMB0", "AMBNX", "AMBNY", "AMBNZ", "AMBST", "AMBOX", "AMBOY", "AMBOZ", "AMB", "LPX", "LPY", "LPZ",
               "LB0X", "LB0Y", "LB0Z", "LB1X", "LB1Y", "LB1Z", "LFY", "LCY_", "LV0", "LVNN", "VX0", "VZ0", "VX1",
               "VZ1", "VY0", "VY1", "VPW", "LSP0", "LSPN", "SPX", "SPY", "SPZ", "LSKY", "LSUN", "LTER", "TOX", "TOZ",
@@ -602,7 +602,7 @@ LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "
               "DPRY2", "DPRS2", "DPRT2", "DBX", "DBY", "DBZ", "DBCX", "DBCY", "DBCZ", "DSX", "DSY", "DSZ", "DKIND",
               "DPHYS", "DCARRY", "DUSE", "DSHAD", "DSOLID", "DVIS", "DX", "DY", "DZ", "DYAW", "DPITCH", "DROLL",
               "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DHR", "DHG", "DHB", "DBOB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
-              "DPSP", "DPLOOP", "DPFACE", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS"]
+              "DPSP", "DPLOOP", "DPFACE", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL"]
 
 
 def portal_blockers(L, Lv, c, rects, h0):
@@ -643,6 +643,10 @@ def portal_blockers(L, Lv, c, rects, h0):
                 for k, v in zip(("KU0", "KU1", "KV0", "KV1"), (u0, u1, v0, v1)):
                     L[k].append(r4(v))
     L["LKN"].append(len(L["KH"]) - n0)
+
+
+from .world import Level as _Lv
+Level_styles = _Lv.GRASS_STYLES
 
 
 def r4(v):
@@ -710,6 +714,10 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
     L["LVN"].append(min(8, sum(1 for q in lts if q["vol"] > 0)))
     L["LHZ"].append(Lv.haze)
     L["LCUT"].append(r4(getattr(Lv, "cut", 0.0)))
+    wd = getattr(Lv, "wind_def", (0.94, 0.33, 0.6 if Lv.sky else 0.0))
+    L["LWX"].append(r4(wd[0]))
+    L["LWZ"].append(r4(wd[1]))
+    L["LWS"].append(r4(wd[2]))
     L["LHA"].append(Lv.haze_amb)
     L["LEXP"].append(Lv.exposure)
     L["LAE"].append(Lv.auto_exposure)
@@ -768,7 +776,7 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
         vals = [0.0] * 21
     L["SKY"].extend(vals + [0.0] * (24 - len(vals)))
     for k in ("TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH",
-              "LGRASS"):
+              "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL"):
         L[k].append(0)
     if c.terrain is not None:
         from . import terrain as T
@@ -804,6 +812,11 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
             L["GRW"][-1] = r4(gs / lay["PW"])
             L["GRH"][-1] = r4(gs / lay["PH"])
             L["LGRASS"][-1] = 1
+            gs_ = Level_styles[Lv.terrain_def.get("grass_style", "lawn")]
+            L["GRSZ"][-1] = r4(gs_[0])
+            L["GRDN"][-1] = r4(gs_[1] * Lv.terrain_def.get("grass", 1.0))
+            L["GRDRY"][-1] = r4(gs_[2])
+            L["GRFL"][-1] = r4(gs_[3])
     if Lv.sky and c.field is not None:
         f = c.field
         for (lo, hi) in ((np.array([f.x0 - 1, -50, f.z0 - 1]), np.array([f.x0, 200, f.z1 + 1])),

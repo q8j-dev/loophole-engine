@@ -417,6 +417,12 @@ class Level:
         self.triggers.append(dict(name=name, box=_box(x0, y0, z0, x1, y1, z1), kind=1, to=0))
         return self
 
+    def wind(self, direction=(1.0, 0.35), strength=1.0):
+        d = np.array(direction, float)
+        d = d / max(np.linalg.norm(d), 1e-6)
+        self.wind_def = (float(d[0]), float(d[1]), float(strength))
+        return self
+
     def grade(self, r=1.0, g=1.0, b=1.0, saturation=1.0, exposure=None, auto_exposure=None):
         self.grade_rgb = (r, g, b)
         self.saturation = saturation
@@ -439,9 +445,15 @@ class Level:
         self.window_style = "sky"
         return self
 
-    def terrain(self, x0, z0, x1, z1, height=None, base=0.0, step=1.0, material="terrain", seed=1, hills=4.0, grass=1.0):
+    GRASS_STYLES = {"lawn": (0.75, 1.15, 0.0, 0.02), "meadow": (1.45, 1.0, 0.1, 0.12), "dry": (1.1, 0.8, 0.85, 0.02),
+                    "forest": (0.9, 0.55, 0.15, 0.04)}
+
+    def terrain(self, x0, z0, x1, z1, height=None, base=0.0, step=1.0, material="terrain", seed=1, hills=4.0, grass=1.0,
+                grass_style="lawn"):
+        if grass_style not in self.GRASS_STYLES:
+            raise ValueError(f"grass_style must be one of {', '.join(self.GRASS_STYLES)}")
         self.terrain_def = dict(x0=x0, z0=z0, x1=x1, z1=z1, height=height, base=base, step=step, material=material,
-                                seed=seed, hills=hills, flats=[], paths=[], grass=grass)
+                                seed=seed, hills=hills, flats=[], paths=[], grass=grass, grass_style=grass_style)
         return self
 
     def path(self, *points, width=2.0, material="gravel"):

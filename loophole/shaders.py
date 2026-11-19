@@ -107,7 +107,28 @@ vec3 sampA(float atl, float cid, vec2 uv, float lod) {{
 
 ATLAS = atlas_glsl()
 
-WORLD_VS = HEAD + CAM_U + PROJECT + """
+WIND = """
+uniform vec4 uWind;
+float gust(vec2 p, float t) {
+  vec2 d = uWind.xy;
+  float a = dot(p, d) * 0.11 - t * 1.25;
+  float b = dot(p, vec2(-d.y, d.x)) * 0.05 + t * 0.21;
+  float g = 0.5 + 0.5 * sin(a + sin(b) * 1.7);
+  g *= 0.65 + 0.35 * sin(a * 0.37 + 1.3 + b * 2.1);
+  return g * g;
+}
+vec3 windAt(vec3 p, float t, float ph) {
+  float g = gust(p.xz, t);
+  float base = uWind.z * (0.35 + 0.65 * g);
+  float flut = sin(t * 2.3 + ph) * 0.35 + sin(t * 3.7 + ph * 1.7) * 0.2;
+  vec2 lat = vec2(-uWind.y, uWind.x) * sin(t * 1.1 + ph * 0.8) * 0.3;
+  vec2 h = uWind.xy * (base * (1.0 + flut * 0.4)) + lat * uWind.z * (0.3 + g);
+  return vec3(h.x, -0.15 * dot(h, h), h.y);
+}
+"""
+
+
+WORLD_VS = HEAD + CAM_U + PROJECT + WIND + """
 attribute float aI;
 uniform float u_timer;
 uniform sampler2D uGeo;
@@ -217,9 +238,12 @@ void main() {
   if (t5.z > 4.5 && t5.z < 6.5) {
     float sw = vAO;
     vAO = 1.0;
-    float ph = w.x * 0.35 + w.z * 0.22;
-    w += vec3(sin(u_timer * 1.4 + ph), 0.0, cos(u_timer * 1.1 + ph * 1.3)) * (0.07 * sw);
-    w += vec3(sin(u_timer * 6.3 + w.y * 3.1 + w.x * 2.3), sin(u_timer * 5.1 + w.z * 2.7) * 0.6, cos(u_timer * 5.7 + w.y * 2.9)) * (0.018 * sw);
+    vec3 tree = uMP;
+    float ph = fract(sin(dot(floor(aPos * 1.2), vec3(12.9898, 78.233, 37.719))) * 43758.5453) * 6.2831;
+    vec3 wt = windAt(tree, u_timer, tree.x * 0.3 + tree.z * 0.17);
+    vec3 wc = windAt(w, u_timer * 1.6, ph);
+    w += wt * (0.22 * sw) + wc * (0.06 * sw);
+    w += vec3(sin(u_timer * 7.3 + ph * 3.0), sin(u_timer * 6.1 + ph * 2.0) * 0.6, cos(u_timer * 6.7 + ph * 2.5)) * (0.008 * sw * (0.3 + uWind.z));
   }
   vW = w;
   vN = uMX * aNrm.x + uMY * aNrm.y + uMZ * aNrm.z;
@@ -1541,7 +1565,11 @@ void main() {
 """
 
 
-GRASS_VS = HEAD + CAM_U + PROJECT + """
+GRASS_VS = HEAD + CAM_U + PROJECT + WIND + """
+uniform vec3 uPlr;
+uniform vec4 uGT;
+varying float vGust;
+varying float vDry;
 attribute vec4 aSeed;
 attribute vec3 aCorner;
 uniform float u_timer;
@@ -1565,20 +1593,29 @@ void main() {
   float d = length(base - cam);
   float fade = 1.0 - smoothstep(uGS.y * 0.6, uGS.y, d);
   float keep = step(aSeed.w, dens * uGS.z) * step(0.0, tc.x) * step(tc.x, 1.0) * step(0.0, tc.y) * step(tc.y, 1.0);
-  float sz = (0.45 + 0.4 * aSeed.z) * fade * keep * uGS.w;
+  float k = floor(fract(aSeed.w * 7.13) * 3.0);
+  if (fract(aSeed.z * 13.7 + aSeed.w * 3.1) < uGT.x) k = 3.0;
+  float sz = (0.45 + 0.4 * aSeed.z) * fade * keep * uGS.w * (k > 2.5 ? 0.85 : 1.0);
   float ang = aSeed.z * 6.2831 + aCorner.z * 1.5708;
   vec3 right = vec3(cos(ang), 0.0, sin(ang));
   vec3 p = vec3(base.x, h - 0.04, base.y) + right * aCorner.x * sz * 0.6 + vec3(0.0, aCorner.y * sz, 0.0);
   float sw = aCorner.y * aCorner.y;
-  p.xz += vec2(sin(u_timer * 1.7 + base.x * 0.5 + base.y * 0.3), cos(u_timer * 1.3 + base.y * 0.6)) * 0.07 * sw * sz;
-  float k = floor(aSeed.w * 7.13 * 4.0);
+  vec3 wv = windAt(vec3(base.x, h, base.y), u_timer, aSeed.z * 6.2831);
+  p.xz += wv.xz * 0.28 * sw * sz;
+  vec2 away = base - uPlr.xz;
+  float pd = length(away);
+  float push = (1.0 - smoothstep(0.25, 0.95, pd)) * step(abs(h - uPlr.y), 1.0);
+  p.xz += away / max(pd, 0.05) * push * 0.45 * sw * sz;
+  p.y -= push * 0.35 * sw * sz;
+  vGust = gust(base, u_timer);
+  vDry = uGT.z * (0.6 + 0.4 * fract(aSeed.x * 31.7));
   float qx = mod(k, 2.0);
   float qy = mod(floor(k / 2.0), 2.0);
   vec2 local = vec2(aCorner.x * 0.5 + 0.5, 1.0 - aCorner.y);
   vUV = uGR.xy + (vec2(qx, qy) + local) * 0.5 * uGR.zw;
   vW = p;
   vFade = fade * keep;
-  vShade = 0.55 + 0.45 * aCorner.y;
+  vShade = 0.32 + 0.68 * pow(aCorner.y, 0.6);
   gl_Position = project(p);
 }
 """
@@ -1607,6 +1644,8 @@ void gbOut(vec3 w) {
   float lo = floor(v - hi * 256.0);
   gl_FragColor = vec4(hi / 255.0, lo / 255.0, 0.4, 1.0);
 }
+varying float vDry;
+varying float vGust;
 void main() {
   gate(vW);
   if (vFade < 0.01) discard;
@@ -1620,9 +1659,10 @@ void main() {
   float h1 = fract(sin(dot(cq, vec2(12.9898, 78.233))) * 43758.5453);
   float h2 = fract(sin(dot(cq, vec2(39.346, 11.135))) * 24634.6345);
   alb *= mix(vec3(1.12, 1.02, 0.6), vec3(0.8, 0.95, 0.95), h1) * (0.78 + 0.4 * h2);
+  alb = mix(alb, vec3(dot(alb, vec3(0.5, 0.4, 0.1))) * vec3(1.35, 1.1, 0.62), vDry);
   vec3 tl = texture2D(uTLM, (vW.xz - uTLMP.xy) * uTLMP.zw).rgb;
   vec3 E = tl * tl * 4.0;
-  vec3 col = alb * E * vShade * 1.1;
+  vec3 col = alb * E * vShade * 1.1 * (1.0 + vGust * 0.22 * vShade);
   float dist = length(uCP - vW);
   if (uFog.w > 0.0) {
     float fa = (1.0 - exp(-dist * uFog.w)) * uFogS.z;

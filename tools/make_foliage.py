@@ -492,8 +492,28 @@ def pine(name, seed, src, height=8.0, whorls=22):
     return m.save(name)
 
 
+def flower_cell(base, seed):
+    rng = np.random.default_rng(seed)
+    cell = base.copy()
+    W, H = cell.size
+    dr = ImageDraw.Draw(cell)
+    cols = [(236, 232, 214), (246, 206, 62), (176, 120, 214), (226, 96, 120), (250, 250, 245)]
+    for k in range(14):
+        x = rng.uniform(0.12, 0.88) * W
+        top = rng.uniform(0.18, 0.55) * H
+        dr.line([(x, H * 0.98), (x + rng.normal(0, W * 0.02), top)], fill=(78, 104, 46, 255), width=max(2, W // 160))
+        col = cols[int(rng.integers(0, len(cols)))]
+        r = W * rng.uniform(0.018, 0.03)
+        for p in range(5):
+            a = p * 2 * math.pi / 5 + rng.uniform(0, 1)
+            cx, cy = x + math.cos(a) * r, top + math.sin(a) * r
+            dr.ellipse([cx - r * 0.8, cy - r * 0.8, cx + r * 0.8, cy + r * 0.8], fill=col + (255,))
+        dr.ellipse([x - r * 0.5, top - r * 0.5, x + r * 0.5, top + r * 0.5], fill=(214, 168, 40, 255))
+    return cell
+
+
 def clump(name, seed, src, diff, alpha, picks, size=0.9, cards=4, count=1, spread=0.0, rough=0.7, tint=(1, 1, 1),
-          region=None):
+          region=None, flowers=False):
     rng = np.random.default_rng(seed)
     im = load_rgba(src, diff, alpha)
     sp = sprites(im, 6000, region=region)
@@ -514,6 +534,8 @@ def clump(name, seed, src, diff, alpha, picks, size=0.9, cards=4, count=1, sprea
         r = s.resize((max(1, int(s.size[0] * sc)), max(1, int(s.size[1] * sc))), Image.LANCZOS)
         cell = Image.new("RGBA", (cw, cw), (0, 0, 0, 0))
         cell.alpha_composite(r, ((cw - r.size[0]) // 2, cw - r.size[1]))
+        if flowers and k == n - 1:
+            cell = flower_cell(cell, seed * 31)
         al, nm, rm = rgba_to_maps(cell, rough)
         x, y = (k % 2) * cw, (k // 2) * cw
         tile[y:y + cw, x:x + cw] = al * np.array(tint)
@@ -585,7 +607,8 @@ def main():
     print("pine", pine("pine", 5, src))
     print("bush", bush("bush", 2, src))
     print("grass", clump("grass", 4, src, "grass_medium_01__Diffuse.jpg", "grass_medium_01__Alpha.png", 5, size=0.7,
-                         cards=3, count=3, spread=0.3, rough=0.75, tint=(0.95, 1.0, 0.85), region=(0.62, 1.0)))
+                         cards=3, count=3, spread=0.3, rough=0.75, tint=(0.95, 1.0, 0.85), region=(0.62, 1.0),
+                         flowers=True))
     print("fern", clump("fern", 6, src, "fern_02__Diffuse.jpg", "fern_02__Alpha.png", 0, size=1.0, cards=6, count=1,
                         rough=0.6))
 
