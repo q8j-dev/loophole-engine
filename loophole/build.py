@@ -11,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import bake, decor_place, geo, kit, lod, props, sbc, shaders
+from . import bake, decor_place, geo, kit, lod, nav, props, sbc, shaders
 from . import level as lvl
 from .materials import KILL, MATID, PORTAL, TABLE
 from .world import Game, color
@@ -45,11 +45,12 @@ API_LISTS = {
     "obj_pitch": "obj pitch", "obj_roll": "obj roll", "obj_scale": "obj scale", "obj_visible": "obj visible",
     "obj_solid": "obj solid", "obj_glow": "obj glow", "obj_open": "obj open", "obj_touch": "obj touching",
     "snd_q": "sound queue", "light_name": "light name", "light_power": "light power", "trig_name": "trigger name",
-    "trig_in": "trigger inside",
+    "trig_in": "trigger inside", "obj_mode": "obj mode", "obj_gx": "obj goal x", "obj_gz": "obj goal z",
+    "obj_sees": "obj sees player",
 }
 ALIASES = {**API_VARS, **API_LISTS}
 FIXED_BROADCASTS = ["level start", "player died", "paused", "resumed", "game complete", "collect", "touch", "enter",
-                    "leave"]
+                    "leave", "sees player"]
 USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "player z", "player_yaw": "player yaw",
                 "player_pitch": "player pitch", "player_speed": "player speed", "on_ground": "player on ground",
                 "level": "level", "level_name": "level name", "level_time": "level time", "fps": "fps",
@@ -67,7 +68,8 @@ USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "pla
                 "sound_queue": "sound queue", "light_name": "light name", "light_power": "light power",
                 "trigger_name": "trigger name", "trigger_inside": "trigger inside", "touch_controls": "touch controls",
                 "gamepad": "gamepad", "input_x": "input x", "input_y": "input y", "input_jump": "input jump",
-                "input_use": "input use"}
+                "input_use": "input use", "obj_mode": "obj mode", "obj_goal_x": "obj goal x", "obj_goal_z": "obj goal z",
+                "obj_sees_player": "obj sees player"}
 
 SH = ("shader", "menu", "penPlusShaders")
 UN = ("uniformName", "text", None)
@@ -644,7 +646,7 @@ def build(world_path, out=None, log=print, cache=None):
     L = {k: [] for k in LIST_NAMES}
     for k in ["GTEX", "GB", "GC", "GH", "GIB", "GNC", "GOX", "GOY", "GOZ", "GR", "GIDW", "GCH0", "CHX", "CHY", "CHZ",
               "CHR", "CHS", "CHO", "CHN", "CHF", "LDET", "LWAT", "LWB0", "LWBN", "WBX0", "WBZ0", "WBX1", "WBZ1", "WBY", "SHX", "SHZ", "SHR", "SHY",
-              *AUDIO_LISTS]:
+              *AUDIO_LISTS, *nav.NAV_LISTS]:
         L[k] = []
     groups = []
     lms = {}
@@ -743,6 +745,9 @@ def build(world_path, out=None, log=print, cache=None):
             groups.append((f"g{li}{part}", pk))
         level_lists(L, Lv, c, meta, li, models, broadcasts)
         L["ATYPES"] = sorted(set(L.get("ATYPES", [])) | audio_lists(L, Lv))
+        L["_NAVMAX"] = max(L.get("_NAVMAX", 1), nav.nav_lists(L, Lv, c))
+    L["NDX"] = [1, -1, 0, 0, 1, 1, -1, -1]
+    L["NDZ"] = [0, 0, 1, -1, 1, -1, 1, -1]
     for name in ("device", "arms", "player"):
         gid, _, _ = models.builtin(name)
         L.setdefault("_G", {})[name] = gid
@@ -780,7 +785,7 @@ LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "
               "DPRY2", "DPRS2", "DPRT2", "DBX", "DBY", "DBZ", "DBCX", "DBCY", "DBCZ", "DSX", "DSY", "DSZ", "DKIND",
               "DPHYS", "DCARRY", "DUSE", "DSHAD", "DSOLID", "DVIS", "DX", "DY", "DZ", "DYAW", "DPITCH", "DROLL",
               "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DHR", "DHG", "DHB", "DBOB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
-              "DPSP", "DPLOOP", "DPFACE", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
+              "DPSP", "DPLOOP", "DPFACE", "DMODE", "DSIGHT", "DFOV", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
 
 
 def portal_blockers(L, Lv, c, rects, h0):
@@ -1140,6 +1145,9 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
         object_lists(L, o, names, models, Lv)
         for pre in ("touch", "use", "collect", "press", "release"):
             broadcasts.add(f"{pre} {o.name}")
+        if getattr(o, "mode", None):
+            broadcasts.add(f"sees {o.name}")
+            broadcasts.add(f"lost {o.name}")
 
 
 def object_lists(L, o, names, models, Lv):
@@ -1211,6 +1219,12 @@ def object_lists(L, o, names, models, Lv):
     L["DPSP"].append(r4(o.speed))
     L["DPLOOP"].append(int(bool(o.loop)))
     L["DPFACE"].append(int(bool(o.face_path)))
+    mode = getattr(o, "mode", None) or ""
+    if mode and mode not in ("follow", "wander", "patrol", "flee", "stop"):
+        raise SystemExit(f"{Lv.name}: object '{o.name}' has mode='{mode}'. Modes: follow, wander, patrol, flee, stop")
+    L["DMODE"].append(mode)
+    L["DSIGHT"].append(r4(getattr(o, "sight", 12.0)))
+    L["DFOV"].append(r4(getattr(o, "fov", 140.0)))
     acc = 0.0
     for i, p in enumerate(path):
         if i > 0:
@@ -1350,7 +1364,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     keys = getattr(game, "keys", None) or dict(Game.KEYS)
     pad = getattr(game, "pad", dict(Game.PAD))
     touch = getattr(game, "touch", "auto")
-    consts = {"SH2": STAGE_H / 2, "SW2": STAGE_W / 2, "TOUCHA": 1 if touch == "auto" else 0, "TOUCH0": 1 if touch is True else 0,
+    consts = {"NAVMAX": max(1, L.get("_NAVMAX", 1)), "SH2": STAGE_H / 2, "SW2": STAGE_W / 2, "TOUCHA": 1 if touch == "auto" else 0, "TOUCH0": 1 if touch is True else 0,
               "GPAD": 1 if pad else 0, "GP_JUMP": (pad or Game.PAD)["jump"], "GP_USE": (pad or Game.PAD)["use"],
               "GP_CROUCH": (pad or Game.PAD)["crouch"], "GP_PAUSE": (pad or Game.PAD)["pause"],
               "CHV": geo.CHUNK * 3, "NLEV": len(game.levels), "START_LEVEL": max(1, min(len(game.levels), game.start_level)),

@@ -19,6 +19,8 @@ A new project comes with a sprite called Helpers. Its My Blocks section has read
 | `play sound [name]` | Plays one of the sounds listed under `sound queue`. |
 | `play sound [name] at x () y () z ()` | Plays a sound from a spot in the level, louder close by and from the left or right. |
 | `rumble controller () for () seconds` | Shakes a connected game controller, strength 0 to 1. |
+| `make [name] follow the player`, `make [name] wander`, `make [name] patrol its path`, `make [name] run away from the player`, `make [name] stop` | Changes what a character does. |
+| `make [name] walk to x () z ()` | Sends a character to a spot. It finds its own way around walls. |
 | `show message [text]`, `show message [text] for () seconds` | Big text near the bottom of the screen. |
 | `set status [text]` | Small text in the top left corner. |
 | `teleport player to x () y () z ()` | Moves the player. |
@@ -129,6 +131,9 @@ Each object in the current level has one item in every `obj` list, in the order 
 | `light power` | read, set | Brightness of each light. Named lights switch on with 1 and off with 0. |
 | `trigger name` | read | Names of the level's triggers and goals. |
 | `trigger inside` | read | 1 while the player is inside that trigger. |
+| `obj mode` | read, set | What a moving character is doing: `follow`, `wander`, `patrol`, `flee`, `goto`, `stop`, or empty for objects that don't think. |
+| `obj goal x`, `obj goal z` | read, set | Where a character in `goto` mode walks to. |
+| `obj sees player` | read | 1 while that character can see the player. |
 | `sound queue` | add | Add a sound name and the engine plays it: `alarm`, `arrive`, `boost`, `button`, `click`, `door_close`, `door_open`, `fail`, `hum`, `impact`, `jump`, `land`, `pickup`, `release`, `rumble`, `success`, `unpress`, `whoosh`. |
 
 Example: switch on a light called `beacon1` when the player collects something.
@@ -156,6 +161,8 @@ The engine sends these. Use them with "when I receive".
 | `paused`, `resumed` | The game paused or resumed. |
 | `game complete` | The player reached the goal of the last level. |
 | `portal` | The player placed a portal (only with `Game(portals=True)`). |
+| `sees player` and `sees <name>` | A character with a `mode` spotted the player. |
+| `lost <name>` | That character can no longer see the player. |
 
 Use the plain broadcast (`touch`) when you want one script for many objects and check `last touched`. Use the named one (`touch rat1`) when only one object matters.
 

@@ -42,6 +42,10 @@ def init():
     detd = 32
     lodd = 60
     lodz = 0
+    mklist(NVIS, NAVMAX)
+    mklist(NPAR, NAVMAX)
+    mklist(NQ, NAVMAX)
+    nstamp = 0
     gtp = 0
     lowq = 0
     lastq = 0
@@ -655,9 +659,31 @@ def objects_load(lv):
     mklist(OLX, nobj)
     mklist(OLY, nobj)
     mklist(OLZ, nobj)
+    mklist(OWX, nobj)
+    mklist(OWZ, nobj)
+    mklist(OTH, nobj)
+    mklist(OGO, nobj)
+    mklist(OPI, nobj)
+    mklist(OBY, nobj)
+    mklist(OWGX, nobj)
+    mklist(OWGZ, nobj)
+    mklist(OWT, nobj)
+    obj_mode.clear()
+    obj_gx.clear()
+    obj_gz.clear()
+    obj_sees.clear()
     for oi in rep(nobj):
         od = o0 + oi - 1
         OLY[oi] = -9999
+        obj_mode.append(DMODE[od])
+        obj_gx.append(DX[od])
+        obj_gz.append(DZ[od])
+        obj_sees.append(0)
+        OWGX[oi] = DX[od]
+        OWGZ[oi] = DZ[od]
+        nav_h(DX[od], DZ[od])
+        if nh > -900:
+            OBY[oi] = DY[od] - nh
         obj_name.append(DNAME[od])
         obj_x.append(DX[od])
         obj_y.append(DY[od])
@@ -1135,7 +1161,9 @@ def objects_step():
                 OOPN[ok_] = max(otgt, OOPN[ok_] - dt * DOSP[od])
         if DSPIN[od] != 0:
             obj_yaw[ok_] = (obj_yaw[ok_] + DSPIN[od] * dt) % 360
-        if DPN[od] > 1 and obj_visible[ok_] == 1:
+        if obj_mode[ok_] != "" and obj_visible[ok_] == 1:
+            npc_step(ok_)
+        elif DPN[od] > 1 and obj_visible[ok_] == 1:
             path_step(ok_)
         if obj_visible[ok_] == 1:
             ttch = 0
@@ -1216,6 +1244,200 @@ def path_step(k):
         atan2_(pdx, 0 - pdz)
         pyd = (at - obj_yaw[k] + 540) % 360 - 180
         obj_yaw[k] = obj_yaw[k] + pyd * min(1, dt * 6)
+
+
+@warp
+def nav_h(x, z):
+    ncx = floor((x - NGX0[level]) / NGC[level])
+    ncz = floor((z - NGZ0[level]) / NGC[level])
+    nh = -999
+    if ncx >= 0 and ncz >= 0 and ncx < NGW[level] and ncz < NGH[level]:
+        nci = ncz * NGW[level] + ncx
+        nh = NGRID[NGB[level] + nci]
+
+
+@warp
+def nav_los(x0, z0, x1, z1):
+    nlos = 1
+    nld = sqrt((x1 - x0) * (x1 - x0) + (z1 - z0) * (z1 - z0))
+    nln = ceil(nld / (NGC[level] * 0.5))
+    nav_h(x0, z0)
+    nlh = nh
+    for nli in rep(nln):
+        if nlos == 1:
+            nav_h(x0 + (x1 - x0) * nli / nln, z0 + (z1 - z0) * nli / nln)
+            if nli * NGC[level] * 0.5 > NGC[level] or nh > -900:
+                if nh < -900 or (abs(nh - nlh) > 0.7 and nlh > -900):
+                    nlos = 0
+                nlh = nh
+
+
+@warp
+def nav_path(x0, z0, x1, z1):
+    nwx = x0
+    nwz = z0
+    ngw = NGW[level]
+    ngh = NGH[level]
+    ngc = NGC[level]
+    nb0 = NGB[level]
+    sx_ = floor((x0 - NGX0[level]) / ngc)
+    sz_ = floor((z0 - NGZ0[level]) / ngc)
+    tx_ = floor((x1 - NGX0[level]) / ngc)
+    tz_ = floor((z1 - NGZ0[level]) / ngc)
+    if sx_ >= 0 and sz_ >= 0 and sx_ < ngw and sz_ < ngh:
+        nstamp += 1
+        nsi = sz_ * ngw + sx_
+        NVIS[nsi + 1] = nstamp
+        NPAR[nsi + 1] = -1
+        NQ[1] = nsi
+        nqh = 1
+        nqt = 1
+        nfound = -1
+        nbest = nsi
+        nbestd = abs(sx_ - tx_) + abs(sz_ - tz_)
+        while nqh <= nqt and nfound < 0 and nqt < 1500:
+            nci = NQ[nqh]
+            nqh += 1
+            ncz = floor(nci / ngw)
+            ncx = nci - ncz * ngw
+            if ncx == tx_ and ncz == tz_:
+                nfound = nci
+            else:
+                nch = NGRID[nb0 + nci]
+                for nd in rep(8):
+                    ndx = NDX[nd]
+                    ndz = NDZ[nd]
+                    nnx = ncx + ndx
+                    nnz = ncz + ndz
+                    if nnx >= 0 and nnz >= 0 and nnx < ngw and nnz < ngh:
+                        nni = nnz * ngw + nnx
+                        if NVIS[nni + 1] != nstamp:
+                            nnh = NGRID[nb0 + nni]
+                            nok = 1
+                            if nnh < -900 or (abs(nnh - nch) > 0.7 and nch > -900):
+                                nok = 0
+                            if nok == 1 and ndx != 0 and ndz != 0:
+                                if NGRID[nb0 + ncz * ngw + nnx] < -900 or NGRID[nb0 + nnz * ngw + ncx] < -900:
+                                    nok = 0
+                            if nok == 1:
+                                NVIS[nni + 1] = nstamp
+                                NPAR[nni + 1] = nci
+                                nqt += 1
+                                NQ[nqt] = nni
+                                nnd = abs(nnx - tx_) + abs(nnz - tz_)
+                                if nnd < nbestd:
+                                    nbestd = nnd
+                                    nbest = nni
+        if nfound < 0:
+            nfound = nbest
+        nstep = nfound
+        nhops = 0
+        while NPAR[nstep + 1] != nsi and NPAR[nstep + 1] >= 0 and nhops < 4000:
+            nstep = NPAR[nstep + 1]
+            nhops += 1
+        ncz = floor(nstep / ngw)
+        ncx = nstep - ncz * ngw
+        nwx = NGX0[level] + (ncx + 0.5) * ngc
+        nwz = NGZ0[level] + (ncz + 0.5) * ngc
+
+
+@warp
+def npc_step(k):
+    od = LO0[level] + k - 1
+    nm = obj_mode[k]
+    nox = obj_x[k]
+    noz = obj_z[k]
+    npx = px - nox
+    npz = pz - noz
+    npd = sqrt(npx * npx + npz * npz)
+    OTH[k] = OTH[k] - dt
+    if OTH[k] <= 0:
+        OTH[k] = 0.35 + (k % 5) * 0.03
+        nsee = 0
+        if npd < DSIGHT[od] and abs(py - obj_y[k]) < 3 and state == 1:
+            atan2_(npx, 0 - npz)
+            if abs((at - obj_yaw[k] + 540) % 360 - 180) < DFOV[od] / 2 or npd < 2:
+                nav_los(nox, noz, px, pz)
+                if nlos == 1:
+                    nsee = 1
+        if nsee != obj_sees[k]:
+            obj_sees[k] = nsee
+            if nsee == 1:
+                broadcast(join("sees ", obj_name[k]))
+                broadcast("sees player")
+            else:
+                broadcast(join("lost ", obj_name[k]))
+        ngx = nox
+        ngz = noz
+        ngo = 1
+        if nm == "follow":
+            ngx = px
+            ngz = pz
+            if npd < 1.1:
+                ngo = 0
+        elif nm == "flee":
+            ngx = nox - npx / max(npd, 0.1) * 6
+            ngz = noz - npz / max(npd, 0.1) * 6
+            if npd > DSIGHT[od] * 1.5:
+                ngo = 0
+        elif nm == "goto":
+            ngx = obj_gx[k]
+            ngz = obj_gz[k]
+            if sqrt((ngx - nox) * (ngx - nox) + (ngz - noz) * (ngz - noz)) < 0.3:
+                ngo = 0
+        elif nm == "wander":
+            OWT[k] = OWT[k] - 0.25
+            if OWT[k] <= 0 or sqrt((OWGX[k] - nox) * (OWGX[k] - nox) + (OWGZ[k] - noz) * (OWGZ[k] - noz)) < 0.6:
+                OWT[k] = random(4, 9)
+                for nwi in rep(6):
+                    nrx = nox + random(-80, 80) / 10
+                    nrz = noz + random(-80, 80) / 10
+                    nav_h(nrx, nrz)
+                    if nh > -900:
+                        OWGX[k] = nrx
+                        OWGZ[k] = nrz
+            ngx = OWGX[k]
+            ngz = OWGZ[k]
+        elif nm == "patrol" and DPN[od] > 1:
+            npi = DP0[od] + OPI[k]
+            if sqrt((PWX[npi] - nox) * (PWX[npi] - nox) + (PWZ[npi] - noz) * (PWZ[npi] - noz)) < 0.6:
+                OPI[k] = (OPI[k] + 1) % DPN[od]
+                npi = DP0[od] + OPI[k]
+            ngx = PWX[npi]
+            ngz = PWZ[npi]
+        else:
+            ngo = 0
+        OGO[k] = ngo
+        if ngo == 1:
+            nav_los(nox, noz, ngx, ngz)
+            if nlos == 1:
+                OWX[k] = ngx
+                OWZ[k] = ngz
+            else:
+                nav_path(nox, noz, ngx, ngz)
+                OWX[k] = nwx
+                OWZ[k] = nwz
+    if OGO[k] == 1:
+        nmx = OWX[k] - nox
+        nmz = OWZ[k] - noz
+        nmd = sqrt(nmx * nmx + nmz * nmz)
+        if nmd > 0.05:
+            nsp = DPSP[od]
+            if nm == "follow" or nm == "flee":
+                nsp = nsp * 1.35
+            nst = min(nmd, nsp * dt)
+            nnx = nox + nmx / nmd * nst
+            nnz = noz + nmz / nmd * nst
+            nav_h(nox, noz)
+            ncur = nh
+            nav_h(nnx, nnz)
+            if nh > -900 or ncur < -900:
+                obj_x[k] = nnx
+                obj_z[k] = nnz
+                if nh > -900:
+                    obj_y[k] = obj_y[k] + (nh + OBY[k] - obj_y[k]) * min(1, dt * 12)
+            atan2_(nmx, 0 - nmz)
+            obj_yaw[k] = obj_yaw[k] + ((at - obj_yaw[k] + 540) % 360 - 180) * min(1, dt * 8)
 
 
 @warp

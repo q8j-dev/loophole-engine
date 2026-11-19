@@ -44,7 +44,7 @@ class Obj:
     def __init__(self, name, model, pos, yaw=0.0, pitch=0.0, roll=0.0, scale=1.0, size=(1, 1, 1), visible=True,
                  solid=True, physics=False, carry=False, use=False, shadow=True, glow=1.0, glow_color=None,
                  collect=False, spin=0.0, path=None, speed=2.0, loop=True, face_path=True, kind=0, opens=None,
-                 slide=0.0, open_speed=0.8, texture=None, highlight=None, bob=0.0):
+                 slide=0.0, open_speed=0.8, texture=None, highlight=None, bob=0.0, mode=None, sight=12.0, fov=140.0):
         self.__dict__.update(locals())
         del self.__dict__["self"]
 

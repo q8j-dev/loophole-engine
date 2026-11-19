@@ -25,9 +25,54 @@ def got_goblet():
         message = join(3 - goblets, " goblets left")
 
 
+def chase(name):
+    if alive == 1:
+        obj_mode[index_of(obj_name, name)] = "follow"
+        message = "A rat spotted you!"
+
+
+def give_up(name):
+    wait(2)
+    rat_number = index_of(obj_name, name)
+    if obj_mode[rat_number] == "follow" and obj_sees_player[rat_number] == 0:
+        obj_mode[rat_number] = "patrol"
+
+
+@when_broadcast("sees rat1")
+def chase1():
+    chase("rat1")
+
+
+@when_broadcast("sees rat2")
+def chase2():
+    chase("rat2")
+
+
+@when_broadcast("sees rat3")
+def chase3():
+    chase("rat3")
+
+
+@when_broadcast("lost rat1")
+def lost1():
+    give_up("rat1")
+
+
+@when_broadcast("lost rat2")
+def lost2():
+    give_up("rat2")
+
+
+@when_broadcast("lost rat3")
+def lost3():
+    give_up("rat3")
+
+
 @when_broadcast("touch")
 def bitten():
     if alive == 1 and hurt == 0 and "rat" in last_touched:
+        biter = index_of(obj_name, last_touched)
+        obj_mode[biter] = "flee"
         hurt = 1
         health -= 1
         flash = 0.8
@@ -45,6 +90,7 @@ def bitten():
             message = "Ouch! A rat bit you"
             wait(1.2)
             hurt = 0
+            obj_mode[biter] = "patrol"
 
 
 @when_broadcast("game complete")

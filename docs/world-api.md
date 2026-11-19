@@ -204,6 +204,26 @@ v.object("rat1", "rat", -20, 0, 1, scale=6, solid=False, path=[(-20, 0, 1), (20,
 
 Options for any object: `yaw`, `pitch`, `roll`, `scale`, `visible`, `solid`, `physics`, `carry`, `use` (E sends `used object`), `shadow`, `glow`, `glow_color`, `collect`, `spin` (degrees per second), `bob` (metres), `highlight` (rim glow colour), `path` (list of points to walk), `speed`, `loop`, `face_path`, `slide` and `open_speed` (for doors; any object with `kind=1` slides by `slide` metres when opened, and negative values sink it).
 
+### Characters that think
+
+Give an object a `mode` and it moves by itself, finding its way around walls, props and hazards:
+
+```python
+c.object("rat1", "rat", 2, 0, -4.5, scale=11, solid=False, mode="patrol", sight=7,
+         path=[(2, 0, -4.5), (20, 0, -4.5)], speed=2.6)
+c.object("ghost", "statue", 10, 0, 5, mode="wander", speed=1.5)
+```
+
+| Mode | What it does |
+| --- | --- |
+| `follow` | Walks after the player. |
+| `wander` | Strolls to random spots nearby. |
+| `patrol` | Walks the points in `path`, round and round. |
+| `flee` | Runs away from the player. |
+| `stop` | Stands still. |
+
+`sight` is how far it can see in metres (default 12) and `fov` how wide it looks in degrees (default 140). Walls block its view. When it first sees the player it sends `sees <name>` and `sees player`, and when it loses sight it sends `lost <name>`. Scripts change the mode through the `obj mode` list or the Helpers blocks, so a guard can patrol until it spots you and then give chase. The build works out where characters can walk, at half-metre steps indoors.
+
 ## Sounds
 
 Looping sounds play in 3D: they get louder as the player comes closer and come from the left or right speaker depending on where the player is facing. The loops are `birds`, `water`, `wind`, `fire` and `hum`.

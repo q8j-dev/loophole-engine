@@ -68,7 +68,7 @@ c.pickup("goblet1", "goblet", 1.6, 0.5, -8.5, scale=2.4, spin=90)
 c.pickup("goblet2", "goblet", 20.4, 0.5, -19.5, scale=2.4, spin=90)
 c.pickup("goblet3", "goblet", 11, 0.5, -20.6, scale=2.4, spin=90)
 
-rat = dict(scale=11, solid=False, highlight=(0.35, 0.03, 0.01))
+rat = dict(scale=11, solid=False, highlight=(0.35, 0.03, 0.01), mode="patrol", sight=7, fov=150)
 c.object("rat1", "rat", 2, 0, -4.5, path=[(2, 0, -4.5), (20, 0, -4.5)], speed=2.6, **rat)
 c.object("rat2", "rat", 20, 0, -9.5, path=[(20, 0, -9.5), (14.5, 0, -9.5), (14.5, 0, -15), (7.5, 0, -15),
                                          (7.5, 0, -9.5), (2, 0, -9.5)], speed=2.2, **rat)

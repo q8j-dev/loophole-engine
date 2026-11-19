@@ -110,6 +110,48 @@ def close_object(name):
         obj_open[number] = 0
 
 
+@block("make %s follow the player")
+def npc_follow(name):
+    """Characters find their way around walls on their own. When one sees the player it sends sees and its name."""
+    set_npc_mode(name, "follow")
+
+
+@block("make %s wander")
+def npc_wander(name):
+    set_npc_mode(name, "wander")
+
+
+@block("make %s patrol its path")
+def npc_patrol(name):
+    set_npc_mode(name, "patrol")
+
+
+@block("make %s run away from the player")
+def npc_flee(name):
+    set_npc_mode(name, "flee")
+
+
+@block("make %s walk to x %s z %s")
+def npc_goto(name, x, z):
+    number = index_of(obj_name, name)
+    if number > 0:
+        obj_goal_x[number] = x
+        obj_goal_z[number] = z
+        obj_mode[number] = "goto"
+
+
+@block("make %s stop")
+def npc_stop(name):
+    set_npc_mode(name, "stop")
+
+
+@block("set mode of %s to %s")
+def set_npc_mode(name, mode):
+    number = index_of(obj_name, name)
+    if number > 0:
+        obj_mode[number] = mode
+
+
 @block("play sound %s")
 def play_sound(name):
     """Sounds: alarm, arrive, boost, button, click, door_close, door_open, fail, hum, impact, jump, land, pickup, release, rumble, success, unpress, whoosh."""
