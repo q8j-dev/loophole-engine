@@ -182,7 +182,7 @@ class Level:
         self.paint(ceiling, x0 + t, y + height, z0 + t, x1 - t, y + height, z1 - t, facing="-y")
 
         def opening(side, at, w, h, bottom):
-            at = sn(at)
+            at = sn(at - w / 2) + w / 2
             if side in ("-z", "+z"):
                 zz = z0 if side == "-z" else z1 - t
                 self.ops.append(("carve", (at - w / 2, y + bottom, zz, at + w / 2, y + bottom + h, zz + t)))
@@ -193,10 +193,11 @@ class Level:
         if door:
             side, at = door
             opening(side, at, door_size[0], door_size[1], 0.0)
-            ops.append((side, sn(at), door_size[0], door_size[1], 0.0, "door"))
+            ops.append((side, sn(at - door_size[0] / 2) + door_size[0] / 2, door_size[0], door_size[1], 0.0, "door"))
         for (side, at) in windows:
             opening(side, at, window_size[0], window_size[1], sill)
-            ops.append((side, sn(at), window_size[0], window_size[1], sill, "window"))
+            ops.append((side, sn(at - window_size[0] / 2) + window_size[0] / 2, window_size[0], window_size[1], sill,
+                        "window"))
         self.buildings.append(dict(x0=x0, z0=z0, x1=x1, z1=z1, y=y, t=t, height=height, top=top, openings=ops,
                                    walls=resolve(walls), roof=resolve(roof), roof_shape=roof_shape, pitch=pitch,
                                    trim=resolve(trim), sill=resolve(sill_material), plinth=resolve(plinth)))

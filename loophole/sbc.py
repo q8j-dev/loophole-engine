@@ -302,12 +302,25 @@ class SpriteCompiler:
                 body = [inc] + st.body
                 self._substack(rid, "SUBSTACK", body)
                 return init, rid
+            if fname == "range":
+                counter = st.target.id
+                lo = call.args[0] if len(call.args) > 1 else ast.Constant(0)
+                hi = call.args[1] if len(call.args) > 1 else call.args[0]
+                init = self._new("data_setvariableto", parent, fields={"VARIABLE": self.vref(counter)})
+                self.blocks[init]["inputs"]["VALUE"] = self._input(ast.BinOp(left=lo, op=ast.Sub(), right=ast.Constant(1)),
+                                                                  init, "num")
+                rid = self._new("control_repeat", init)
+                self.blocks[init]["next"] = rid
+                self.blocks[rid]["inputs"]["TIMES"] = self._input(ast.BinOp(left=hi, op=ast.Sub(), right=lo), rid, "int")
+                inc = ast.AugAssign(target=ast.Name(id=counter), op=ast.Add(), value=ast.Constant(1))
+                self._substack(rid, "SUBSTACK", [inc] + st.body)
+                return init, rid
             if fname == "times":
                 rid = self._new("control_repeat", parent)
                 self.blocks[rid]["inputs"]["TIMES"] = self._input(call.args[0], rid, "int")
                 self._substack(rid, "SUBSTACK", st.body)
                 return self._single(rid)
-            raise CompileError("for needs rep() or times()")
+            raise CompileError("for loops need range(), e.g. for i in range(10):")
         if isinstance(st, ast.Return):
             bid = self._new("control_stop", parent, fields={"STOP_OPTION": ["this script", None]},
                             mutation={"tagName": "mutation", "children": [], "hasnext": "false"})

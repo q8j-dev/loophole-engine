@@ -1152,7 +1152,7 @@ def mb_axis(ax):
     for mbi in times(lhn):
         if HAX[mbk] == ax:
             if ax == 1:
-                mbo = (by < HV1[mbk] and by + bhy > HV0[mbk] and bz - bhx < HU1[mbk] and bz + bhx > HU0[mbk]) + 0
+                mbo = (by < HV1[mbk] - 0.02 and by + bhy > HV0[mbk] and bz - bhx < HU1[mbk] and bz + bhx > HU0[mbk]) + 0
                 mblo = bx - bhx
                 mbhi = bx + bhx
                 mbnlo = mbn - bhx
@@ -1164,7 +1164,7 @@ def mb_axis(ax):
                 mbnlo = mbn
                 mbnhi = mbn + bhy
             else:
-                mbo = (bx - bhx < HU1[mbk] and bx + bhx > HU0[mbk] and by < HV1[mbk] and by + bhy > HV0[mbk]) + 0
+                mbo = (bx - bhx < HU1[mbk] and bx + bhx > HU0[mbk] and by < HV1[mbk] - 0.02 and by + bhy > HV0[mbk]) + 0
                 mblo = bz - bhx
                 mbhi = bz + bhx
                 mbnlo = mbn - bhx

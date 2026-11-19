@@ -62,13 +62,19 @@ v.spawn(14, 0, 22, yaw=-35)
 
 v.prop("walllamp", 0.6, 1.9, -2.55, light=True, name="beacon1", on=False)
 v.prop("walllamp", 4.4, 1.9, -2.55, light=True, name="beacon2", on=False)
-v.prop("streetlamp", 2.5, 0, 1.5, name="beacon3", on=False)
+v.prop("streetlamp", 5.0, 0, 0.5, name="beacon3", on=False)
 
 v.path((2.5, -2.5), (2.5, 3), (-3, 8), (-12, 12), (-24, 14), width=2.4)
 v.path((2.5, 3), (10, 7), (14, 14), (16, 24), width=2.0)
 v.path((10, 7), (20, 2), (28, -6), width=1.8)
 
 rng = random.Random(9)
+
+
+def clear(x, z):
+    return not (-4.5 < x < 9.5 and -12.5 < z < -1.5) and abs(x - 2.75) + abs(z - 1) > 2.5
+
+
 for i in range(16):
     a = rng.uniform(0, 6.28)
     r = rng.uniform(20, 38)
@@ -77,10 +83,13 @@ for i in range(16):
 for (x, z, k) in ((13, -8, "oak"), (-12, -3, "birch"), (-7, 4, "birch"), (19, 10, "oak"), (-16, 18, "pine")):
     v.prop(k, x, 0, z, yaw=x * 13)
 for i in range(18):
-    v.prop("bush", rng.uniform(-20, 22), 0, rng.uniform(-16, 20), yaw=rng.uniform(0, 360), scale=rng.uniform(0.7, 1.2))
+    x, z = rng.uniform(-20, 22), rng.uniform(-16, 20)
+    if clear(x, z):
+        v.prop("bush", x, 0, z, yaw=rng.uniform(0, 360), scale=rng.uniform(0.7, 1.2))
 for i in range(34):
-    v.prop(rng.choice(["grass", "grass", "fern"]), rng.uniform(-20, 22), 0, rng.uniform(-14, 20),
-           yaw=rng.uniform(0, 360))
+    x, z = rng.uniform(-20, 22), rng.uniform(-14, 20)
+    if clear(x, z):
+        v.prop(rng.choice(["grass", "grass", "fern"]), x, 0, z, yaw=rng.uniform(0, 360))
 for (x, z, s) in ((8, 11, 1.1), (-15, 1, 0.8), (22, -1, 1.4), (-6, 15, 0.7), (26, -9, 1.0)):
     v.prop("boulder", x, 0, z, yaw=x * 31, scale=s)
 v.prop("rock", 6, 0, 9, yaw=40)

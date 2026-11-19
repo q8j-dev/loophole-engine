@@ -54,10 +54,12 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     else if (cmd === 'hold') { await page.evaluate(k => key(k, true), a); await sleep(+b); await page.evaluate(k => key(k, false), a); }
     else if (cmd === 'walkto') {
       const tx = +a, tz = +b, lim = +(c || 8000), t0 = Date.now();
+      const lv0 = await page.evaluate(() => getv('level'));
       await page.evaluate(() => key('w', true));
       while (Date.now() - t0 < lim) {
         const dist = await page.evaluate((tx, tz) => { const px = getv('player x'), pz = getv('player z'); const dx = tx - px, dz = tz - pz; const dd = Math.hypot(dx, dz); if (dd > 0.3) setv('player yaw', Math.atan2(dx, -dz) * 180 / Math.PI); return dd; }, tx, tz);
         if (dist < 0.4) break;
+        if (await page.evaluate(() => getv('level')) !== lv0) break;
         await sleep(30);
       }
       await page.evaluate(() => key('w', false));
