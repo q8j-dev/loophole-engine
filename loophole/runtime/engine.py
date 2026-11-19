@@ -1973,12 +1973,7 @@ def draw_scene(vq):
                 draw_list("IMPACT", "part")
             sj += 1
     if LWAT[level] > 0 and gbm == 0 and cullon == 1:
-        tex_filter(9728)
-        set_tex("uGBn", "world", join("gb", tp))
-        tex_filter(9729)
-        set_vec4("uMode", "world", 0, 1, 0, 0)
-        model_id()
-        draw_geo(LWAT[level])
+        draw_water(LWAT[level])
     if gbm == 0 and cullon == 1 and LSKY[level] == 1:
         draw_precip()
 
@@ -2831,4 +2826,49 @@ def draw_precip():
             set_vec3("uPCol", "precip", 1.2, 1.3, 1.45)
         set_vec4("uWindP", "precip", LWX[level], LWZ[level], 1.5 + LWS[level] * 2, 0)
         draw_list("PRECIP", "precip")
+
+
+@warp
+def draw_water(gi):
+    sb = (level - 1) * 24 + 1
+    cam_u("water")
+    prev_u("water")
+    tex_filter(9728)
+    set_tex("uGBn", "water", join("gb", tp))
+    set_tex("uPGB", "water", join("gb", 1 - tp))
+    tex_filter(9729)
+    set_tex("uHist", "water", join("hh", 1 - tp))
+    set_tex("uEnv", "water", "env")
+    set_tex("uEnvB", "water", "envb")
+    set_tex("uEnvC", "water", "envc")
+    set_vec4("uEnvP", "water", LPX[level], LPY[level], LPZ[level], 1)
+    set_vec4("uFog", "water", SKY[sb + 17], SKY[sb + 18], SKY[sb + 19], SKY[sb + 20])
+    set_vec4("uFogS", "water", SKY[sb + 21], SKY[sb + 22], 1, 0)
+    set_vec3("uFogSun", "water", SKY[sb], SKY[sb + 1], SKY[sb + 2])
+    set_vec4("uSunC", "water", SKY[sb + 3], SKY[sb + 4], SKY[sb + 5], LSUN[level])
+    set_vec3("uSkyA", "water", SKY[sb + 6] * 0.35 + SKY[sb + 10] * 0.12, SKY[sb + 7] * 0.35 + SKY[sb + 11] * 0.12, SKY[sb + 8] * 0.35 + SKY[sb + 12] * 0.12)
+    set_vec4("uWind2", "water", LWX[level], LWZ[level], 0, 0)
+    set_vec4("uTerr", "water", 0, 0.55 * LWS[level] * (1 + stormk), 0, 0)
+    set_vec4("uWet", "water", wetk, snowk, fogw, stormk)
+    set_vec4("uClip", "water", 0, 0, 0, -9999)
+    set_vec4("uMode", "water", 0, 1, 0, 0)
+    set_vec4("uSkin", "water", 0, 0, 0, 0)
+    set_vec4("uLOD", "water", 0, 0, 0, 0)
+    set_vec3("uMP", "water", 0, 0, 0)
+    set_vec3("uMX", "water", 1, 0, 0)
+    set_vec3("uMY", "water", 0, 1, 0)
+    set_vec3("uMZ", "water", 0, 0, 1)
+    tex_filter(9728)
+    set_tex("uGeo", "water", GTEX[gi])
+    tex_filter(9729)
+    set_vec4("uGeoP", "water", GOX[gi], GOY[gi], GOZ[gi], GR[gi])
+    if GNC[gi] == 0:
+        set_vec4("uGeoI", "water", GB[gi], GC[gi], GH[gi], GIB[gi])
+        draw_list("ICS", "water")
+    else:
+        gco = 0
+        for gk in rep(GNC[gi]):
+            set_vec4("uGeoI", "water", GB[gi] + gco, min(49152, GC[gi] - gco), GH[gi], GIB[gi])
+            draw_list("IC", "water")
+            gco += 49152
 

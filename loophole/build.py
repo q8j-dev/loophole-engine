@@ -601,6 +601,14 @@ def build(world_path, out=None, log=print, cache=None):
             hv = ((hc[:, 0] * 73856093) ^ (hc[:, 1] * 19349663) ^ (hc[:, 2] * 83492791)) & 1023
             F_[bbv[hv > 358]] = 7.0
         tri_det = F_.reshape(-1, 3)[:, 0] > 6.5
+        Ft = F_.reshape(-1, 3)[:, 0]
+        cn5 = np.nonzero((Ft > 4.5) & (Ft < 5.5))[0]
+        if len(cn5):
+            tq = np.round(np.asarray(T_, float).reshape(-1, 3, 3)[cn5, 0] * 997.0).astype(np.int64)
+            pq = np.round(np.asarray(P_, float).reshape(-1, 3, 3)[cn5, 0] / 4.0).astype(np.int64)
+            hv5 = ((tq[:, 0] * 73856093) ^ (tq[:, 1] * 19349663) ^ (tq[:, 2] * 83492791) ^ (pq[:, 0] * 2654435761)
+                   ^ (pq[:, 2] * 40503)) & 1023
+            tri_det[cn5[hv5 > 430]] = True
         cols = [P_, N_, UV_, M_, A_, S_, I_, F_, T_]
         for part, sel in (("", ~tri_det), ("d", tri_det)):
             if part == "d" and not sel.any():

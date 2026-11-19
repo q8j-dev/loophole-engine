@@ -611,55 +611,6 @@ void main() {
     float fb = (mod(fp.x * 4.0 + fp.y * 13.0, 16.0) + 0.5) / 16.0;
     if (fb > smoothstep(uNF.x, uNF.y, dl)) discard;
   }
-  if (vIrr.w > 7.5 && vIrr.w < 8.5) {
-    if (uGB.x > 0.5) discard;
-    vec3 wV = normalize(uCP - vW);
-    vec2 wd = uWind2.xy;
-    vec2 wp = vW.xz;
-    float wt = u_timer;
-    float ws = 0.35 + uTerr.y * 1.4;
-    vec2 e = vec2(0.12, 0.0);
-    vec2 o1 = wd * wt * 0.35;
-    vec2 o2 = vec2(-wd.y, wd.x) * wt * 0.5 + 3.1;
-    vec2 o3 = wd * wt * 0.9 + 7.0;
-    float h0 = vnoise(wp * 0.55 - o1) * 0.6 + vnoise(wp * 1.4 + o2) * 0.3 + vnoise(wp * 3.7 - o3) * 0.12;
-    float hx = vnoise((wp + e.xy) * 0.55 - o1) * 0.6 + vnoise((wp + e.xy) * 1.4 + o2) * 0.3 + vnoise((wp + e.xy) * 3.7 - o3) * 0.12;
-    float hz = vnoise((wp + e.yx) * 0.55 - o1) * 0.6 + vnoise((wp + e.yx) * 1.4 + o2) * 0.3 + vnoise((wp + e.yx) * 3.7 - o3) * 0.12;
-    vec3 wN = normalize(vec3(-(hx - h0) / e.x * 0.22 * ws, 1.0, -(hz - h0) / e.x * 0.22 * ws));
-    float wndv = max(dot(wN, wV), 0.02);
-    float wF = 0.02 + 0.98 * pow(1.0 - wndv, 5.0);
-    vec3 wR = reflect(-wV, wN);
-    wR.y = abs(wR.y);
-    vec3 refl = uEnvP.w > 0.5 ? envSample(wR, 0.03) : uFog.rgb * 1.1 + uSkyA * 2.0;
-    vec4 wsr = ssr(vW + vec3(0.0, 0.02, 0.0), wR);
-    refl = mix(refl, wsr.rgb, wsr.a);
-    vec3 wsun = normalize(uFogSun + vec3(0.0, 0.001, 0.0));
-    float wsd = max(dot(wR, wsun), 0.0);
-    refl += uSunC.rgb * uSunC.w * (pow(wsd, 700.0) * 40.0 + pow(wsd, 70.0) * 0.8);
-    vec4 wg = texture2D(uGBn, gl_FragCoord.xy / u_res);
-    float wdg = (wg.r * 65280.0 + wg.g * 255.0) / 65535.0 * 150.0;
-    float wdw = dot(vW - uCP, uCF);
-    float wth = wdg < 0.01 ? 60.0 : max(wdg - wdw, 0.0);
-    float wvt = wth * max(wV.y, 0.15);
-    float wop = 1.0 - exp(-wth * 0.45);
-    vec3 wlit = vec3(dot(uSkyA, vec3(0.3, 0.5, 0.2))) * 4.0 + uSunC.rgb * uSunC.w * 0.2;
-    vec3 wcol = mix(vec3(0.07, 0.12, 0.07), vec3(0.012, 0.035, 0.035), clamp(wvt * 0.35, 0.0, 1.0)) * wlit;
-    float fn = vnoise(wp * 3.0 + vec2(wt * 0.3, -wt * 0.2)) * 0.7 + vnoise(wp * 7.0 - wt * 0.5) * 0.3;
-    float foam = (1.0 - smoothstep(0.02, 0.32, wvt + (fn - 0.5) * 0.18)) * smoothstep(0.35, 0.6, fn) * 0.85;
-    vec3 wc = refl * wF + wcol * (1.0 - wF) * wop;
-    float wa = clamp(wF + (1.0 - wF) * wop, 0.0, 1.0);
-    wc = mix(wc, vec3(0.8) * wlit * 0.55, foam);
-    wa = max(wa, foam);
-    float wdist = length(uCP - vW);
-    if (uFog.w > 0.0) {
-      float wfh = exp(-max(vW.y - uFogS.x, 0.0) * uFogS.y);
-      float wfa = (1.0 - exp(-wdist * uFog.w * uWet.z * wfh)) * uFogS.z;
-      wc = mix(wc, uFog.rgb * wa, wfa);
-    }
-    vec3 wcn = wc / max(wa, 0.001);
-    gl_FragColor = vec4(sqrt(clamp(wcn * 0.25, 0.0, 1.0)) * wa, wa);
-    return;
-  }
   if (uGB.x > 0.5) {
     gbOut(vW);
     if (leaf && uGB.y < 0.5) gl_FragColor.b = 0.4;
@@ -837,6 +788,7 @@ void main() {
       gr *= mix(vec3(0.36, 0.5, 0.24), vec3(0.55, 0.6, 0.3), gv) * (0.72 + 0.4 * smoothstep(0.3, 0.7, ns2));
       gr = mix(gr, vec3(dot(gr, vec3(0.45, 0.45, 0.1))) * vec3(1.45, 1.12, 0.58), uTerr.z * (0.75 + 0.25 * gv));
       for (int si = 0; si < 8; si++) {
+        if (uSH[si].z <= 0.0) break;
         vec4 sh = uSH[si];
         if (sh.z > 0.0 && length(vW.xz - sh.xy) < sh.z && vW.y < sh.w + 0.6) {
           float sb = smoothstep(sh.w + 0.6, sh.w - 0.4, vW.y + (ns - 0.5) * 0.25);
@@ -1241,7 +1193,8 @@ void main() {
     float sup = uTerr.w * smoothstep(0.55, 0.85, Ng.y + (vnoise(vW.xz * 2.0) - 0.5) * 0.3);
     alb = mix(alb, vec3(0.6, 0.62, 0.66), sup);
   }
-  float wetA = uWet.x * (1.0 - covered(vW));
+  float wetA = 0.0;
+  if (uWet.x > 0.01) wetA = uWet.x * (1.0 - covered(vW));
   if (wetA > 0.01 && Ng.y > 0.3 && !leaf) {
     float exw = wetA * smoothstep(0.3, 0.8, Ng.y);
     alb *= 1.0 - 0.4 * exw;
@@ -2123,7 +2076,62 @@ void main() {
 }
 """
 
+WATER_FS = WORLD_FS[:WORLD_FS.index("void main() {")] + """void main() {
+  gate(vW);
+""" + """  if (vIrr.w > 7.5 && vIrr.w < 8.5) {
+    if (uGB.x > 0.5) discard;
+    vec3 wV = normalize(uCP - vW);
+    vec2 wd = uWind2.xy;
+    vec2 wp = vW.xz;
+    float wt = u_timer;
+    float ws = 0.35 + uTerr.y * 1.4;
+    vec2 e = vec2(0.12, 0.0);
+    vec2 o1 = wd * wt * 0.35;
+    vec2 o2 = vec2(-wd.y, wd.x) * wt * 0.5 + 3.1;
+    vec2 o3 = wd * wt * 0.9 + 7.0;
+    float h0 = vnoise(wp * 0.55 - o1) * 0.6 + vnoise(wp * 1.4 + o2) * 0.3 + vnoise(wp * 3.7 - o3) * 0.12;
+    float hx = vnoise((wp + e.xy) * 0.55 - o1) * 0.6 + vnoise((wp + e.xy) * 1.4 + o2) * 0.3 + vnoise((wp + e.xy) * 3.7 - o3) * 0.12;
+    float hz = vnoise((wp + e.yx) * 0.55 - o1) * 0.6 + vnoise((wp + e.yx) * 1.4 + o2) * 0.3 + vnoise((wp + e.yx) * 3.7 - o3) * 0.12;
+    vec3 wN = normalize(vec3(-(hx - h0) / e.x * 0.22 * ws, 1.0, -(hz - h0) / e.x * 0.22 * ws));
+    float wndv = max(dot(wN, wV), 0.02);
+    float wF = 0.02 + 0.98 * pow(1.0 - wndv, 5.0);
+    vec3 wR = reflect(-wV, wN);
+    wR.y = abs(wR.y);
+    vec3 refl = uEnvP.w > 0.5 ? envSample(wR, 0.03) : uFog.rgb * 1.1 + uSkyA * 2.0;
+    vec4 wsr = ssr(vW + vec3(0.0, 0.02, 0.0), wR);
+    refl = mix(refl, wsr.rgb, wsr.a);
+    vec3 wsun = normalize(uFogSun + vec3(0.0, 0.001, 0.0));
+    float wsd = max(dot(wR, wsun), 0.0);
+    refl += uSunC.rgb * uSunC.w * (pow(wsd, 700.0) * 40.0 + pow(wsd, 70.0) * 0.8);
+    vec4 wg = texture2D(uGBn, gl_FragCoord.xy / u_res);
+    float wdg = (wg.r * 65280.0 + wg.g * 255.0) / 65535.0 * 150.0;
+    float wdw = dot(vW - uCP, uCF);
+    float wth = wdg < 0.01 ? 60.0 : max(wdg - wdw, 0.0);
+    float wvt = wth * max(wV.y, 0.15);
+    float wop = 1.0 - exp(-wth * 0.45);
+    vec3 wlit = vec3(dot(uSkyA, vec3(0.3, 0.5, 0.2))) * 4.0 + uSunC.rgb * uSunC.w * 0.2;
+    vec3 wcol = mix(vec3(0.07, 0.12, 0.07), vec3(0.012, 0.035, 0.035), clamp(wvt * 0.35, 0.0, 1.0)) * wlit;
+    float fn = vnoise(wp * 3.0 + vec2(wt * 0.3, -wt * 0.2)) * 0.7 + vnoise(wp * 7.0 - wt * 0.5) * 0.3;
+    float foam = (1.0 - smoothstep(0.02, 0.32, wvt + (fn - 0.5) * 0.18)) * smoothstep(0.35, 0.6, fn) * 0.85;
+    vec3 wc = refl * wF + wcol * (1.0 - wF) * wop;
+    float wa = clamp(wF + (1.0 - wF) * wop, 0.0, 1.0);
+    wc = mix(wc, vec3(0.8) * wlit * 0.55, foam);
+    wa = max(wa, foam);
+    float wdist = length(uCP - vW);
+    if (uFog.w > 0.0) {
+      float wfh = exp(-max(vW.y - uFogS.x, 0.0) * uFogS.y);
+      float wfa = (1.0 - exp(-wdist * uFog.w * uWet.z * wfh)) * uFogS.z;
+      wc = mix(wc, uFog.rgb * wa, wfa);
+    }
+    vec3 wcn = wc / max(wa, 0.001);
+    gl_FragColor = vec4(sqrt(clamp(wcn * 0.25, 0.0, 1.0)) * wa, wa);
+    return;
+  }
+""" + """}
+"""
+
 SHADERS = {k: (merge(v, f), f) for k, (v, f) in {
+    "water": (WORLD_VS, WATER_FS),
     "text": (TEXT_VS, TEXT_FS),
     "precip": (PRECIP_VS, PRECIP_FS),
     "portal": (PORTAL_VS, PORTAL_FS),
