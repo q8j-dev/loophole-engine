@@ -139,6 +139,8 @@ The source of every game in the table above is in [examples](examples), and the 
 - [docs/renderer.md](docs/renderer.md): how the renderer works, from the bake to the final frame.
 - [ROADMAP.md](ROADMAP.md): what is finished and what is not.
 
+Changing the engine? `node tools/harness/check_all.js` rebuilds every example, plays each one through to the end in headless Chrome, and runs the Helpers and save tests. Run `npm install` in `tools/harness` and `node fetch_ext.js` there once first. Add `--no-build` to skip the rebuilds.
+
 ## Requirements
 
 The build runs on macOS, Linux and Windows with Python and two packages, numpy and Pillow. Games run in TurboWarp (the website or the desktop app) and use the Pen+ and Pointerlock extensions from the TurboWarp extension gallery, which load automatically. Blender is only needed to rebuild the bundled props, and ffmpeg is never needed.
