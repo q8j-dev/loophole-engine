@@ -1964,6 +1964,57 @@ void main() {
 """
 
 
+PRECIP_VS = HEAD + CAM_U + PROJECT + """
+attribute vec4 aSeed;
+attribute vec2 aCorner;
+uniform float u_timer;
+uniform vec4 uPrec;
+uniform vec4 uWindP;
+varying vec2 vC;
+varying float vA;
+varying vec3 vW;
+void main() {
+  float snow = uPrec.y;
+  vec3 box = vec3(22.0, 14.0, 22.0);
+  float sp = mix(11.0, 1.1, snow) * (0.8 + 0.4 * aSeed.w);
+  vec3 drift = vec3(uWindP.x, 0.0, uWindP.y) * uWindP.z * mix(1.2, 0.9, snow);
+  vec3 p = aSeed.xyz * box - drift * u_timer + vec3(0.0, sp * u_timer, 0.0);
+  p.y = -p.y;
+  vec3 c0 = uCP - box * 0.5;
+  p = c0 + mod(p - c0, box);
+  if (snow > 0.5) {
+    p.x += sin(u_timer * 1.3 + aSeed.w * 30.0) * 0.35;
+    p.z += cos(u_timer * 1.1 + aSeed.x * 30.0) * 0.35;
+  }
+  vec3 vel = normalize(vec3(drift.x, -sp, drift.z));
+  vec3 toC = normalize(uCP - p);
+  vec3 side = normalize(cross(vel, toC));
+  vec3 up2 = snow > 0.5 ? normalize(cross(toC, side)) : vel;
+  float sz = snow > 0.5 ? 0.035 : 0.006;
+  float len = snow > 0.5 ? 0.035 : 0.38;
+  float show = step(aSeed.w, uPrec.x);
+  vec3 w = p + (side * aCorner.x * sz + up2 * aCorner.y * len) * show;
+  vC = aCorner;
+  vA = show * (1.0 - smoothstep(6.0, 11.0, length(p - uCP)));
+  vW = w;
+  gl_Position = project(w);
+}
+"""
+
+PRECIP_FS = HEAD + """
+uniform vec4 uPrec;
+uniform vec3 uPCol;
+varying vec2 vC;
+varying float vA;
+varying vec3 vW;
+void main() {
+  float r = uPrec.y > 0.5 ? dot(vC, vC) : vC.x * vC.x;
+  float g = (1.0 - smoothstep(0.3, 1.0, r)) * vA * (uPrec.y > 0.5 ? 0.9 : 0.35 * (1.0 - abs(vC.y)));
+  if (g < 0.01) discard;
+  gl_FragColor = vec4(sqrt(clamp(uPCol * 0.25, 0.0, 1.0)) * g, g);
+}
+"""
+
 TEXT_VS = HEAD + """
 attribute float aSlot;
 attribute vec2 aCorner;
@@ -1999,6 +2050,7 @@ void main() {
 
 SHADERS = {k: (merge(v, f), f) for k, (v, f) in {
     "text": (TEXT_VS, TEXT_FS),
+    "precip": (PRECIP_VS, PRECIP_FS),
     "portal": (PORTAL_VS, PORTAL_FS),
     "world": (WORLD_VS, WORLD_FS),
     "sky": (SKY_VS, SKY_FS),

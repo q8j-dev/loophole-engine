@@ -1201,7 +1201,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     eng_lists = {}
     from . import mesh as M
     meshes = {"QUAD": M.quad_mesh(), "DUST": M.particles(320, 5), "IMPACT": M.particles(56, 21),
-              "VENTP": M.particles(140, 13), "GRASS": M.grass_cards(3000, 9), "TEXT": M.text_quads(128), "DISC": M.portal_disc()}
+              "VENTP": M.particles(140, 13), "GRASS": M.grass_cards(3000, 9), "TEXT": M.text_quads(128), "PRECIP": M.particles(2400, 31), "DISC": M.portal_disc()}
     for name, m in meshes.items():
         eng_lists[proj.uid("l")] = [name, m.items()]
     eng_lists[proj.uid("l")] = ["IC", geo.index_items(geo.CHUNK)]
