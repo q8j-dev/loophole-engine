@@ -58,7 +58,7 @@ def configure(used, high=False):
         x, y, s, t = regs[name]
         f = 1 if high or name in CLOSE or s <= 256 else 2
         plan.append((name, int(x), int(y), int(s), t, f))
-    W = int(max([3 * (s // f * 1.5 + 32) for _, _, _, s, _, f in plan] + [64]))
+    W = int(max([3 * (s // f * 1.5 + 32) + 64 for _, _, _, s, _, f in plan] + [64]))
     H = max(sum(s // f + 16 for _, _, _, s, _, f in plan), 64)
     out = np.zeros((H, W, 3), np.uint8)
     newregs = {}

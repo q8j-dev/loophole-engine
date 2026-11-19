@@ -1,0 +1,1 @@
+hideui;wait,3000;shot,or1;walkto,-7.5,13;walkto,7.5,13;get,status;walkto,14.5,1;walkto,7.5,1;shot,or2;walkto,-7.5,1;walkto,-14.5,1;get,status;walkto,-14.5,-11;walkto,-7.5,-11;walkto,0.5,-11;walkto,7.5,-11;walkto,14.5,-11;get,status;shot,or3;walkto,14.5,-16;walkto,21,-18;wait,800;get,status;get,message;shot,or4

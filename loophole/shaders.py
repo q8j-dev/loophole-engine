@@ -490,6 +490,7 @@ float occ(vec3 p, vec3 n, vec4 s) {
   return k * (max(dot(n, rd), 0.0) * 0.55 + smoothstep(0.35, 0.95, rd.y) * 0.75);
 }
 
+uniform vec2 uNF;
 void main() {
   gate(vW);
   bool leaf = vIrr.w > 4.5 && vIrr.w < 5.5;
@@ -504,6 +505,9 @@ void main() {
     float face = abs(dot(normalize(vN), (uCP - vW) / dl));
     float thr = mix(0.42, 0.85, 1.0 - smoothstep(0.12, 0.45, face));
     if (al < thr) discard;
+    vec2 fp = mod(floor(gl_FragCoord.xy), 4.0);
+    float fb = (mod(fp.x * 4.0 + fp.y * 13.0, 16.0) + 0.5) / 16.0;
+    if (fb > smoothstep(uNF.x, uNF.y, dl)) discard;
   }
   if (uGB.x > 0.5) {
     gbOut(vW);

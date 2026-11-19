@@ -4,6 +4,7 @@ def main():
     init()
     make_rts()
     load_level(START_LEVEL)
+    tnext = START_LEVEL
     state = 3
     ttime = 0.3
     tdone = 1
@@ -1315,8 +1316,8 @@ def api_cyaw_o():
 def cam_orbit():
     if api_cam == 3:
         cpitch = 0 - api_cpitch
-        if api_cyaw != lcyaw:
-            cyaw = api_cyaw
+    if abs(api_cyaw - round(lcyaw * 100) / 100) > 0.02:
+        cyaw = api_cyaw
     otx = px
     oty = py + 1.4
     otz = pz
@@ -1340,9 +1341,9 @@ def cam_orbit():
     crx = mcy
     cry = 0
     crz = msy
-    cux = cfy * crz - cfz * cry
-    cuy = cfz * crx - cfx * crz
-    cuz = cfx * cry - cfy * crx
+    cux = cry * cfz - crz * cfy
+    cuy = crz * cfx - crx * cfz
+    cuz = crx * cfy - cry * cfx
     lcyaw = cyaw
 
 
@@ -1617,6 +1618,10 @@ def env_blur(dst, src, dx, dy):
 def frame_uniforms():
     PFY = 1 / tan((api_fov + fovk) / 2)
     PFX = PFY * 9 / 16
+    if api_cam >= 2:
+        set_vec2("uNF", "world", 1.2, 3.2)
+    else:
+        set_vec2("uNF", "world", 0, 0.001)
     if api_cam == 0:
         set_vec4("uO1", "world", 0, -999, 0, 0.01)
         set_vec4("uO2", "world", 0, -999, 0, 0.01)
