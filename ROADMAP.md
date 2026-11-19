@@ -92,7 +92,6 @@ Status: `[ ]` not started, `[~]` works but has known gaps, `[x]` built and check
 - Water has no refraction of the lake bed, and the player can't dive under the surface.
 - Distant hills beyond the playable area are low in detail.
 - Portals work only in first person, and portal views render at half resolution.
-- The Portal Lab playthrough is timing-sensitive in the harness: it passes as written in `tools/harness/runs/portals.txt`, but removing the extra `log` steps after the first teleport has made the walk west along the ledge stall in some runs. The cause is not yet found.
 - Characters use rigid skinning (each vertex follows one bone) with a limit of 32 bones, so very smooth organic rigs crease at the joints.
 - Vehicles collide as boxes, they can't tip over or flip, and there are no computer-driven racers yet.
 - Ambient occlusion is screen space, so creases at the edge of the screen and behind thin objects lose some darkening.

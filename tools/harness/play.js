@@ -162,8 +162,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
           await page.evaluate(() => key('w', false));
           await sleep(350);
           for (let k = 0; k < 20; k++) {
-            const d2 = await page.evaluate((tx, tz) => { const dx = tx - getv('player x'), dz = tz - getv('player z'); const dd = Math.hypot(dx, dz); if (dd > 0.1) setv('player yaw', Math.atan2(dx, -dz) * 180 / Math.PI); return dd; }, tx, tz);
-            if (d2 < 0.15) break;
+            const d2 = await page.evaluate((tx, tz) => { const dx = tx - getv('player x'), dz = tz - getv('player z'); const dd = Math.hypot(dx, dz); if (dd > 0.1 && dd < 1.5) setv('player yaw', Math.atan2(dx, -dz) * 180 / Math.PI); return dd; }, tx, tz);
+            if (d2 < 0.15 || d2 > 1.5) break;
             await page.evaluate(() => key('w', true)); await sleep(d2 > 0.4 ? 90 : 50); await page.evaluate(() => key('w', false)); await sleep(220);
           }
           break;
