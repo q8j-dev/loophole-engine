@@ -281,8 +281,10 @@ def finish_voxel(c, L, li):
 SKIES = {
     "day": dict(zen=(0.09, 0.27, 0.78), hor=(0.62, 0.78, 1.0), ground=(0.16, 0.15, 0.13), sun=(3.7, 3.35, 2.85),
                 amb=(0.22, 0.32, 0.55), fog=(0.58, 0.7, 0.9)),
-    "sunset": dict(zen=(0.08, 0.13, 0.36), hor=(1.25, 0.62, 0.3), ground=(0.1, 0.07, 0.06), sun=(3.8, 2.1, 0.85),
-                   amb=(0.22, 0.2, 0.3), fog=(0.85, 0.52, 0.36)),
+    "sunset": dict(zen=(0.06, 0.16, 0.42), hor=(1.15, 0.66, 0.36), ground=(0.1, 0.07, 0.06), sun=(3.8, 2.2, 0.95),
+                   amb=(0.2, 0.24, 0.34), fog=(0.78, 0.56, 0.42)),
+    "dusk": dict(zen=(0.025, 0.05, 0.16), hor=(0.55, 0.32, 0.24), ground=(0.04, 0.035, 0.03), sun=(1.2, 0.55, 0.25),
+                 amb=(0.08, 0.1, 0.17), fog=(0.3, 0.24, 0.24)),
     "night": dict(zen=(0.01, 0.015, 0.04), hor=(0.04, 0.06, 0.11), ground=(0.01, 0.01, 0.012), sun=(0.35, 0.42, 0.62),
                   amb=(0.025, 0.035, 0.06), fog=(0.04, 0.05, 0.08)),
     "overcast": dict(zen=(0.55, 0.58, 0.62), hor=(0.8, 0.82, 0.85), ground=(0.2, 0.2, 0.2), sun=(0.7, 0.7, 0.72),
@@ -302,7 +304,7 @@ def level_key(c, L):
     h.update(f"{BAKE_VERSION}|{bake.LMW}|{bake.LMH}".encode())
     h.update(np.packbits(c.air).tobytes())
     for kind in sorted({d[0] for d in c.decor}):
-        f = decor_place.KIT / f"kit_{kind}.npz"
+        f = decor_place.mesh_path(kind)
         if f.exists():
             h.update(hashlib.md5(f.read_bytes()).digest())
     if getattr(c, "extra", None) is not None:
@@ -429,6 +431,9 @@ class Models:
 def build(world_path, out=None, log=print, cache=None):
     world_path = Path(world_path).resolve()
     game = load_game(world_path)
+    if game.models:
+        from . import models as MD
+        MD.import_models(game, world_path.parent, log)
     out = Path(out) if out else world_path.parent / (safe_name(game.title) + ".sb3")
     cache = Path(cache) if cache else world_path.parent / ".loophole" / "cache"
     log(f"loophole {ENGINE_VERSION}: building '{game.title}' ({len(game.levels)} level{'s' * (len(game.levels) != 1)})")

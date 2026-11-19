@@ -287,7 +287,7 @@ class Level:
 
     def deco(self, name, pos, fwd=(1, 0, 0), up=(0, 1, 0), scale=(1, 1, 1)):
         from . import decor_place
-        if name not in decor_place.KINDS:
+        if name not in decor_place.KINDS and name not in self.game.models:
             raise ValueError(f"unknown prop '{name}'. Built-in props: {', '.join(decor_place.KINDS)}")
         self.decor.append((name, tuple(map(float, pos)), tuple(map(float, fwd)), tuple(map(float, up)),
                            tuple(map(float, scale))))
@@ -447,13 +447,18 @@ class Game:
         if hands is not None:
             viewmodel = "device" if hands else "none"
         self.viewmodel = viewmodel
-        self.viewmodels = list(dict.fromkeys(([viewmodel] if viewmodel != "none" else []) + list(viewmodels or [])))
+        self.viewmodels = [v for v in dict.fromkeys([viewmodel] + list(viewmodels or [])) if v != "none"]
         self.hand_color = color(hand_color)
         self.quality = quality
         self.fov = fov
         self.start_level = start_level
         self.levels = []
         self.scripts = []
+        self.models = {}
+
+    def model(self, name, path, scale=1.0, texture=1024, up="y"):
+        self.models[name] = dict(path=str(path), scale=scale, texture=texture, up=up)
+        return self
 
     def level(self, name):
         L = Level(self, name)

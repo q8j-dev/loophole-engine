@@ -249,7 +249,7 @@ def branch_path(start, direction, length, steps, droop, rng, curl=0.15):
     return out
 
 
-def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=420, tint=(1, 1, 1), leaf_tint=1.0):
+def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=300, tint=(1, 1, 1), leaf_tint=1.0):
     rng = np.random.default_rng(seed)
     leaves = sprites(load_rgba(src, "island_tree_01__leaves_diff.jpg", "island_tree_01__leaves_alpha.png"))
     cards = [cluster_card(leaves, 512, seed * 7 + k) for k in range(2)]
@@ -318,8 +318,8 @@ def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=420, tint=(
         k = int(rng.integers(0, 2))
         rect = (0.5, k * 0.5, 1.0, (k + 1) * 0.5)
         w = rng.uniform(1.3, 1.9) * crown / 2.6
-        for q in range(2):
-            ang = rng.uniform(0, math.pi) + q * math.pi / 2
+        for q in range(3):
+            ang = rng.uniform(0, math.pi) + q * math.pi / 3
             right = np.array([math.cos(ang), 0, math.sin(ang)])
             upv = nrm_s * 0.6 + np.array([0, 0.5, 0]) + rng.normal(0, 0.25, 3)
             upv -= right * np.dot(upv, right)
@@ -473,7 +473,7 @@ def main():
     bark = {"diff": ph / "bark_brown_02" / "diff.jpg", "nor": ph / "bark_brown_02" / "nor_gl.jpg"}
     print("oak", broadleaf("oak", 3, src, bark))
     print("birch", broadleaf("birch", 9, src, bark, height=7.5, crown=2.1,
-                             clusters=340, tint=(1.5, 1.45, 1.35), leaf_tint=np.array([1.05, 1.08, 0.9])))
+                             clusters=250, tint=(1.5, 1.45, 1.35), leaf_tint=np.array([1.05, 1.08, 0.9])))
     print("pine", pine("pine", 5, src))
     print("bush", bush("bush", 2, src))
     print("grass", clump("grass", 4, src, "grass_medium_01__Diffuse.jpg", "grass_medium_01__Alpha.png", 5, size=0.7,

@@ -21,11 +21,22 @@ def set_layout(lay):
 
 
 KINDS = sorted(p.stem[4:] for p in KIT.glob("kit_*.npz"))
+EXTRA = {}
+
+
+def refresh():
+    KINDS[:] = sorted(set(p.stem[4:] for p in KIT.glob("kit_*.npz")) | set(EXTRA))
+    raw.cache_clear()
+    module.cache_clear()
+
+
+def mesh_path(name):
+    return EXTRA.get(name, KIT / f"kit_{name}.npz")
 
 
 @lru_cache(None)
 def raw(name):
-    d = np.load(KIT / f"kit_{name}.npz")
+    d = np.load(mesh_path(name))
     out = {k: d[k] for k in d.files}
     return out
 

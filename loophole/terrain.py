@@ -107,7 +107,7 @@ def mesh(t, H, xs, zs, holes=()):
 
 
 class Field:
-    def __init__(self, t, xs, zs, H, ring=220.0, ring_step=8.0):
+    def __init__(self, t, xs, zs, H, ring=220.0, ring_step=5.0):
         self.t = t
         self.xs, self.zs, self.H = xs, zs, H
         self.x0, self.x1, self.z0, self.z1 = xs[0], xs[-1], zs[0], zs[-1]

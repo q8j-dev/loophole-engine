@@ -240,6 +240,7 @@ uniform vec4 uTHP;
 uniform vec4 uFog;
 uniform vec4 uFogS;
 uniform vec3 uFogSun;
+uniform vec3 uSkyA;
 uniform vec4 uO1;
 uniform vec4 uO2;
 uniform vec4 uSC[4];
@@ -491,8 +492,9 @@ void main() {
   gate(vW);
   bool leaf = vIrr.w > 4.5 && vIrr.w < 5.5;
   if (vMat > 76.5 && vMat < 77.5) {
-    float dz = hash12(gl_FragCoord.xy + fract(u_timer * 17.0) * 113.0);
-    if (dz > 0.42) discard;
+    vec2 bp = mod(floor(gl_FragCoord.xy), 4.0);
+    float bay = mod(bp.x * 4.0 + bp.y * 13.0 + floor(u_timer * 60.0) * 5.0, 16.0) / 16.0;
+    if (bay > 0.38) discard;
   }
   if (leaf) {
     float dl = length(uCP - vW);
@@ -1026,7 +1028,7 @@ void main() {
     vec3 sunL = normalize(uFogSun + vec3(0.0, 0.001, 0.0));
     float wrap = max(dot(N, sunL) * 0.5 + 0.5, 0.0);
     float back = pow(max(dot(-V, sunL), 0.0), 3.0);
-    vec3 skyA = uFog.w > 0.0 ? uFog.rgb * 0.35 : vec3(0.0);
+    vec3 skyA = uSkyA;
     E = E * (0.55 + 0.45 * wrap) + skyA + E * back * 0.9;
     emis += alb * E * back * 0.35;
     spec *= 0.3;

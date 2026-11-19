@@ -8,12 +8,19 @@ TILES = Path(__file__).resolve().parent / "data" / "tiles"
 NMIP = 8
 
 
+EXTRA_TILES = {}
+
+
+def tdir(name):
+    return EXTRA_TILES.get(name, TILES)
+
+
 def available():
-    return sorted(p.name[:-6] for p in TILES.glob("*_a.jpg"))
+    return sorted(set(p.name[:-6] for p in TILES.glob("*_a.jpg")) | set(EXTRA_TILES))
 
 
 def tile_size(name):
-    with Image.open(TILES / f"{name}_a.jpg") as im:
+    with Image.open(tdir(name) / f"{name}_a.jpg") as im:
         return im.size[0]
 
 
@@ -74,7 +81,7 @@ def with_mips(page, normal=False):
 
 
 def load(name, kind, s):
-    im = Image.open(TILES / f"{name}_{kind}.jpg").convert("RGB")
+    im = Image.open(tdir(name) / f"{name}_{kind}.jpg").convert("RGB")
     if im.size[0] != s:
         im = im.resize((s, s), Image.LANCZOS)
     return np.asarray(im, np.float32) / 255.0
