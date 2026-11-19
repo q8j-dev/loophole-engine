@@ -133,6 +133,12 @@ def play_sound_at(name, x, y, z):
     play(name)
 
 
+@block("rumble controller %s for %s seconds")
+def rumble_controller(strength, seconds):
+    """Shakes a connected game controller. Strength goes from 0 to 1."""
+    rumble(strength, strength, seconds)
+
+
 @block("show message %s")
 def show_message(text):
     """Big text near the bottom of the screen. Show an empty message to hide it."""

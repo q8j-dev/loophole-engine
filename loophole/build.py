@@ -23,6 +23,7 @@ VERBOSE = False
 BAKE_VERSION = 3
 PENP_URL = "https://extensions.turbowarp.org/obviousAlexC/penPlus.js"
 PLOCK_URL = "https://extensions.turbowarp.org/pointerlock.js"
+GPAD_URL = "https://extensions.turbowarp.org/gamepad.js"
 STAGE_W, STAGE_H = 640, 360
 
 API_VARS = {
@@ -36,6 +37,8 @@ API_VARS = {
     "api_walk": "walk speed", "api_jump": "jump power", "api_grav": "gravity", "api_paused": "paused",
     "api_locked": "mouse locked", "api_vm": "viewmodel", "api_lcoll": "last collected", "api_ltouch": "last touched",
     "api_ltrig": "last trigger", "api_water": "water depth", "api_wea": "weather", "api_msg": "message", "api_stat": "status", "quality": "quality",
+    "api_touch": "touch controls", "api_gpad": "gamepad", "api_inx": "input x", "api_iny": "input y",
+    "api_ijump": "input jump", "api_iuse": "input use",
 }
 API_LISTS = {
     "obj_name": "obj name", "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw",
@@ -62,7 +65,9 @@ USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "pla
                 "obj_roll": "obj roll", "obj_scale": "obj scale", "obj_visible": "obj visible", "obj_solid": "obj solid",
                 "obj_glow": "obj glow", "obj_open": "obj open", "obj_touching": "obj touching",
                 "sound_queue": "sound queue", "light_name": "light name", "light_power": "light power",
-                "trigger_name": "trigger name", "trigger_inside": "trigger inside"}
+                "trigger_name": "trigger name", "trigger_inside": "trigger inside", "touch_controls": "touch controls",
+                "gamepad": "gamepad", "input_x": "input x", "input_y": "input y", "input_jump": "input jump",
+                "input_use": "input use"}
 
 SH = ("shader", "menu", "penPlusShaders")
 UN = ("uniformName", "text", None)
@@ -94,8 +99,23 @@ class Project(sbc.Project):
 
 
 class Compiler(sbc.SpriteCompiler):
+    def _pad_menu(self, bid, pad="any"):
+        mid = self._new("Gamepad_menu_padMenu", bid, fields={"padMenu": [pad, None]}, shadow=True)
+        self.blocks[bid]["inputs"]["i"] = [1, mid]
+
+    def _num_const(self, node):
+        if isinstance(node, ast.Name) and node.id in self.consts:
+            return self.consts[node.id]
+        return node.value
+
     def _call_stmt(self, call, parent):
         f = call.func
+        if isinstance(f, ast.Name) and f.id == "rumble":
+            bid = self._new("Gamepad_rumble", parent)
+            for k, a in zip(("s", "w", "t"), call.args):
+                self.blocks[bid]["inputs"][k] = self._input(a, bid, "num")
+            self._pad_menu(bid)
+            return bid, bid
         if isinstance(f, ast.Name) and f.id == "set_lock":
             bid = self._new("pointerlock_setLocked", parent)
             mid = self._new("pointerlock_menu_enabled", bid, fields={"enabled": [call.args[0].value, None]},
@@ -138,6 +158,19 @@ class Compiler(sbc.SpriteCompiler):
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
             if node.func.id == "plocked":
                 return self._new("pointerlock_isLocked", parent)
+            if node.func.id == "gp_on":
+                bid = self._new("Gamepad_gamepadConnected", parent)
+                mid = self._new("Gamepad_menu_padMenu", bid, fields={"padMenu": ["any", None]}, shadow=True)
+                self.blocks[bid]["inputs"]["pad"] = [1, mid]
+                return bid
+            if node.func.id in ("gp_axis", "gp_btn"):
+                op, menu = ("Gamepad_axisValue", "axisMenu") if node.func.id == "gp_axis" else ("Gamepad_buttonDown", "buttonMenu")
+                bid = self._new(op, parent)
+                mid = self._new(f"Gamepad_menu_{menu}", bid, fields={menu: [str(self._num_const(node.args[0])), None]},
+                                shadow=True)
+                self.blocks[bid]["inputs"]["b"] = [1, mid]
+                self._pad_menu(bid)
+                return bid
             if node.func.id == "costume_number":
                 return self._new("looks_costumenumbername", parent, fields={"NUMBER_NAME": ["number", None]})
             if node.func.id == "mbtn":
@@ -1314,7 +1347,13 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     for cname in game.portal_colors:
         cc = np.array(color(cname), float)
         pcol.append(tuple(r4(v) for v in cc / max(cc.max(), 1e-3)))
-    consts = {"CHV": geo.CHUNK * 3, "NLEV": len(game.levels), "START_LEVEL": max(1, min(len(game.levels), game.start_level)),
+    keys = getattr(game, "keys", None) or dict(Game.KEYS)
+    pad = getattr(game, "pad", dict(Game.PAD))
+    touch = getattr(game, "touch", "auto")
+    consts = {"SH2": STAGE_H / 2, "SW2": STAGE_W / 2, "TOUCHA": 1 if touch == "auto" else 0, "TOUCH0": 1 if touch is True else 0,
+              "GPAD": 1 if pad else 0, "GP_JUMP": (pad or Game.PAD)["jump"], "GP_USE": (pad or Game.PAD)["use"],
+              "GP_CROUCH": (pad or Game.PAD)["crouch"], "GP_PAUSE": (pad or Game.PAD)["pause"],
+              "CHV": geo.CHUNK * 3, "NLEV": len(game.levels), "START_LEVEL": max(1, min(len(game.levels), game.start_level)),
               "QUALITY": game.quality, "FOV": game.fov, "VMDEF": game.viewmodel,
               "CAM0": game.camera, "CDIST0": game.camera_distance, "CPITCH0": game.camera_pitch, "WALK": game.walk_speed, "JUMPV": game.jump_power, "GRAV": 20.0, "FRIC": 5.0, "STOPSPD": 1.9, "ACCEL": 10.0, "AIRACC": 12.0,
               "AIRCAP": 0.8, "STEPH": 0.55, "EYE": 1.6, "EYEC": 1.05, "PHT": 1.75, "PHTC": 1.2, "PW": 0.3,
@@ -1332,6 +1371,8 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     L["JX"] = [0.5, 0.25, 0.75, 0.125, 0.625, 0.375, 0.875, 0.0625]
     L["JY"] = [0.3333, 0.6667, 0.1111, 0.4444, 0.7778, 0.2222, 0.5556, 0.8889]
     src = expand_mklist((HERE / "runtime" / "engine.py").read_text(encoding="utf-8"))
+    for name, k in keys.items():
+        src = src.replace(f'key("@{name}")', f'key({json.dumps(k)})')
     gc = Compiler(proj, src, list(API_LISTS.values()), consts=consts, aliases=ALIASES)
     gblocks = gc.compile()
     eng_lists = {}
@@ -1395,7 +1436,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     cfg_text = ("Configuration for https://turbowarp.org/\nYou can move, resize, and minimize this comment, "
                 "but don't edit it by hand. This comment can be deleted to remove the stored settings.\n"
                 + json.dumps(tw_cfg, separators=(",", ":")) + " // _twconfig_")
-    api_values = {"weather": "clear", "message": "", "status": "", "quality": game.quality, "viewmodel": game.viewmodel, "controls": 1, "camera mode": game.camera, "field of view": game.fov,
+    api_values = {"touch controls": 1 if touch is True else 0, "weather": "clear", "message": "", "status": "", "quality": game.quality, "viewmodel": game.viewmodel, "controls": 1, "camera mode": game.camera, "field of view": game.fov,
                   "exposure": 1, "walk speed": game.walk_speed, "jump power": game.jump_power, "gravity": 20.0,
                   "camera distance": game.camera_distance, "camera pitch": game.camera_pitch,
                   "level": game.start_level}
@@ -1545,7 +1586,7 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
         stage["comments"]["twconfig"] = {"blockId": None, "x": 0, "y": 0, "width": 350, "height": 170,
                                          "minimized": True, "text": cfg_text}
         targets = [stage] + engine + ([gsprite] if gsprite else []) + others
-        exts = list(dict.fromkeys(po.get("extensions", []) + ["pen", "penP", "pointerlock", "tw"]))
+        exts = list(dict.fromkeys(po.get("extensions", []) + ["pen", "penP", "pointerlock", "Gamepad", "tw"]))
         ext_urls = dict(po.get("extensionURLs", {}))
         ext_store = dict(po.get("extensionStorage", {}))
         monitors = [m for m in po.get("monitors", []) if not m.get("loophole")]
@@ -1559,13 +1600,15 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
                  "currentCostume": 0, "costumes": [bg], "sounds": [], "volume": 100, "layerOrder": 0, "tempo": 60,
                  "videoTransparency": 50, "videoState": "on", "textToSpeechLanguage": None}
         targets = [stage] + engine + ([gsprite] if gsprite else []) + overlay
-        exts = ["pen", "penP", "pointerlock", "tw"]
+        exts = ["pen", "penP", "pointerlock", "Gamepad", "tw"]
         ext_urls = {}
         ext_store = {}
         monitors = hud_monitors(proj, game)
     for i, t in enumerate(targets):
         t["layerOrder"] = i
-    ext_urls.update({"penP": PENP_URL, "pointerlock": PLOCK_URL})
+    exts = [e for e in exts if e != "gamepad"]
+    ext_urls.pop("gamepad", None)
+    ext_urls.update({"penP": PENP_URL, "pointerlock": PLOCK_URL, "Gamepad": GPAD_URL})
     ext_store["penP"] = {"shaders": shader_store, "version": "7.1.9",
                          "prefixes": {"penPlusTextures": "", "renderTextures": ""}}
     return {"targets": targets, "monitors": monitors, "extensions": exts, "extensionURLs": ext_urls,

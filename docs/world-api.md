@@ -54,6 +54,21 @@ Game(title="My Game", viewmodel="none", viewmodels=None, hand_color="cyan", qual
 | `game.variable(name, show=False)` | Adds a Stage variable. With `show=True` it appears as a Scratch monitor. |
 | `game.model(name, path, scale=1.0, texture=1024, up="y")` | Imports an `.obj`, `.gltf` or `.glb` file as a prop. Use `up="z"` for files exported Z-up. |
 | `game.character(name, path, height=1.8, keep=None, facing="+z")` | Imports a rigged `.glb` or `.gltf` character. It needs a skeleton and an idle or walk animation. Clips named like Idle, Walk, Run and Jump are used automatically. Meshes attached to hand bones are hidden unless you list their node names in `keep`. Up to 32 bones. |
+| `game.controls(keys=None, gamepad=None, touch="auto")` | Changes the controls. See below. |
+
+### Controls
+
+Keyboard and mouse, game controllers and touch screens all work at once.
+
+- **Keyboard:** WASD to move, mouse to look, space to jump, E to use, shift to crouch, P to pause, R to restart. Arrow keys also look.
+- **Game controller:** left stick moves, right stick looks, A jumps, X uses, B crouches, Start pauses. The controller rumbles when the player dies or collects something.
+- **Touch:** on a tablet or touch Chromebook a joystick appears in the bottom left and jump and use buttons in the bottom right. Up and down on the joystick walk, left and right turn. Drag anywhere else to look around.
+
+```python
+game.controls(keys={"jump": "up arrow", "use": "f"}, gamepad={"jump": 2}, touch=True)
+```
+
+`keys` renames any of `forward`, `back`, `left`, `right`, `jump`, `use`, `crouch`, `pause` and `restart` to a Scratch key name. `gamepad` sets the controller button numbers for `jump`, `use`, `crouch` and `pause` (1 is A, 2 is B, 3 is X, 4 is Y, 10 is Start), or `gamepad=False` turns controllers off. `touch="auto"` shows the touch controls when someone touches the screen, `True` always shows them and `False` never does.
 
 ## Level geometry
 

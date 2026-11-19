@@ -17,9 +17,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const page = await browser.newPage();
   page.on('console', m => { if (m.type() === 'error' || m.text().includes('RTERR')) console.log('CON', m.type(), m.text().slice(0, 300)); });
   page.on('pageerror', e => console.log('PERR', e.message, (e.stack || '').split('\n').slice(0, 6).join(' | ')));
-  await page.setViewport(hd ? {width: 1920, height: 1080} : {width: 1280, height: 720});
+  await page.setViewport(Object.assign(hd ? {width: 1920, height: 1080} : {width: 1280, height: 720}, process.env.TOUCH ? {hasTouch: true, isMobile: false} : {}));
   await page.goto('file://' + path.join(__dirname, 'harness.html'));
   await page.evaluate(async u => { await window.run(u); }, await serve(path.resolve(sb3)));
+  if (process.env.NOLOCK) await page.evaluate(() => { window.NOLOCK = 1; });
+  if (process.env.FAKEPAD) await page.evaluate(() => {
+    window.rumbles = [];
+    window.fakePad = {id: 'Fake pad', index: 0, connected: true, mapping: 'standard', timestamp: 0,
+      axes: [0, 0, 0, 0], buttons: Array.from({length: 17}, () => ({pressed: false, touched: false, value: 0})),
+      vibrationActuator: {playEffect: (t, o) => { window.rumbles.push(o); return Promise.resolve('complete'); }}};
+    navigator.getGamepads = () => [window.fakePad, null, null, null];
+  });
   await page.evaluate(() => {
     const st = () => S.vm.runtime.getTargetForStage();
     window.V = n => st().lookupVariableByNameAndType(n, '') || S.vm.runtime.targets.map(t => t.lookupVariableByNameAndType(n, '')).find(Boolean);
@@ -28,9 +36,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     window.setv = (n, x) => { V(n).value = x; };
     window.key = (k, d) => S.vm.postIOData('keyboard', {key: k === 'space' ? ' ' : k, isDown: d});
     window.lockOn = () => { const e = S.vm.runtime.ext_pointerlock; if (e) { e.isLocked = () => true; } const c = S.vm.renderer && S.vm.renderer.canvas; if (c) { Object.defineProperty(document, 'pointerLockElement', {configurable: true, get: () => c}); document.dispatchEvent(new Event('pointerlockchange')); } };
-    lockOn();
+    if (!window.NOLOCK) lockOn();
   });
   await sleep(+(process.env.BOOT || 3500));
+  const cdpTouch = process.env.TOUCH ? await page.createCDPSession() : null;
+  const stageToPage = async (sx, sy) => page.evaluate((sx, sy) => {
+    const r = S.renderer.canvas.getBoundingClientRect();
+    return [r.left + (sx / 640 + 0.5) * r.width, r.top + (0.5 - sy / 360) * r.height];
+  }, sx, sy);
+  const touch = async (type, sx, sy) => {
+    const pts = type === 'touchEnd' ? [] : [{x: (await stageToPage(sx, sy))[0], y: (await stageToPage(sx, sy))[1], id: 1}];
+    await cdpTouch.send('Input.dispatchTouchEvent', {type, touchPoints: pts});
+  };
+  global.lastTouch = [0, 0];
   const api = ['player x', 'player y', 'player z', 'player yaw', 'player pitch', 'player on ground', 'level', 'level time', 'fps', 'looking at', 'holding', 'paused'];
   const log = async label => {
     const o = await page.evaluate(names => Object.fromEntries(names.map(n => [n, getv(n)])), api);
@@ -47,6 +65,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     else if (cmd === 'recstop') { global.recOn = false; await global.recDone; }
     else if (cmd === 'rec') { for (let i = 0; i < +a; i++) { await page.screenshot({path: path.join(out, `${b}_${String(i).padStart(3, '0')}.png`)}); await sleep(+(c || 60)); } }
     else if (cmd === 'click') { await page.evaluate(bt => S.vm.postIOData('mouse', {isDown: true, button: +bt, x: 240, y: 180, canvasWidth: 480, canvasHeight: 360}), a); await sleep(150); await page.evaluate(bt => S.vm.postIOData('mouse', {isDown: false, button: +bt, x: 240, y: 180, canvasWidth: 480, canvasHeight: 360}), a); }
+    else if (cmd === 'tdown') { global.lastTouch = [+a, +b]; await touch('touchStart', +a, +b); }
+    else if (cmd === 'tmove') {
+      const n = +(c || 8);
+      const [x0, y0] = global.lastTouch;
+      for (let k = 1; k <= n; k++) { await touch('touchMove', x0 + (+a - x0) * k / n, y0 + (+b - y0) * k / n); await sleep(16); }
+      global.lastTouch = [+a, +b];
+    }
+    else if (cmd === 'tup') await touch('touchEnd');
+    else if (cmd === 'padaxis') await page.evaluate((i, v) => { window.fakePad.axes[i] = v; }, +a, +b);
+    else if (cmd === 'padbtn') await page.evaluate((i, v) => { window.fakePad.buttons[i] = {pressed: !!v, touched: !!v, value: v}; }, +a, +b);
+    else if (cmd === 'js') console.log('JS', JSON.stringify(await page.evaluate(step.slice(3))));
+    else if (cmd === 'rumbles') console.log('RUMBLES', JSON.stringify(await page.evaluate(() => window.rumbles)));
     else if (cmd === 'throttle') { const cdp = await page.createCDPSession(); await cdp.send('Emulation.setCPUThrottlingRate', {rate: +a}); }
     else if (cmd === 'audio') console.log('AUDIO', a || '', JSON.stringify(await page.evaluate(() => S.vm.runtime.targets
       .filter(t => !t.isOriginal && t.sprite.name === (window.audioSprite || 'Engine Audio'))

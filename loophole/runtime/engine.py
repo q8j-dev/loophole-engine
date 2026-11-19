@@ -25,6 +25,19 @@ def init():
     TT = 0
     quality = QUALITY
     ixl = "engine IX5"
+    hovered = 0
+    tdown = 0
+    tmode = 0
+    tlmx = 0
+    tlmy = 0
+    api_touch = TOUCH0
+    inx = 0
+    iny = 0
+    ilx = 0
+    ily = 0
+    ijump = 0
+    icrouch = 0
+    tuifade = 0
     farq = 0
     detd = 32
     lodd = 60
@@ -212,42 +225,165 @@ def tick():
             if lowq >= 5:
                 quality = quality - 1
                 lowq = 0
-    locked = 0
+    plk = 0
     if plocked():
-        locked = 1
-    api_locked = locked
+        plk = 1
     mdx = 0
     mdy = 0
-    if locked == 1:
+    if plk == 1:
         mdx = mouse_x()
         mdy = mouse_y()
+    touch_step()
+    locked = plk
+    if api_touch == 1:
+        locked = 1
+    api_locked = locked
     ke = 0
-    if key("e"):
+    if key("@use") or tuse == 1:
         if le == 0:
             ke = 1
         le = 1
     else:
         le = 0
-    if mbtn(0) and locked == 1:
+    if mbtn(0) and plk == 1:
         if lmb == 0:
             ke = 1
         lmb = 1
     else:
         lmb = 0
     kr = 0
-    if key("r"):
+    if key("@restart"):
         if lr_ == 0:
             kr = 1
         lr_ = 1
     else:
         lr_ = 0
     pk = 0
-    if key("p"):
+    if key("@pause") or gpause == 1:
         if lp_ == 0:
             pk = 1
         lp_ = 1
     else:
         lp_ = 0
+    inx = tmx
+    iny = tmy
+    if key("@right"):
+        inx += 1
+    if key("@left"):
+        inx += -1
+    if key("@forward"):
+        iny += 1
+    if key("@back"):
+        iny += -1
+    inx = max(-1, min(1, inx + gx))
+    iny = max(-1, min(1, iny + gy))
+    ilx = tlx + glx * 170 * dt
+    ily = tly + gly * 120 * dt
+    if api_cam == 0 and tmode == 1:
+        inx = 0
+        ilx += tmx * 120 * dt
+    ijump = 0
+    if key("@jump") or gjump == 1 or tjump == 1:
+        ijump = 1
+    icrouch = 0
+    if key("@crouch") or gcrouch == 1:
+        icrouch = 1
+    api_inx = round(inx * 100) / 100
+    api_iny = round(iny * 100) / 100
+    api_ijump = ijump
+    api_iuse = le
+
+
+@warp
+def touch_step():
+    mxn = mouse_x() / SH2
+    myn = mouse_y() / SH2
+    mdn = 0
+    if mouse_down():
+        mdn = 1
+    if plk == 0 and mdn == 0 and abs(mxn - tlmx) + abs(myn - tlmy) > 0.002:
+        hovered = 1
+    if plk == 0:
+        tlmx = mxn
+        tlmy = myn
+    if TOUCHA == 1:
+        if plk == 1:
+            api_touch = 0
+        elif mdn == 1 and hovered == 0:
+            api_touch = 1
+    tmx = 0
+    tmy = 0
+    tlx = 0
+    tly = 0
+    tjump = 0
+    tuse = 0
+    if api_touch == 1:
+        tasp = SW2 / SH2
+        tjx = 0 - tasp + 0.46
+        tjy = -0.5
+        tb1x = tasp - 0.3
+        tb1y = -0.5
+        tb2x = tasp - 0.68
+        tb2y = -0.3
+        if mdn == 1 and tdown == 0:
+            tmode = 4
+            if sqrt((mxn - tjx) * (mxn - tjx) + (myn - tjy) * (myn - tjy)) < 0.48:
+                tmode = 1
+            elif sqrt((mxn - tb1x) * (mxn - tb1x) + (myn - tb1y) * (myn - tb1y)) < 0.24:
+                tmode = 2
+            elif sqrt((mxn - tb2x) * (mxn - tb2x) + (myn - tb2y) * (myn - tb2y)) < 0.2:
+                tmode = 3
+            tlastx = mxn
+            tlasty = myn
+        if mdn == 1:
+            if tmode == 1:
+                tox = (mxn - tjx) / 0.3
+                toy = (myn - tjy) / 0.3
+                tol = sqrt(tox * tox + toy * toy)
+                if tol > 1:
+                    tox = tox / tol
+                    toy = toy / tol
+                tmx = tox
+                tmy = toy
+            elif tmode == 2:
+                tjump = 1
+            elif tmode == 3:
+                tuse = 1
+            elif tmode == 4:
+                tlx = (mxn - tlastx) * 95 * sens
+                tly = (myn - tlasty) * 95 * sens
+                tlastx = mxn
+                tlasty = myn
+        else:
+            tmode = 0
+        tdown = mdn
+    else:
+        tmode = 0
+        tdown = 0
+    gx = 0
+    gy = 0
+    glx = 0
+    gly = 0
+    gjump = 0
+    gcrouch = 0
+    gpause = 0
+    gpc = 0
+    if GPAD == 1:
+        if gp_on():
+            gpc = 1
+            gx = gp_axis(1)
+            gy = 0 - gp_axis(2)
+            glx = gp_axis(3)
+            gly = 0 - gp_axis(4)
+            if gp_btn(GP_JUMP):
+                gjump = 1
+            if gp_btn(GP_USE):
+                tuse = 1
+            if gp_btn(GP_CROUCH):
+                gcrouch = 1
+            if gp_btn(GP_PAUSE):
+                gpause = 1
+    api_gpad = gpc
 
 
 @warp
@@ -314,6 +450,8 @@ def begin(lv):
 def die():
     if state == 1:
         play("fail")
+        if gpc == 1:
+            rumble(0.8, 0.8, 0.35)
         broadcast("player died")
         tnext = 0 - 1
         tafter = 1
@@ -651,8 +789,8 @@ def play_step():
 @warp
 def look():
     sk = SENS * sens
-    lkx = mdx * sk
-    lky = mdy * sk
+    lkx = mdx * sk + ilx
+    lky = mdy * sk + ily
     if key("left arrow"):
         lkx += 0 - 140 * dt
     if key("right arrow"):
@@ -678,14 +816,8 @@ def player_move():
     mvf = 0
     mvr = 0
     if api_ctl == 1:
-        if key("w"):
-            mvf += 1
-        if key("s"):
-            mvf += -1
-        if key("d"):
-            mvr += 1
-        if key("a"):
-            mvr += -1
+        mvf = iny
+        mvr = inx
     myaw = yaw
     if api_cam == 2 or api_cam == 3:
         myaw = cyaw
@@ -700,13 +832,15 @@ def player_move():
             ydiff = (at - yaw + 540) % 360 - 180
             yaw += ydiff * min(1, dt * 10)
     wsp = api_walk
-    if api_ctl == 1 and (key("c") or key("shift")):
+    if api_ctl == 1 and icrouch == 1:
         crouch = 1
         wsp = api_walk * 0.4
     elif crouch == 1:
         crouch = 0
     if mwl < 0.001:
         wsp = 0
+    else:
+        wsp = wsp * min(1, mwl)
     wdep = 0
     wk = LWB0[level]
     for wi_ in rep(LWBN[level]):
@@ -723,9 +857,9 @@ def player_move():
     if wdep > 1.15:
         swim = 1
         onground = 0
-        if api_ctl == 1 and key("space"):
+        if api_ctl == 1 and ijump == 1:
             vy = min(vy + 14 * dt, 2.6)
-    if api_ctl == 1 and onground == 1 and key("space") and lastjump > 0.08:
+    if api_ctl == 1 and onground == 1 and ijump == 1 and lastjump > 0.08:
         vy = api_jump
         onground = 0
         lastjump = 0
@@ -1016,6 +1150,8 @@ def objects_step():
                     if DCOLL[od] == 1:
                         obj_visible[ok_] = 0
                         play("pickup")
+                        if gpc == 1:
+                            rumble(0, 0.4, 0.12)
                         api_lcoll = obj_name[ok_]
                         broadcast(join("collect ", obj_name[ok_]))
                         broadcast("collect")
@@ -2351,6 +2487,24 @@ def hud():
         set_vec4("uTA", "text", msgt, 1, 0, 0)
         set_tex("uFont", "text", "font")
         draw_list("engine TEXT", "text")
+    if api_touch == 1:
+        tuifade = min(1, tuifade + dt * 4)
+    else:
+        tuifade = max(0, tuifade - dt * 4)
+    if tuifade > 0:
+        tasp = SW2 / SH2
+        set_vec4("uJoy", "ui", 0 - tasp + 0.46, -0.5, 0.3, tuifade)
+        tkx = 0 - tasp + 0.46
+        tky = -0.5
+        tka = 0
+        if tmode == 1:
+            tkx += tmx * 0.3
+            tky += tmy * 0.3
+            tka = 1
+        set_vec4("uKnob", "ui", tkx, tky, 0.12, tka)
+        set_vec4("uB1", "ui", tasp - 0.3, -0.5, 0.17, tjump)
+        set_vec4("uB2", "ui", tasp - 0.68, -0.3, 0.14, tuse)
+        draw_list("engine QUAD", "ui")
 
 
 @warp

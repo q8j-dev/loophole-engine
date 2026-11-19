@@ -732,6 +732,31 @@ class Game:
         self.characters[name] = dict(path=str(path), height=height, keep=keep, facing=facing)
         return self
 
+    KEYS = {"forward": "w", "back": "s", "left": "a", "right": "d", "jump": "space", "use": "e", "crouch": "shift",
+            "pause": "p", "restart": "r"}
+    PAD = {"jump": 1, "use": 3, "crouch": 2, "pause": 10}
+
+    def controls(self, keys=None, gamepad=None, touch="auto"):
+        k = dict(self.KEYS)
+        for name, key in (keys or {}).items():
+            if name not in k:
+                raise ValueError(f"unknown control '{name}'. Controls: {', '.join(k)}")
+            k[name] = str(key)
+        self.keys = k
+        if gamepad is False:
+            self.pad = None
+        else:
+            p = dict(self.PAD)
+            for name, b in (gamepad or {}).items():
+                if name not in p:
+                    raise ValueError(f"unknown gamepad control '{name}'. Controls: {', '.join(p)}")
+                p[name] = int(b)
+            self.pad = p
+        if touch not in ("auto", True, False):
+            raise ValueError('touch must be "auto", True or False')
+        self.touch = touch
+        return self
+
     def portals(self, on=True, colors=("cyan", "magenta")):
         self.portals_on = bool(on)
         self.portal_colors = tuple(colors)

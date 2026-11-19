@@ -10,5 +10,6 @@ const get = (url, out) => new Promise((res, rej) => https.get(url, r => {
 (async () => {
   await get('https://extensions.turbowarp.org/obviousAlexC/penPlus.js', path.join(dir, 'penPlus.js'));
   await get('https://extensions.turbowarp.org/pointerlock.js', path.join(dir, 'pointerlock.js'));
+  await get('https://extensions.turbowarp.org/gamepad.js', path.join(dir, 'gamepad.js'));
   console.log('extensions saved to', dir);
 })();

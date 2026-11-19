@@ -2080,6 +2080,51 @@ void main() {
 }
 """
 
+UI_FS = HEAD + """
+uniform vec2 u_res;
+uniform vec4 uJoy;
+uniform vec4 uKnob;
+uniform vec4 uB1;
+uniform vec4 uB2;
+float px;
+void over(inout vec4 c, vec3 rgb, float a) {
+  c.rgb = rgb * a + c.rgb * (1.0 - a);
+  c.a = a + c.a * (1.0 - a);
+}
+float disc(vec2 p, vec3 c) { return 1.0 - smoothstep(c.z - px, c.z + px, length(p - c.xy)); }
+float ring(vec2 p, vec3 c, float w) { return 1.0 - smoothstep(w - px, w + px, abs(length(p - c.xy) - c.z)); }
+void button(inout vec4 col, vec2 p, vec4 b, float icon, float k) {
+  over(col, vec3(0.04, 0.06, 0.1), disc(p, b.xyz) * (0.32 + 0.3 * b.w) * k);
+  over(col, vec3(1.0), ring(p, b.xyz, 0.007) * 0.75 * k);
+  vec2 q = (p - b.xy) / b.z;
+  float g = 0.0;
+  if (icon < 0.5) {
+    float stem = step(abs(q.x), 0.11) * step(-0.5, q.y) * step(q.y, 0.05);
+    float head = step(0.0, q.y) * step(q.y, 0.52) * step(abs(q.x), (0.52 - q.y) * 0.95);
+    g = max(stem, head);
+  } else {
+    g = max(1.0 - smoothstep(0.3 - px / b.z, 0.3 + px / b.z, length(q)),
+            (1.0 - smoothstep(0.035, 0.035 + px / b.z, abs(length(q) - 0.5))) * step(q.y, 0.25));
+  }
+  over(col, vec3(1.0), g * (0.85 + 0.15 * b.w) * k);
+}
+void main() {
+  vec2 uv = gl_FragCoord.xy / u_res;
+  float asp = u_res.x / u_res.y;
+  vec2 p = vec2((uv.x * 2.0 - 1.0) * asp, 1.0 - uv.y * 2.0);
+  px = 2.0 / u_res.y;
+  float k = uJoy.w;
+  vec4 col = vec4(0.0);
+  over(col, vec3(0.04, 0.06, 0.1), disc(p, uJoy.xyz) * 0.28 * k);
+  over(col, vec3(1.0), ring(p, uJoy.xyz, 0.007) * 0.6 * k);
+  over(col, vec3(1.0), disc(p, uKnob.xyz) * (0.5 + 0.35 * uKnob.w) * k);
+  button(col, p, uB1, 0.0, k);
+  button(col, p, uB2, 1.0, k);
+  if (col.a < 0.003) discard;
+  gl_FragColor = col;
+}
+"""
+
 WATER_FS = WORLD_FS[:WORLD_FS.index("void main() {")] + """void main() {
   gate(vW);
 """ + """  if (vIrr.w > 7.5 && vIrr.w < 8.5) {
@@ -2149,6 +2194,7 @@ SHADERS = {k: (merge(v, f), f) for k, (v, f) in {
     "taa": (QUAD_VS, TAA_FS),
     "haze": (QUAD_VS, HAZE_FS),
     "comp": (QUAD_VS, COMP_FS),
+    "ui": (QUAD_VS, UI_FS),
     "lum": (QUAD_VS, LUM_FS),
     "grass": (GRASS_VS, GRASS_FS),
 }.items()}

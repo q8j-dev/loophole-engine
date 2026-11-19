@@ -13,7 +13,7 @@ window.run = async (url) => {
   sm.getSandboxMode = () => Promise.resolve('unsandboxed');
   sm.canLoadExtensionFromProject = () => Promise.resolve(true);
   const base = location.href.replace(/harness\.html.*/, 'ext/');
-  sm.rewriteExtensionURL = u => Promise.resolve(u.indexOf('penPlus') >= 0 ? base + 'penPlus.js' : (u.indexOf('pointerlock') >= 0 ? base + 'pointerlock.js' : u));
+  sm.rewriteExtensionURL = u => Promise.resolve(u.indexOf('penPlus') >= 0 ? base + 'penPlus.js' : (u.indexOf('pointerlock') >= 0 ? base + 'pointerlock.js' : (u.indexOf('gamepad') >= 0 ? base + 'gamepad.js' : u)));
   const buf = await (await fetch(url)).arrayBuffer();
   await s.loadProject(buf);
   window.S = s;

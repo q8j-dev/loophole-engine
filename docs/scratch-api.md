@@ -18,6 +18,7 @@ A new project comes with a sprite called Helpers. Its My Blocks section has read
 | `open [name]`, `close [name]` | Opens or closes a door or anything else that slides. |
 | `play sound [name]` | Plays one of the sounds listed under `sound queue`. |
 | `play sound [name] at x () y () z ()` | Plays a sound from a spot in the level, louder close by and from the left or right. |
+| `rumble controller () for () seconds` | Shakes a connected game controller, strength 0 to 1. |
 | `show message [text]`, `show message [text] for () seconds` | Big text near the bottom of the screen. |
 | `set status [text]` | Small text in the top left corner. |
 | `teleport player to x () y () z ()` | Moves the player. |
@@ -83,6 +84,19 @@ Variables marked "read" are updated by the engine every frame. Variables marked 
 | `exposure` | set | Brightness multiplier. Default 1. |
 | `weather` | read, set | `clear`, `rain`, `snow` or `fog`. The weather fades in over a few seconds: rain darkens and wets the ground and leaves puddles, snow falls and settles on the ground, and fog closes in. |
 | `quality` | read, set | Render quality from 1 to 4. Quality 2 to 4 render 1280, 1600 and 1920 pixels wide. Quality 1 renders 960 wide, fades outdoor scenes into fog by 60 m, draws detail leaves only within 14 m and updates the depth buffer every other frame. The engine lowers it by itself, to 2 if the game stays under 50 frames per second and to 1 under 36, unless `Game(auto_quality=False)`. |
+
+### Input
+
+These combine the keyboard, a game controller and the touch controls, so one script works on every device.
+
+| Variable | Use | Meaning |
+| --- | --- | --- |
+| `input x` | read | Sideways movement from -1 (left) to 1 (right). A controller stick or the touch joystick gives values in between. |
+| `input y` | read | Forward movement from -1 (back) to 1 (forward). |
+| `input jump` | read | 1 while jump is held. |
+| `input use` | read | 1 while use is held. |
+| `touch controls` | read, set | 1 while the on-screen joystick and buttons are showing. Set it to 1 or 0 to show or hide them. |
+| `gamepad` | read | 1 while a game controller is connected. |
 
 ### Game flow
 

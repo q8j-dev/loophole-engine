@@ -16,7 +16,8 @@ EXAMPLES = [
     ("journey", "The Long Walk", ROOT / "examples" / "journey", "The-Long-Walk.sb3"),
 ]
 EXT = {"penPlus.js": "https://extensions.turbowarp.org/obviousAlexC/penPlus.js",
-       "pointerlock.js": "https://extensions.turbowarp.org/pointerlock.js"}
+       "pointerlock.js": "https://extensions.turbowarp.org/pointerlock.js",
+       "gamepad.js": "https://extensions.turbowarp.org/gamepad.js"}
 
 
 def copy_package(out):
