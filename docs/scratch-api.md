@@ -108,6 +108,14 @@ These combine the keyboard, a game controller and the touch controls, so one scr
 | `gamepad` | read | 1 while a game controller is connected. |
 | `attack`, `throw` | set | Set to 1 to swing or throw once, as if the player pressed F or G. |
 
+### Vehicles
+
+| Variable | Use | Meaning |
+| --- | --- | --- |
+| `driving` | read | Name of the vehicle the player is in, or empty when walking. |
+| `vehicle speed` | read | Speed in metres per second. |
+| `engine rpm` | read | From 0 at idle to 1 at full speed. |
+
 ### Combat
 
 These work after `game.combat()` in `world.py`.
@@ -190,6 +198,7 @@ The engine sends these. Use them with "when I receive".
 | `hit <name>` | The player hit that enemy. |
 | `defeated` and `defeated <name>` | An enemy's health reached 0. |
 | `player hurt` | An enemy hit the player. `health` is already lower. |
+| `enter vehicle`, `exit vehicle` | The player got into or out of a vehicle. |
 
 Use the plain broadcast (`touch`) when you want one script for many objects and check `last touched`. Use the named one (`touch rat1`) when only one object matters.
 

@@ -115,6 +115,21 @@ v.building(-2, -10, 9, -2, door=("+z", 3.5), windows=[("+z", 7.0)])
 | `path(*points, width=2.0, material="gravel")` | A smooth path through the points. Use `"dirt"` or `"gravel"`. |
 | `building(x0, z0, x1, z1, height=3, walls="brick", inside="plaster", floor="wood", roof="roof", roof_shape="gable", door=None, windows=(), ...)` | A house with a foundation, a gabled or flat roof, framed glass windows, a door frame and trim. `door` and each window are `(side, position along the wall)`. The ground under it is flattened. |
 
+## Roads and racetracks
+
+```python
+track = t.road((0, 34), (30, 32), (48, 14), (43, -15), (21, -27), (3, -14), (-40, -26), (-50, 0), width=8)
+track.checkpoints(3)
+track.cones()
+```
+
+| Method | What it does |
+| --- | --- |
+| `road(*points, width=8, closed=True, kerbs=True, start=True, surface="asphalt")` | A smooth road through the points, levelled across its width and blended into the hills. `closed=True` joins the last point back to the first, for a circuit. Asphalt roads get red and white kerbs along both edges and a checkered start line at the first point. `surface="dirt"` or `"gravel"` makes a dirt track with no kerbs. Grass and trees stay off the road. |
+| `track.checkpoints(count=3, gates=True)` | Puts a start gate at the first point and `count` checkpoint gates evenly around the road. Each one is a trigger: `start`, `cp1`, `cp2` and so on, so scripts get `enter start`, `enter cp1` and the rest. `gates=False` keeps the triggers without the arches. |
+| `track.cones(spacing=4, bend=0.035, offset=1)` | Lines the outside of the tight bends with traffic cones. |
+| `track.at(fraction)` | The point and direction `fraction` of the way around the road, as `(x, z, dx, dz)`. Use it to place things along the track. |
+
 ## Biomes
 
 `grass_style` on `terrain` and `kind` on `forest` set the biome. Combine them with `sky` for a one-line look:
@@ -230,6 +245,21 @@ c.object("ghost", "statue", 10, 0, 5, mode="wander", speed=1.5)
 `sight` is how far it can see in metres (default 12) and `fov` how wide it looks in degrees (default 140). Walls block its view. When it first sees the player it sends `sees <name>` and `sees player`, and when it loses sight it sends `lost <name>`. Scripts change the mode through the `obj mode` list or the Helpers blocks, so a guard can patrol until it spots you and then give chase. The build works out where characters can walk, at half-metre steps indoors.
 
 Any character model (`knight`, `mage`, `rogue`, `barbarian`, `skeleton`, `skeleton_minion`, or one imported with `game.character`) animates by itself: idle when standing, walk or run when moving, and attack, hit and death clips in a fight.
+
+## Vehicles
+
+```python
+t.vehicle("kart", "kart", -9.7, 0, 34.3, yaw=100)
+t.vehicle("taxi1", "taxi", 20, 0, 5, top_speed=18)
+```
+
+`vehicle(name, model="kart", x, y, z, yaw=0, top_speed=None, accel=None, grip=1.0)` parks a vehicle the player can drive. Walk up to it and press E (X on a controller, the use button on a touch screen) to get in, and E again to get out. W or the left stick accelerates and S brakes, then reverses. A and D steer, and space is the handbrake: hold it in a corner to drift. The body leans in corners and dips when braking, the wheels spin and steer, and the engine sound rises with speed.
+
+Models: `kart`, `kart_pink`, `kart_yellow`, `kart_green`, `kart_tan`, `racecar`, `police`, `taxi`, `suv`. Karts top out at 15 m/s and the race car at 26. `grip` below 1 makes it slide more.
+
+`game.vehicle_model(name, path, length=3.5, facing="+z")` imports your own `.glb` or `.gltf` car. Name its wheel nodes with `wheel`, `front` or `back`, and `left` or `right` (like `wheel-front-left`) and they will spin and steer. `length` is the car's length in metres.
+
+While driving, `driving` holds the vehicle's name, `vehicle speed` its speed in metres per second and `engine rpm` a value from 0 to 1. The engine sends `enter vehicle` and `exit vehicle`.
 
 ## Combat
 
