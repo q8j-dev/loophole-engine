@@ -93,4 +93,27 @@ B.build('/proj/world.py', out='/proj/game.sb3', log=jslog, cache='/cache')
   }
 }
 
-self.onmessage = e => { if (e.data.type === 'build') build(e.data.files); };
+async function describe(id, files) {
+  await booting;
+  const FS = py.FS;
+  try { FS.mkdirTree('/scene'); } catch (e) {}
+  for (const [name, text] of Object.entries(files)) FS.writeFile('/scene/' + name, text);
+  try {
+    py.globals.set('scene_id', id);
+    const json = py.runPython(`
+import loophole.describe as D
+D.describe_json('/scene/world.py')
+`);
+    post('scene', {id, json});
+  } catch (e) {
+    const msg = String(e.message || e).trim().split('\n').filter(l => l.trim());
+    const line = msg.reverse().find(l => /File "\/scene\/world.py", line \d+/.test(l));
+    const where = line ? line.match(/line (\d+)/)[1] : null;
+    post('scene', {id, error: msg[0], line: where ? +where : null});
+  }
+}
+
+self.onmessage = e => {
+  if (e.data.type === 'build') build(e.data.files);
+  else if (e.data.type === 'describe') describe(e.data.id, e.data.files);
+};

@@ -44,11 +44,40 @@
   </section>
   <section class="side" aria-label="Play and guide">
     <div class="tabs" role="tablist">
-      <button role="tab" class="ptab" data-pane="play" aria-selected="true">Play</button>
+      <button role="tab" class="ptab" data-pane="level" aria-selected="true">Level</button>
+      <button role="tab" class="ptab" data-pane="play" aria-selected="false">Play</button>
       <button role="tab" class="ptab" data-pane="world" aria-selected="false">World guide</button>
       <button role="tab" class="ptab" data-pane="scratch" aria-selected="false">Scratch blocks</button>
     </div>
-    <div class="pane" id="pane-play">
+    <div class="pane" id="pane-level">
+      <div class="ltools" role="toolbar" aria-label="Level tools">
+        <div class="lgroup" id="palette">
+          <button type="button" class="tool" data-place="prop" aria-haspopup="true">Prop</button>
+          <button type="button" class="tool" data-place="light">Light</button>
+          <button type="button" class="tool" data-place="pickup">Collectible</button>
+          <button type="button" class="tool" data-place="cube">Cube</button>
+          <button type="button" class="tool" data-place="trigger">Trigger</button>
+          <button type="button" class="tool" data-place="goal">Goal</button>
+          <button type="button" class="tool" data-place="lake">Water</button>
+          <button type="button" class="tool" data-place="forest">Forest</button>
+        </div>
+        <div class="lgroup" id="gizmo" role="radiogroup" aria-label="Gizmo">
+          <button type="button" class="tool" data-mode="translate" aria-pressed="true" title="Move (W)">Move</button>
+          <button type="button" class="tool" data-mode="rotate" aria-pressed="false" title="Rotate (E)">Rotate</button>
+          <button type="button" class="tool" data-mode="scale" aria-pressed="false" title="Scale (R)">Scale</button>
+        </div>
+        <label class="lsel" id="levelwrap" hidden><span class="sr">Level</span><select id="levelsel"></select></label>
+      </div>
+      <div class="lview" id="lview">
+        <div class="kinds" id="kinds" hidden>
+          <input id="kindq" type="search" placeholder="Search props" aria-label="Search props">
+          <div id="kindlist"></div>
+        </div>
+        <p class="lnote" id="lnote" aria-live="polite">Loading the level</p>
+        <aside class="props" id="props" hidden aria-label="Properties"></aside>
+      </div>
+    </div>
+    <div class="pane" id="pane-play" hidden>
       <iframe id="player" src="play.html" title="Game player" allow="fullscreen; pointer-lock"></iframe>
       <p class="hint">Click the game to look around. WASD moves, space jumps, E picks things up. To add Scratch blocks, download the .sb3 and open it in TurboWarp with File, Load from your computer.</p>
     </div>
@@ -60,5 +89,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="studio.js"></script>
+<script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module" src="editor.js"></script>
 </body>
 </html>

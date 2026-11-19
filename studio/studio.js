@@ -14,6 +14,9 @@
   let building = false;
   let worker = null;
   let workerReady = false;
+  const pending = new Map();
+  let sceneId = 0;
+  const listeners = [];
 
   const editor = CodeMirror($('editor'), {
     mode: 'python', lineNumbers: true, indentUnit: 4, tabSize: 4, indentWithTabs: false,
@@ -27,9 +30,17 @@
     store.set('lh:template', current.id);
     for (const f of FILES) {
       const saved = store.get(key(f));
-      docs[f] = CodeMirror.Doc(saved !== null ? saved : (current.files[f] || ''), 'python');
+      const d = CodeMirror.Doc(saved !== null ? saved : (current.files[f] || ''), 'python');
+      d.on('change', () => {
+        if (docs[f] !== d) return;
+        store.set(key(f), d.getValue());
+        updateTurboWarp();
+        if (f === 'world.py') for (const cb of listeners) cb('edit');
+      });
+      docs[f] = d;
     }
     showFile('world.py');
+    for (const cb of listeners) cb('template');
     lastBuild = null;
     $('download').disabled = true;
     updateTurboWarp();
@@ -80,6 +91,10 @@
       if (m.type === 'progress') {
         if (building) setStatus(m.text, m.p);
         if (m.line) log(m.line);
+      } else if (m.type === 'scene') {
+        const p = pending.get(m.id);
+        pending.delete(m.id);
+        if (p) m.error ? p.reject(Object.assign(new Error(m.error), {line: m.line})) : p.resolve(JSON.parse(m.json));
       } else if (m.type === 'ready') {
         workerReady = true;
         if (!building) setStatus('Ready. Press Build game, or Ctrl+Enter.', 0);
@@ -101,6 +116,13 @@
         log(m.text);
       }
     };
+  }
+
+  function describe() {
+    startWorker();
+    const id = ++sceneId;
+    worker.postMessage({type: 'describe', id, files: {'world.py': docs['world.py'].getValue()}});
+    return new Promise((resolve, reject) => pending.set(id, {resolve, reject}));
   }
 
   function build() {
@@ -150,16 +172,12 @@
 
   function showPane(p) {
     for (const b of document.querySelectorAll('.ptab')) b.setAttribute('aria-selected', String(b.dataset.pane === p));
-    for (const id of ['play', 'world', 'scratch']) $('pane-' + id).hidden = id !== p;
+    for (const id of ['level', 'play', 'world', 'scratch']) $('pane-' + id).hidden = id !== p;
+    for (const cb of listeners) cb('pane:' + p);
     if (p === 'world') loadDoc('world', 'docs/world-api.md');
     if (p === 'scratch') loadDoc('scratch', 'docs/scratch-api.md');
   }
 
-  editor.on('change', () => {
-    if (!current) return;
-    store.set(key(file), docs[file].getValue());
-    updateTurboWarp();
-  });
   for (const b of document.querySelectorAll('.ftab')) b.addEventListener('click', () => showFile(b.dataset.file));
   for (const b of document.querySelectorAll('.ptab')) b.addEventListener('click', () => showPane(b.dataset.pane));
   $('template').addEventListener('change', e => setTemplate(e.target.value));
@@ -184,5 +202,13 @@
     sel.value = current.id;
     startWorker();
   });
-  window.studio = {build, get bytes() { return lastBuild; }, get building() { return building; }};
+  window.studio = {
+    build, describe, editor, showFile, showPane,
+    doc: name => docs[name],
+    on: cb => listeners.push(cb),
+    get file() { return file; },
+    get bytes() { return lastBuild; },
+    get building() { return building; },
+  };
+  window.dispatchEvent(new Event('studio-ready'));
 })();
