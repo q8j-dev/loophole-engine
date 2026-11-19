@@ -9,7 +9,7 @@ Status: `[ ]` not started, `[~]` works but has known gaps, `[x]` built and check
 ## How it fits together
 
 - `world.py` describes the game in Python: rooms carved from boxes, terrain, buildings, materials, lights, props, objects, triggers and settings, over any number of levels.
-- `loophole build` bakes each level (cached by content hash) and writes `<game>.sb3`. If the file exists, the build merges into it: the user's sprites, blocks, variables and costumes stay, and only the Engine sprite, the Game sprite and the engine's data are replaced.
+- `loophole build` bakes each level (cached by content hash) and writes `<game>.sb3`. If the file exists, the build merges into it: the user's sprites, blocks, variables and costumes stay, and only the Engine, Engine Audio, Overlay and Game sprites and the engine's data are replaced.
 - Gameplay is plain Scratch blocks in TurboWarp, or Python compiled to blocks. The engine exposes variables, per-object lists, broadcasts, a sound queue, camera control and on-screen text. [docs/scratch-api.md](docs/scratch-api.md) lists all of them.
 - The renderer is Loophole's, made data-driven. [docs/renderer.md](docs/renderer.md) explains it.
 

@@ -2,7 +2,7 @@
 
 A built game talks to your scripts through normal Scratch variables, lists and broadcasts on the Stage. You use them with the usual blocks: "set [variable] to", "change [variable] by", "item (1) of [list]", "replace item (1) of [list] with", "when I receive [message]" and so on.
 
-Your own sprites, scripts and variables survive `loophole build`. The build replaces only the Engine sprite and, if you use `game.script`, the Game sprite.
+Your own sprites, scripts and variables survive `loophole build`. The build replaces only the engine's own sprites (Engine, Engine Audio and Overlay) and, if you use `game.script`, the Game sprite.
 
 ## Helpers sprite
 

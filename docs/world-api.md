@@ -84,11 +84,12 @@ Indoor levels start as solid rock. You carve rooms out of it.
 | `stairs(x0, z0, x1, z1, height, direction="+z", step=0.5)` | Steps that rise toward `direction`. |
 | `paint(material, x0, y0, z0, x1, y1, z1, facing=None)` | Changes the material of surfaces inside a box. `facing="walls"` paints only walls. |
 | `materials(floor=None, walls=None, ceiling=None)` | Default materials for this level. |
+| `hint(text, seconds=8)` | Shows `text` as the on-screen message when the level starts, unless a script has already set one. Use it to tell players what to do. |
 | `style(name)` | A preset look: `"lab"`, `"house"`, `"dungeon"`, `"outdoor"` or `"plain"`. It sets default materials, haze and trim. |
 | `pool(material, x0, z0, x1, z1, y=0, depth=1.5)` | A sunken pool of `water`, `slime`, `lava` or another liquid. |
 | `window(x0, y0, z0, x1, y1, z1, facing)` | A window panel on a wall. |
 | `sign(text, x, y, z, facing="+z", height=1.6)` | Letters, digits and punctuation cut into a wall. |
-| `cutaway(height=2.4)` | For top-down levels. Everything higher than `height` above the player's feet is hidden, and wall cross-sections draw black, so you can see into rooms with ceilings. |
+| `cutaway(height=2.4)` | For top-down levels. Everything higher than `height` above the player's feet is hidden and the cut tops of walls show as dark stone, so you can see into rooms with ceilings. Walls between the camera and the player open up so the player never disappears behind them. |
 
 Materials: `white`, `metal`, `floor`, `ceiling`, `dark`, `panel`, `grate`, `rust`, `shutter`, `concrete`, `plate`, `hazard`, `stripes`, `grass`, `rock`, `sand`, `dirt`, `brick`, `wood`, `planks`, `plaster`, `tiles`, `stone`, `cobble`, `bark`, `asphalt`, `snow`, `cliff`, `gravel`, `roof`, `marble`, `paint`, `fabric`, `gold`, `glass`, `water`, `slime`, `lava`, `exit`, `boost`, `light`. Common synonyms work too, for example `bricks`, `cobblestone`, `floorboards` and `road`.
 

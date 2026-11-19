@@ -127,7 +127,7 @@ You need Python 3.9 or newer and a browser.
    set [status] to (join [Score: ] (score))
    ```
 
-   When you rebuild, Loophole replaces only its own Engine sprite. Your sprites, scripts, variables and sounds stay as they are.
+   When you rebuild, Loophole replaces only its own sprites: Engine, Engine Audio and Overlay. Your sprites, scripts, variables and sounds stay as they are.
 
    A new project also has a Helpers sprite with ready-made blocks such as `move object [name] to x () y () z ()`, `play sound [name]`, `show message [text]` and `fly camera to ...`, plus example scripts to remix: a button that opens a door, counting collectibles, an enemy that paces, and a camera fly-through on the C key. The [Scratch API](docs/scratch-api.md#helpers-sprite) lists every block.
 
