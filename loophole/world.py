@@ -432,7 +432,8 @@ class Level:
             self.auto_exposure = auto_exposure
         return self
 
-    def outdoor(self, sky="day", sun=(0.4, 0.75, 0.3), sun_color=None, fog=0.0035, clouds=0.45):
+    def outdoor(self, sky="day", sun=(0.4, 0.75, 0.3), sun_color=None, fog=0.0035, clouds=0.45, shafts=0.6):
+        self.shafts = float(shafts)
         self.sky = sky
         self.sun_dir = tuple(np.array(sun, float) / np.linalg.norm(sun))
         self.sun_color = sun_color

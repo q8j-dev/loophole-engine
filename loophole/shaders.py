@@ -1419,6 +1419,7 @@ uniform vec2 u_res;
 uniform float u_timer;
 float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
 uniform vec2 uCut;
+uniform vec4 uRay;
 void main() {
   vec2 uv = gl_FragCoord.xy / u_res;
   vec4 g = texture2D(uGBc, uv);
@@ -1452,6 +1453,30 @@ void main() {
     }
   }
   vec3 h = acc * st * uHaze.x + uHaze.z * vec3(0.004, 0.0047, 0.006) * len * uHaze.x;
+  float sdp = dot(uSun.xyz, uCF);
+  if (uRay.x > 0.0 && sdp > 0.05) {
+    vec2 sn = vec2(dot(uSun.xyz, uCR) * uProj.x, -dot(uSun.xyz, uCU) * uProj.y) / sdp;
+    vec2 suv = sn * 0.5 + 0.5;
+    vec2 dl = (suv - uv) / 22.0;
+    vec2 q = uv + dl * j;
+    float ill = 0.0;
+    float ws = 0.0;
+    float w = 1.0;
+    for (int k = 0; k < 22; k++) {
+      if (q.x > 0.0 && q.y > 0.0 && q.x < 1.0 && q.y < 1.0) {
+        vec4 gq = texture2D(uGBc, q);
+        ill += step(gq.r + gq.g, 0.0001) * w;
+      }
+      ws += w;
+      w *= 0.94;
+      q += dl;
+    }
+    ill /= ws;
+    float cs = max(dot(dir, uSun.xyz), 0.0);
+    float fall = pow(cs, 5.0) * 0.55 + pow(cs, 30.0) * 0.45;
+    float here = sky ? 0.35 : 1.0;
+    h += uSunC.rgb * ill * fall * uRay.x * here * 0.35;
+  }
   gl_FragColor = vec4(sqrt(clamp(h * 0.25, 0.0, 1.0)), 1.0);
 }
 """

@@ -605,7 +605,7 @@ TPM = {}
 LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "HV1", "HKILL", "HPORT", "LSX", "LSY",
               "LSZ", "LSYAW", "LSPIT", "LKILL", "LO0", "LON", "LT0", "LTN", "TNAME", "TKIND", "TARG", "TX0", "TY0",
               "TZ0", "TX1", "TY1", "TZ1", "LL0", "LLN", "LNM", "LTX", "LTY", "LTZ", "LTW", "LDDX", "LDDY", "LDDZ",
-              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LFLK", "LCUT", "LWX", "LWZ", "LWS", "LK0", "LKN", "KH", "KU0", "KU1", "KV0", "KV1", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
+              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LFLK", "LCUT", "LWX", "LWZ", "LWS", "LRAY", "LK0", "LKN", "KH", "KU0", "KU1", "KV0", "KV1", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
               "AMB0", "AMBNX", "AMBNY", "AMBNZ", "AMBST", "AMBOX", "AMBOY", "AMBOZ", "AMB", "LPX", "LPY", "LPZ",
               "LB0X", "LB0Y", "LB0Z", "LB1X", "LB1Y", "LB1Z", "LFY", "LCY_", "LV0", "LVNN", "VX0", "VZ0", "VX1",
               "VZ1", "VY0", "VY1", "VPW", "LSP0", "LSPN", "SPX", "SPY", "SPZ", "LSKY", "LSUN", "LTER", "TOX", "TOZ",
@@ -757,6 +757,7 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
     L["LWX"].append(r4(wd[0]))
     L["LWZ"].append(r4(wd[1]))
     L["LWS"].append(r4(wd[2]))
+    L["LRAY"].append(r4(getattr(Lv, "shafts", 0.6) if Lv.sky else 0.0))
     L["LHA"].append(Lv.haze_amb)
     L["LEXP"].append(Lv.exposure)
     L["LAE"].append(Lv.auto_exposure)

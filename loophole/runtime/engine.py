@@ -402,6 +402,7 @@ def sky_load(lv):
     set_vec4("uSunC", "world", SKY[sb + 3], SKY[sb + 4], SKY[sb + 5], LSUN[level])
     set_vec4("uWind", "world", LWX[level], LWZ[level], LWS[level], 0)
     set_vec4("uLOD", "world", 12, 26, 0, 0)
+    set_vec4("uRay", "haze", LRAY[level], 0, 0, 0)
     set_vec4("uWind", "grass", LWX[level], LWZ[level], LWS[level], 0)
     set_vec3("uSkyA", "world", SKY[sb + 6] * 0.35 + SKY[sb + 10] * 0.12, SKY[sb + 7] * 0.35 + SKY[sb + 11] * 0.12, SKY[sb + 8] * 0.35 + SKY[sb + 12] * 0.12)
     set_vec4("uFog", "sky", SKY[sb + 17], SKY[sb + 18], SKY[sb + 19], SKY[sb + 20])
