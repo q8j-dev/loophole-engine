@@ -57,6 +57,19 @@ Pen+ textures have no mipmaps, so every atlas cell stores its own mip chain and 
 11. **Composite.** Exposure, ACES tone mapping, the colour grade, fades and flashes.
 12. **HUD.** The `message` and `status` text draws as glyph quads from a font atlas. The layout updates only when the text changes.
 
+## Foliage
+
+Trees, bushes, ferns and grass are generated offline by `tools/make_foliage.py` from CC0 Poly Haven leaf, frond, twig and bark textures, and stored as ordinary props with a per-vertex foliage flag.
+
+- **Leaf clusters.** Broadleaf crowns are a few hundred camera-facing cards. Each shows a baked sprite of about 80 overlapping leaves. Card normals point out from the crown centre, so the crown lights as one soft volume with a sunlit and a shaded side. The bake lights leaves from both sides and darkens the inside of the crown, and the shader adds sky light, wrap lighting and translucency when the sun is behind the leaves.
+- **Conifers** are crossed needle cards on outward branches, in irregular tiers with gaps. Willows hang strands of fronds from arching limbs. Ferns are rosettes of arching frond cards.
+- **Alpha mips.** Every prop texture stores its own mip chain. For cutout textures each mip is rescaled so the same fraction of pixels stays opaque, which keeps distant crowns full instead of letting them dissolve.
+- **Wind** is one field shared by every foliage vertex and the grass shader. Gusts travel across the level as waves, trees bend as a whole, each leaf clump sways on its own phase, and grass bends away from the player.
+- **Ground.** Under canopies the bake traces sun and sky rays through the crowns, with noise gaps that make dapples. At run time the dappled areas shimmer as the wind moves. Shaded forest floor blends to a scanned leaf-litter material with moss.
+- **Grass** is a field of camera-following cards drawn from a height and density map, with lawn, meadow (wildflowers), dry and forest styles. It writes depth so TAA treats it correctly.
+- **Sunbeams** are a screen-space march from each pixel toward the sun's screen position over the G-buffer's sky mask, added in the haze pass.
+- **Speed.** Leaf pixels take a short shading path. Each crown's leaf cards are split at build time into a coarse third, which is always drawn and grows with distance, and a detail two thirds in separate chunks. Detail chunks fade out between 20 and 32 m and aren't submitted at all beyond that. Level geometry is sorted into spatial chunks, and chunks outside the view are skipped.
+
 ## Portals
 
 With `Game(portals=True)`, each portal is a disc on a wall or floor with a centre, a normal, and right and up axes. To draw the view through portal A, the engine moves the camera through it: it takes the camera's position and axes relative to A and re-expresses them relative to B, turned around. It repeats this up to four times for portals that see each other, shrinking a screen-space window to the portal's outline each time. It then renders the deepest view first into a render target, so each shallower view shows the deeper one inside its portal. A clip plane just in front of the exit portal removes the wall it sits on. The main pass draws the portal disc by sampling that render target at the pixel's screen position. Collision ignores the wall a portal is on while the player is inside its outline, and crossing the portal plane moves the player and rotates their velocity and view by the same transform.
