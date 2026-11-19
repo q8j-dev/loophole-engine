@@ -672,6 +672,7 @@ def sky_load(lv):
     tex_filter(9729)
     set_tex("uTHM", "world", join("tpm", lv))
     set_vec4("uStart", "world", RSTX[lv], RSTZ[lv], RSTDX[lv], RSTDZ[lv])
+    set_vec4("uAO", "world", 0, 0, 1, 0)
     set_vec4("uTHP", "grass", THX[lv], THZ[lv], THW[lv], THD[lv])
     set_vec4("uTHP", "world", THX[lv], THZ[lv], THW[lv], THD[lv])
     set_vec4("uTHR", "grass", THMN[lv], THRG[lv], 0, 0)
@@ -2626,7 +2627,14 @@ def taa():
     tpd = (ccx - pcx) * (ccx - pcx) + (ccy - pcy) * (ccy - pcy) + (ccz - pcz) * (ccz - pcz)
     if tpd > 2:
         taareset = 1
-    set_vec4("uTA", "taa", taareset, 0, 0, 0)
+    set_vec4("uTA", "taa", taareset, FR % 64, 0, 0)
+    if quality > 1:
+        if LSKY[level] == 0:
+            set_vec4("uAO", "taa", 2.2, 0.6, 0, 0)
+        else:
+            set_vec4("uAO", "taa", 0.55, 0.8, 0, 0)
+    else:
+        set_vec4("uAO", "taa", 0, 0.5, 0, 0)
     prev_u("taa")
     draw_list("engine QUAD", "taa")
     taareset = 0

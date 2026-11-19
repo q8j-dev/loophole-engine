@@ -320,6 +320,7 @@ uniform vec4 uLf[24];
 uniform sampler2D uTLM;
 uniform vec4 uTLMP;
 uniform vec4 uStart;
+uniform vec4 uAO;
 uniform sampler2D uTHM;
 uniform vec4 uTHP;
 uniform vec4 uFog;
@@ -1160,6 +1161,8 @@ void main() {
   }
   vec3 E;
   float so = 1.0;
+  vec3 bdn = vec3(0.0, 1.0, 0.0);
+  float bdl = 0.0;
   if (uMode.x < 0.5 && vIrr.w > 3.5 && vIrr.w < 4.5) {
     vec3 tl = texture2D(uTLM, (vW.xz - uTLMP.xy) * uTLMP.zw).rgb;
     E = tl * tl * 4.0;
@@ -1192,6 +1195,8 @@ void main() {
     float nl = max(dot(N, dn), 0.0);
     E *= clamp(mix(1.0, nl / ng, clamp(dl * 1.1, 0.0, 0.9)), 0.0, 2.0);
     so = clamp(dot(E, vec3(0.4)) * 1.4 - 0.1, 0.0, 1.0);
+    bdn = dn;
+    bdl = clamp(dl, 0.0, 1.0);
   } else {
     vec3 n2 = N * N;
     E = n2.x * (N.x > 0.0 ? uA0 : uA1) + n2.y * (N.y > 0.0 ? uA2 : uA3) + n2.z * (N.z > 0.0 ? uA4 : uA5);
@@ -1273,6 +1278,16 @@ void main() {
     spec += F * (D * nl * 0.9) * Ei * vis;
     if (props || uLf[i].x > 0.5) ddir += Ei * nl * vis;
     else dloss += Ei * max(dot(Ng, L), 0.0) * (1.0 - vis);
+  }
+  if (bdl > 0.08 && !leaf) {
+    vec3 Hb = normalize(bdn + V);
+    float nhb = max(dot(N, Hb), 0.0);
+    float nlb = max(dot(N, bdn), 0.0);
+    float ab = clamp(a + (1.0 - bdl) * 0.35, 0.02, 1.0);
+    float denb = nhb * nhb * (ab * ab - 1.0) + 1.0;
+    float Db = ab * ab / (3.14159 * denb * denb);
+    vec3 Fb = F0 + (1.0 - F0) * pow(1.0 - max(dot(V, Hb), 0.0), 5.0);
+    spec += Fb * min(Db, 40.0) * nlb * E * bdl * 0.5 * uAO.z;
   }
   vec3 envs = vec3(0.0);
   if (uEnvP.w > 0.5 && !leaf) {
@@ -1379,7 +1394,7 @@ void main() {
       float pr = uLc[i].w < -1.5 ? max(c, 0.0) : smoothstep(uLd[i].w, uLc[i].w, c);
       lit += dot(uLc[i].rgb, vec3(0.33)) * pr / (d2 + 0.5) * 0.12;
     }
-    a = (0.06 + lit * 0.9) * (0.5 + 0.5 * sin(u_timer * (1.0 + aSeed.x * 2.0) + aSeed.y * 30.0));
+    a = (0.05 + lit * 1.8) * (0.5 + 0.5 * sin(u_timer * (1.0 + aSeed.x * 2.0) + aSeed.y * 30.0));
     sz = 0.008 + aSeed.w * 0.012;
   } else {
     float life = fract(u_timer * (0.35 + aSeed.w * 0.4) + aSeed.z);
@@ -1551,6 +1566,15 @@ uniform vec4 uFogC;
 uniform vec2 u_res;
 uniform float u_timer;
 float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
+float h1(float n) { return fract(sin(n) * 43758.5453); }
+float hn3(vec3 p) {
+  vec3 i = floor(p);
+  vec3 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float n = dot(i, vec3(1.0, 57.0, 113.0));
+  return mix(mix(mix(h1(n), h1(n + 1.0), f.x), mix(h1(n + 57.0), h1(n + 58.0), f.x), f.y),
+             mix(mix(h1(n + 113.0), h1(n + 114.0), f.x), mix(h1(n + 170.0), h1(n + 171.0), f.x), f.y), f.z);
+}
 uniform vec2 uCut;
 uniform vec4 uRay;
 void main() {
@@ -1574,6 +1598,9 @@ void main() {
   vec3 acc = vec3(0.0);
   for (int k = 0; k < 24; k++) {
     vec3 p = ro + dir * ((float(k) + j) * st);
+    vec3 dq = p * 1.7 + vec3(u_timer * 0.06, u_timer * 0.025, u_timer * 0.045);
+    float dn0 = hn3(dq * 0.8) * 0.65 + hn3(dq * 2.1 + 11.0) * 0.35;
+    float dn = 0.2 + 2.0 * dn0 * dn0;
     for (int i = 0; i < 8; i++) {
       if (float(i) >= uHaze.y) break;
       vec3 lv = uLt[i].xyz - p;
@@ -1582,7 +1609,7 @@ void main() {
       float c = dot(-l, uLd[i].xyz);
       float pr = uLc[i].w < -1.5 ? max(c, 0.0) : smoothstep(uLd[i].w - 0.06, uLc[i].w + 0.02, c);
       float ph = 0.55 + 0.6 * pow(max(dot(dir, -l), 0.0), 3.0);
-      acc += uLc[i].rgb * pr * ph / (d2 + 3.0);
+      acc += uLc[i].rgb * pr * ph * dn / (d2 + 3.0);
     }
   }
   vec3 h = acc * st * uHaze.x + uHaze.z * vec3(0.004, 0.0047, 0.006) * len * uHaze.x;
@@ -1625,6 +1652,7 @@ uniform vec3 uPU;
 uniform vec3 uPF;
 uniform vec4 uPP;
 uniform vec4 uTA;
+uniform vec4 uAO;
 uniform vec2 uTx;
 uniform vec2 u_res;
 vec3 dec(vec3 e) { return e * e * 4.0; }
@@ -1633,13 +1661,48 @@ vec3 itm(vec3 c) { return c / max(1.0 - max(max(c.r, c.g), c.b), 1e-3); }
 void main() {
   vec2 uv = gl_FragCoord.xy / u_res;
   vec3 hz = dec(texture2D(uHz, uv).rgb);
-  vec3 c = tm(dec(texture2D(uCur, uv).rgb) + hz);
+  vec4 g = texture2D(uGBc, uv);
+  float d = (g.r * 65280.0 + g.g * 255.0) / 65535.0 * 150.0;
+  float aov = 1.0;
+  if (uAO.x > 0.0 && d > 0.05 && d < 60.0 && g.b < 0.75) {
+    vec2 nd0 = uv * 2.0 - 1.0 - uJit;
+    vec3 vp = vec3(nd0.x * d / uProj.x, nd0.y * d / uProj.y, d);
+    vec4 gx = texture2D(uGBc, uv + vec2(uTx.x, 0.0));
+    vec4 gy = texture2D(uGBc, uv + vec2(0.0, uTx.y));
+    float dx_ = (gx.r * 65280.0 + gx.g * 255.0) / 65535.0 * 150.0;
+    float dy_ = (gy.r * 65280.0 + gy.g * 255.0) / 65535.0 * 150.0;
+    vec2 n1 = (uv + vec2(uTx.x, 0.0)) * 2.0 - 1.0 - uJit;
+    vec2 n2 = (uv + vec2(0.0, uTx.y)) * 2.0 - 1.0 - uJit;
+    vec3 px_ = vec3(n1.x * dx_ / uProj.x, n1.y * dx_ / uProj.y, dx_) - vp;
+    vec3 py_ = vec3(n2.x * dy_ / uProj.x, n2.y * dy_ / uProj.y, dy_) - vp;
+    vec3 vn = normalize(cross(py_, px_));
+    if (dot(vn, vp) > 0.0) vn = -vn;
+    float rad = uAO.y;
+    vec2 rs = vec2(rad * uProj.x, rad * uProj.y) / d * 0.5;
+    float an = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + uTA.y * 0.618) * 6.2831;
+    float occ = 0.0;
+    for (int k = 0; k < 8; k++) {
+      float fk = float(k);
+      float ang = an + fk * 2.3999;
+      float rr = (fk + 0.5) / 8.0;
+      vec2 suv = uv + vec2(cos(ang), sin(ang)) * rs * rr;
+      vec4 gs = texture2D(uGBc, suv);
+      float ds = (gs.r * 65280.0 + gs.g * 255.0) / 65535.0 * 150.0;
+      vec2 ns = suv * 2.0 - 1.0 - uJit;
+      vec3 sp = vec3(ns.x * ds / uProj.x, ns.y * ds / uProj.y, ds) - vp;
+      float l2 = dot(sp, sp);
+      float rng = 1.0 - smoothstep(rad * rad, rad * rad * 4.0, l2);
+      occ += max(dot(sp, vn) - 0.015 * d, 0.0) / (l2 + 0.02) * rng * step(0.01, ds);
+    }
+    aov = clamp(1.0 - occ / 8.0 * uAO.x, 0.25, 1.0);
+  }
+  vec3 c = tm(dec(texture2D(uCur, uv).rgb) * aov + hz);
   vec3 m1 = c;
   vec3 m2 = c * c;
   for (int k = 0; k < 8; k++) {
     vec2 o = k == 0 ? vec2(1.0, 0.0) : k == 1 ? vec2(-1.0, 0.0) : k == 2 ? vec2(0.0, 1.0) : k == 3 ? vec2(0.0, -1.0) :
              k == 4 ? vec2(1.0, 1.0) : k == 5 ? vec2(-1.0, 1.0) : k == 6 ? vec2(1.0, -1.0) : vec2(-1.0, -1.0);
-    vec3 n = tm(dec(texture2D(uCur, uv + o * uTx).rgb) + hz);
+    vec3 n = tm(dec(texture2D(uCur, uv + o * uTx).rgb) * aov + hz);
     m1 += n;
     m2 += n * n;
   }
@@ -1648,8 +1711,6 @@ void main() {
   vec3 sd = sqrt(max(m2 - m1 * m1, 0.0));
   vec3 mn = m1 - sd * 1.25;
   vec3 mx = m1 + sd * 1.25;
-  vec4 g = texture2D(uGBc, uv);
-  float d = (g.r * 65280.0 + g.g * 255.0) / 65535.0 * 150.0;
   vec2 puv = uv;
   float a = 0.1;
   if (g.b < 0.75) {
