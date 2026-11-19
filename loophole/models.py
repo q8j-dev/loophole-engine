@@ -32,7 +32,7 @@ class Mat:
         self.metal = 0.0
 
 
-def load_gltf(path):
+def open_gltf(path):
     path = Path(path)
     data = path.read_bytes()
     bins = []
@@ -111,8 +111,6 @@ def load_gltf(path):
         mt.rough = pbr.get("roughnessFactor", 0.6)
         mt.metal = pbr.get("metallicFactor", 0.0)
         mats.append(mt)
-    default = Mat("default")
-    parts = []
 
     def mat4(node):
         if "matrix" in node:
@@ -128,6 +126,15 @@ def load_gltf(path):
         M[:3, :3] = R * s[None, :]
         M[:3, 3] = t
         return M
+
+    return dict(js=js, accessor=accessor, image=image, mats=mats, mat4=mat4)
+
+
+def load_gltf(path):
+    g = open_gltf(path)
+    js, accessor, mats, mat4 = g["js"], g["accessor"], g["mats"], g["mat4"]
+    default = Mat("default")
+    parts = []
 
     def walk(ni, parent):
         node = js["nodes"][ni]
@@ -352,4 +359,19 @@ def import_models(game, project_dir, log=print):
             log(f"  model {name}: {n} triangles from {src.name}")
         decor_place.EXTRA[name] = out / "kit" / f"kit_{name}.npz"
         decor_pack.EXTRA_TILES[name] = out / "tiles"
+    for name, spec in getattr(game, "characters", {}).items():
+        from . import character
+        src = (Path(project_dir) / spec["path"]).resolve()
+        if not src.exists():
+            raise SystemExit(f"character '{name}': file not found: {spec['path']}")
+        key = hashlib.md5(src.read_bytes() + repr(sorted(spec.items())).encode()).hexdigest()[:12]
+        stamp = out / f"{name}.ckey"
+        if not (stamp.exists() and stamp.read_text() == key and (out / "anim" / f"{name}.npz").exists()):
+            n, nb, clips = character.convert(src, out, name, height=spec["height"], keep=spec["keep"],
+                                             facing=spec["facing"])
+            stamp.write_text(key)
+            log(f"  character {name}: {n} triangles, {nb} bones, clips {clips}")
+        decor_place.EXTRA[name] = out / "kit" / f"kit_{name}.npz"
+        decor_pack.EXTRA_TILES[name] = out / "tiles"
+        character.ANIMS[name] = out / "anim" / f"{name}.npz"
     decor_place.refresh()

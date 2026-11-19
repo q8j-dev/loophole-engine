@@ -1789,6 +1789,9 @@ def draw_obj(k):
 
 @warp
 def draw_player():
+    if CHAR > 0:
+        draw_char()
+        return
     amb_at(px, py + 1, pz)
     set_vec3("uEmit", "world", 0.3, 0.6, 1.0)
     set_vec3("uMP", "world", px, py, pz)
@@ -1801,6 +1804,60 @@ def draw_player():
     draw_geo(G_PLAYER)
     set_vec4("uSkin", "world", 0, 0, 0, 0)
     set_vec4("uMode", "world", 1, 1, 0, 0)
+
+
+@warp
+def draw_char():
+    amb_at(px, py + 1, pz)
+    set_vec3("uEmit", "world", 0, 0, 0)
+    set_vec3("uMP", "world", px, py, pz)
+    set_vec3("uMX", "world", cos(yaw), 0, sin(yaw))
+    set_vec3("uMY", "world", 0, 1, 0)
+    set_vec3("uMZ", "world", 0 - sin(yaw), 0, cos(yaw))
+    set_vec4("uMode", "world", 1, 1, 0, 0)
+    char_pose()
+    set_vec4("uSkin", "world", 2, 0, 0, 0)
+    draw_geo(CHAR)
+    set_vec4("uSkin", "world", 0, 0, 0, 0)
+
+
+@warp
+def char_pose():
+    if len(CBMS) != CNJ * 12:
+        mklist(CBMS, CNJ * 12)
+        cclip = 0 - 1
+    nclip = 0
+    crate = 1
+    if onground == 0:
+        nclip = 3
+    elif hsp > WALK * 0.62:
+        nclip = 2
+        crate = max(0.7, min(1.5, hsp / WALK * 1.1))
+    elif hsp > 0.35:
+        nclip = 1
+        crate = max(0.6, min(1.6, hsp / (WALK * 0.4)))
+    if nclip != cclip:
+        cclip = nclip
+        ctime = 0
+    ctime += dt * crate
+    cn = CCL[cclip * 2 + 2]
+    cfp = (ctime * CFPS) % cn
+    ci0 = floor(cfp)
+    cfr = cfp - ci0
+    ci1 = (ci0 + 1) % cn
+    cb0 = (CCL[cclip * 2 + 1] + ci0) * CNJ * 12
+    cb1 = (CCL[cclip * 2 + 1] + ci1) * CNJ * 12
+    cea = min(1, dt * 12)
+    ck = 0
+    for cj in rep(CNJ):
+        for cq in rep(12):
+            ck += 1
+            ctg = CBM[cb0 + ck] + (CBM[cb1 + ck] - CBM[cb0 + ck]) * cfr
+            CBMS[ck] = CBMS[ck] + (ctg - CBMS[ck]) * cea
+        cbk = (cj - 1) * 12
+        set_arr4(cj * 3 - 2, "uBM", "world", CBMS[cbk + 1], CBMS[cbk + 2], CBMS[cbk + 3], CBMS[cbk + 4])
+        set_arr4(cj * 3 - 1, "uBM", "world", CBMS[cbk + 5], CBMS[cbk + 6], CBMS[cbk + 7], CBMS[cbk + 8])
+        set_arr4(cj * 3, "uBM", "world", CBMS[cbk + 9], CBMS[cbk + 10], CBMS[cbk + 11], CBMS[cbk + 12])
 
 
 @warp

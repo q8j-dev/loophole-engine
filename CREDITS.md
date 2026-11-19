@@ -19,6 +19,10 @@ These Poly Haven models were decimated, unwrapped and baked into the prop librar
 
 ArmChair_01, Barrel_01, boulder_01, brass_goblets, Chandelier_01, ClassicNightstand_01, concrete_cat_statue, food_apple_01, GothicBed_01, gothic_statue, hanging_picture_frame_01, industrial_wall_lamp, industrial_wall_sconce, Lantern_01, namaqualand_boulder_02, painted_wooden_bench, painted_wooden_cabinet, Sofa_01, stone_fire_pit, street_lamp_01, street_rat, tool_cart, treasure_chest, tree_stump_01, vintage_oil_lamp, wine_barrel_01, wooden_bookshelf_worn, wooden_bucket_01, wooden_candlestick, wooden_crate_01, WoodenChair_01, WoodenTable_01
 
+## Characters
+
+The knight, mage, rogue and barbarian player characters come from the KayKit Character Pack: Adventurers by Kay Lousberg (kaylousberg.com), CC0 1.0. `tools/make_characters.py` converts them with their Idle, Walking_A, Running_A and Jump_Idle animations.
+
 ## Foliage
 
 `tools/make_foliage.py` builds the trees, bushes, grass and ferns from these Poly Haven textures: island_tree_01 leaves, pine_tree_01 twigs and bark, fir_sapling twigs, grass_medium_01, fern_02, bark_brown_02.

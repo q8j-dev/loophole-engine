@@ -128,6 +128,7 @@ varying float vBA;
 varying vec4 vIrr;
 varying vec3 vTan;
 uniform vec4 uSkin;
+uniform vec4 uBM[96];
 uniform vec4 uSk0;
 uniform vec4 uSk1;
 uniform vec4 uSk2;
@@ -169,7 +170,15 @@ void main() {
   vMat = td.y;
   vAO = td.z / 255.0;
   float ba = 0.0;
-  if (uSkin.x > 0.5) {
+  if (uSkin.x > 1.5) {
+    int bj = int(t5.y + 0.5) * 3;
+    vec4 r0 = uBM[bj];
+    vec4 r1 = uBM[bj + 1];
+    vec4 r2 = uBM[bj + 2];
+    vec4 hp = vec4(aPos, 1.0);
+    aPos = vec3(dot(r0, hp), dot(r1, hp), dot(r2, hp));
+    aNrm = normalize(vec3(dot(r0.xyz, aNrm), dot(r1.xyz, aNrm), dot(r2.xyz, aNrm)));
+  } else if (uSkin.x > 0.5) {
     float b = t5.y;
     vec3 p = aPos;
     if (b > 0.5 && b < 2.5) {

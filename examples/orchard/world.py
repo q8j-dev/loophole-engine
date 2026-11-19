@@ -2,7 +2,7 @@ import random
 
 from loophole import Game
 
-game = Game("Orchard Dash", camera="third person", camera_distance=5.0, walk_speed=7.0)
+game = Game("Orchard Dash", camera="third person", camera_distance=5.0, walk_speed=7.0, player_model="rogue")
 game.script("game.py")
 
 o = game.level("Orchard")

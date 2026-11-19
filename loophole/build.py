@@ -493,8 +493,9 @@ class Models:
         P, N, UV, T = decor_place.module(name)
         flag, sway = decor_place.vflags(name)
         irr = np.full((len(P), 3), 0.5)
+        bone = decor_place.raw(name).get("bone")
         gid = self.reg(self.pk.add(P, N, UV, np.full(len(P), 40.0), np.where(flag > 4.5, sway, 1.0), irr=irr, flag=flag,
-                                   tan=T[:, :3]))
+                                   tan=T[:, :3], bone=bone))
         hs, ctr = model_bounds(P)
         self.cache[key] = (gid, hs, ctr)
         return self.cache[key]
@@ -504,9 +505,12 @@ def build(world_path, out=None, log=print, cache=None):
     world_path = Path(world_path).resolve()
     game = load_game(world_path)
     props.configure(used_regions(game), high=game.textures == "high")
-    if game.models:
+    if game.models or game.characters:
         from . import models as MD
         MD.import_models(game, world_path.parent, log)
+    if game.player_model != "suit" and game.player_model not in decor_place.KINDS:
+        raise SystemExit(f"unknown player_model '{game.player_model}'. Use suit, knight, mage, rogue, barbarian, "
+                         f"or a name added with game.character(...)")
     out = Path(out) if out else world_path.parent / (safe_name(game.title) + ".sb3")
     cache = Path(cache) if cache else world_path.parent / ".loophole" / "cache"
     log(f"loophole {ENGINE_VERSION}: building '{game.title}' ({len(game.levels)} level{'s' * (len(game.levels) != 1)})")
@@ -525,6 +529,8 @@ def build(world_path, out=None, log=print, cache=None):
         tiles.update(d[0] for d in Lv.decor)
         tiles.update(o.model for o in Lv.objects if o.model in decor_place.KINDS)
     tiles.update(v for v in game.viewmodels if v in decor_place.KINDS)
+    if game.player_model != "suit":
+        tiles.add(game.player_model)
     if any(Lv.terrain_def for Lv in game.levels):
         tiles.add("grass")
     tiles = sorted(t for t in tiles if t in decor_pack.available())
@@ -560,6 +566,7 @@ def build(world_path, out=None, log=print, cache=None):
     for name in ("device", "arms", "player"):
         gid, _, _ = models.builtin(name)
         L.setdefault("_G", {})[name] = gid
+    char_lists(L, game, models)
     viewmodel_lists(L, game, models)
     groups.append(("gm", pkm))
     gcost = {}
@@ -994,7 +1001,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
               "AIRCAP": 0.8, "STEPH": 0.55, "EYE": 1.6, "EYEC": 1.05, "PHT": 1.75, "PHTC": 1.2, "PW": 0.3,
               "ENVT": 192, "NEAR": 0.01, "FAR": 150.0, "SENS": 0.11, "EXPO": 0.72, "AMBS": 0.01, "HOLDD": 1.6,
               "USED": 2.6, "NSHAD": 4, "HASTER": 1 if has_terrain else 0, "PAW": paw, "PAH": pah,
-              "CH0": 5, "G_DEVICE": gids["device"], "G_ARMS": gids["arms"], "G_PLAYER": gids["player"]}
+              "CH0": 5, "CHAR": gids["char"], "CNJ": L.pop("_CNJ", 0), "CFPS": 15, "G_DEVICE": gids["device"], "G_ARMS": gids["arms"], "G_PLAYER": gids["player"]}
     for n in ("device", "arms", "player"):
         x, y, s, t = props.region(n)
         consts.update({f"PR_{n.upper()}_X": x, f"PR_{n.upper()}_Y": y, f"PR_{n.upper()}_S": s, f"PR_{n.upper()}_T": t})
@@ -1133,6 +1140,24 @@ def viewmodel_lists(L, game, models):
         L["VMARM"].append(arms)
         for k, v in zip(["VMR", "VMGC", "VMB"], glow):
             L[k].append(r4(v))
+
+
+def char_lists(L, game, models):
+    L["CBM"] = []
+    L["CCL"] = []
+    if game.player_model == "suit":
+        L["_G"]["char"] = 0
+        L["_CNJ"] = 0
+        return
+    from . import character
+    gid, _, _ = models.kit(game.player_model)
+    L["_G"]["char"] = gid
+    a = np.load(character.anim_path(game.player_model))
+    fr = a["frames"]
+    L["_CNJ"] = int(fr.shape[1])
+    L["CBM"] = [r4(v) for v in fr.reshape(-1)]
+    for s, n in a["clips"]:
+        L["CCL"] += [int(s), int(n)]
 
 
 def level_consts(game):

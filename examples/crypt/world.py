@@ -1,6 +1,6 @@
 from loophole import Game
 
-game = Game("Crypt Crawl", camera="top down", camera_distance=5.5, camera_pitch=56, walk_speed=5.5)
+game = Game("Crypt Crawl", camera="top down", camera_distance=5.5, camera_pitch=56, walk_speed=5.5, player_model="knight")
 game.script("game.py")
 
 c = game.level("Crypt")
