@@ -446,7 +446,7 @@ def frond_strand(fronds, w, h, seed):
     return canvas
 
 
-def willow(name, seed, src, bark, height=7.0, crown=3.6, strands=300):
+def willow(name, seed, src, bark, height=7.0, crown=3.6, strands=190):
     rng = np.random.default_rng(seed)
     fronds = sorted(sprites(load_rgba(src, "jacaranda_tree__leaves_diff.jpg", "jacaranda_tree__leaves_alpha.png"),
                             20000, max_fill=0.8, max_frac=0.5), key=lambda s: -s.size[0] * s.size[1])[:3]
@@ -506,6 +506,115 @@ def willow(name, seed, src, bark, height=7.0, crown=3.6, strands=300):
             right -= upv * np.dot(right, upv)
             right /= np.linalg.norm(right)
             m.card(tip - upv * L, right, upv, L * 0.17, L, rect, out * 0.7 + np.array([0, 0.5, 0]), sway=1.0, rows=2)
+    save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
+    return m.save(name)
+
+
+def leaf_sprite(w, h, seed, kind):
+    rng = np.random.default_rng(seed)
+    im = Image.new("RGBA", (w * 4, h * 4), (0, 0, 0, 0))
+    dr = ImageDraw.Draw(im)
+    W, H = w * 4, h * 4
+    if kind == "frond":
+        cx = W / 2
+        dr.line([(cx, H), (cx, H * 0.02)], fill=(96, 92, 50, 255), width=max(3, W // 60))
+        n = 34
+        for i in range(n):
+            t = (i + 0.5) / n
+            y = H * (1 - t * 0.97)
+            L = W * 0.48 * math.sin(math.pi * min(1.0, t * 1.15)) ** 0.7
+            for sd in (-1, 1):
+                tip = (cx + sd * L, y - H * 0.06 * (0.5 + t))
+                wd = H * 0.012
+                col = (int(rng.uniform(40, 62)), int(rng.uniform(96, 124)), int(rng.uniform(30, 46)), 255)
+                dr.polygon([(cx, y - wd), (cx, y + wd), tip], fill=col)
+    else:
+        cx = W / 2
+        pts = []
+        for i in range(41):
+            t = i / 40
+            r = math.sin(math.pi * t) ** 0.8 * W * 0.46
+            pts.append((cx + r, H * (1 - t)))
+        pts += [(2 * cx - x, y) for x, y in pts[::-1]]
+        base = (int(rng.uniform(34, 50)), int(rng.uniform(86, 110)), int(rng.uniform(28, 40)), 255)
+        dr.polygon(pts, fill=base)
+        dr.line([(cx, H), (cx, 0)], fill=(120, 140, 70, 255), width=max(3, W // 70))
+        for i in range(1, 12):
+            t = i / 12
+            y = H * (1 - t)
+            for sd in (-1, 1):
+                dr.line([(cx, y), (cx + sd * W * 0.42 * math.sin(math.pi * t) ** 0.8, y - H * 0.08)],
+                        fill=(70, 110, 46, 255), width=max(2, W // 160))
+        for i in range(5):
+            y = H * rng.uniform(0.2, 0.8)
+            sd = rng.choice((-1, 1))
+            dr.polygon([(cx + sd * W * 0.5, y), (cx + sd * W * 0.22, y + H * 0.02), (cx + sd * W * 0.5, y + H * 0.05)],
+                       fill=(0, 0, 0, 0))
+    return im.resize((w, h), Image.LANCZOS)
+
+
+def palm(name, seed, src, bark, height=7.5, fronds=14):
+    rng = np.random.default_rng(seed)
+    tile = np.zeros((TILE, TILE, 3), np.float32)
+    ntile = np.zeros_like(tile)
+    ntile[..., :2] = 0.5
+    ntile[..., 2] = 1.0
+    rtile = np.zeros_like(tile)
+    ba = bark_strip(bark["diff"], TILE // 2, TILE, 6, (1.15, 1.0, 0.8))
+    tile[:, :TILE // 2] = np.sqrt(ba ** 2.2)
+    ntile[:, :TILE // 2] = bark_strip(bark["nor"], TILE // 2, TILE, 6)
+    rtile[:, :TILE // 2, 0] = 0.85
+    for k in range(2):
+        al, nm, rm = rgba_to_maps(leaf_sprite(256, 1024, seed + k, "frond"), 0.55)
+        tile[:, TILE // 2 + k * 256:TILE // 2 + (k + 1) * 256] = al
+        ntile[:, TILE // 2 + k * 256:TILE // 2 + (k + 1) * 256] = nm
+        rtile[:, TILE // 2 + k * 256:TILE // 2 + (k + 1) * 256] = rm
+    m = Mesh()
+    bend = np.array([rng.normal(0, 1), 0, rng.normal(0, 1)])
+    bend = bend / np.linalg.norm(bend) * height * 0.22
+    tp = [np.array([0.0, height * t, 0.0]) + bend * t * t for t in np.linspace(0, 1, 10)]
+    m.tube(tp, [0.22 - 0.07 * t for t in np.linspace(0, 1, 10)], 0.0, 0.5, 0.0, 1.0, segs=7,
+           sway=[0.15 * t * t for t in np.linspace(0, 1, 10)])
+    top = tp[-1]
+    for f in range(fronds):
+        ang = 2 * math.pi * f / fronds + rng.uniform(-0.2, 0.2)
+        out = np.array([math.cos(ang), 0, math.sin(ang)])
+        rise = rng.uniform(-0.15, 0.55)
+        L = rng.uniform(2.4, 3.2)
+        k = int(rng.integers(0, 2))
+        rect = (0.5 + k * 0.25, 0.0, 0.75 + k * 0.25, 1.0)
+        upv = out * 0.85 + np.array([0, rise, 0])
+        upv /= np.linalg.norm(upv)
+        right = np.array([-out[2], 0, out[0]])
+        m.card(top, right, upv, L * 0.42, L, rect, np.array([0, 1.0, 0]) + out * 0.3, sway=1.0, bend=0.35, rows=4)
+    save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
+    return m.save(name)
+
+
+def bigleaf(name, seed, size=1.5, leaves=9):
+    rng = np.random.default_rng(seed)
+    T = TILE // 2
+    tile = np.zeros((T, T, 3), np.float32)
+    ntile = np.zeros_like(tile)
+    ntile[..., :2] = 0.5
+    ntile[..., 2] = 1.0
+    rtile = np.zeros_like(tile)
+    for k in range(2):
+        al, nm, rm = rgba_to_maps(leaf_sprite(T // 2, T, seed * 3 + k, "big"), 0.4)
+        tile[:, k * T // 2:(k + 1) * T // 2] = al
+        ntile[:, k * T // 2:(k + 1) * T // 2] = nm
+        rtile[:, k * T // 2:(k + 1) * T // 2] = rm
+    m = Mesh()
+    for i in range(leaves):
+        ang = 2 * math.pi * i / leaves + rng.uniform(-0.3, 0.3)
+        out = np.array([math.cos(ang), 0, math.sin(ang)])
+        tilt = math.radians(rng.uniform(25, 60))
+        upv = out * math.sin(tilt) + np.array([0, math.cos(tilt), 0])
+        right = np.array([-out[2], 0, out[0]])
+        L = size * rng.uniform(0.6, 1.0)
+        k = int(rng.integers(0, 2))
+        m.card(out * 0.05, right, upv, L * 0.55, L, (k * 0.5, 0.0, (k + 1) * 0.5, 1.0), upv * 0.4 + np.array([0, 0.8, 0]),
+               sway=0.8, bend=0.3, rows=3)
     save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
     return m.save(name)
 
@@ -844,6 +953,9 @@ def main():
                          flowers=True))
     print("fern", fern("fern", 6, src))
     print("reeds", reeds("reeds", 7))
+    print("palm", palm("palm", 12, src, bark))
+    print("bigleaf", bigleaf("bigleaf", 13))
+    print("snag", broadleaf("snag", 17, src, bark, height=7.0, crown=2.6, clusters=0, tint=(0.75, 0.72, 0.68)))
     print("lilypad", lilypad("lilypad", 8))
 
 

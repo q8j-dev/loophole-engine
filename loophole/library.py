@@ -11,11 +11,11 @@ LIGHTS = {
 SOLID = {"crate", "barrel", "machine", "tank", "rack", "terminal", "trolley", "reel", "toolbox", "ramp", "column",
          "catwalk", "tray", "table", "chair", "bookshelf", "sofa", "bed", "woodbarrel", "woodcrate", "bench", "firepit",
          "streetlamp", "boulder", "rock", "stump", "armchair", "nightstand", "cabinet", "toolcart", "oak", "birch",
-         "pine", "spruce", "log", "mossrock", "maple", "willow"}
-TRUNK = {"maple": 0.34, "willow": 0.36, "oak": 0.32, "birch": 0.26, "pine": 0.26, "spruce": 0.26, "streetlamp": 0.16}
-FOLIAGE = {"reeds", "maple", "willow", "oak", "birch", "pine", "spruce", "bush", "grass", "fern"}
+         "pine", "spruce", "log", "mossrock", "maple", "willow", "palm", "snag", "deadlog"}
+TRUNK = {"palm": 0.24, "snag": 0.3, "maple": 0.34, "willow": 0.36, "oak": 0.32, "birch": 0.26, "pine": 0.26, "spruce": 0.26, "streetlamp": 0.16}
+FOLIAGE = {"palm", "bigleaf", "snag", "reeds", "maple", "willow", "oak", "birch", "pine", "spruce", "bush", "grass", "fern"}
 STYLE = {
-    "nature": ["reeds", "lilypad", "maple", "willow", "log", "mossrock", "oak", "birch", "pine", "spruce", "bush", "grass", "fern", "boulder", "rock", "stump"],
+    "nature": ["palm", "bigleaf", "snag", "deadlog", "reeds", "lilypad", "maple", "willow", "log", "mossrock", "oak", "birch", "pine", "spruce", "bush", "grass", "fern", "boulder", "rock", "stump"],
     "house": ["table", "chair", "bookshelf", "sofa", "bed", "armchair", "nightstand", "cabinet", "picture",
               "chandelier", "sconce", "lantern"],
     "village": ["woodbarrel", "woodcrate", "bench", "firepit", "streetlamp", "walllamp", "toolcart"],

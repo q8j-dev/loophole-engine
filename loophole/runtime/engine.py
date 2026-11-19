@@ -31,6 +31,10 @@ def init():
     lmb = 1
     api_ctl = 1
     api_cam = CAM0
+    wetk = 0
+    snowk = 0
+    fogw = 1
+    stormk = 0
     cullon = 1
     lwdep = 0
     api_water = 0
@@ -342,6 +346,18 @@ def load_level(lv):
     QON[1] = 0
     QON[2] = 0
     level = lv
+    api_wea = WEA[LWEA[lv]]
+    wetk = 0
+    snowk = 0
+    fogw = 1
+    stormk = 0
+    if LWEA[lv] == 2:
+        wetk = 1
+        stormk = 1
+    if LWEA[lv] == 3:
+        snowk = 1
+    if LWEA[lv] == 4:
+        fogw = 7
     api_level = lv
     api_lname = LNAME[lv]
     lh0 = LH0[lv]
@@ -577,6 +593,7 @@ def play_step():
         return
     api_in()
     lights_step()
+    weather_step()
     objects_prep()
     if api_ctl == 1:
         look()
@@ -1957,6 +1974,8 @@ def draw_scene(vq):
         set_vec4("uMode", "world", 0, 1, 0, 0)
         model_id()
         draw_geo(LWAT[level])
+    if gbm == 0 and cullon == 1 and LSKY[level] == 1:
+        draw_precip()
 
 
 @warp
@@ -2220,7 +2239,7 @@ def post():
     pen_clear()
     clear_depth()
     set_tex("uLum", "comp", join("lum", tp))
-    set_vec4("uAE", "comp", LAE[level], 0.32, 0.45, 2.6)
+    set_vec4("uAE", "comp", LAE[level], 0.32, 0.45 - 0.17 * max(LSNO[level], snowk), 2.6)
     set_tex("uScene", "comp", join("hh", tp))
     set_tex("uB1", "comp", "b1")
     set_tex("uB2", "comp", "b3")
@@ -2761,3 +2780,50 @@ def draw_portal(q, open_, tex):
         set_vec3("uCol", "portal", COLBR, COLBG, COLBB)
     set_tex("uView", "portal", tex)
     draw_list("DISC", "portal")
+
+
+@warp
+def weather_step():
+    wix = index_of(WEA, api_wea)
+    wtw = 0
+    wts = 0
+    wtf = 1
+    wtr = 0
+    if wix == 2:
+        wtw = 1
+        wtr = 1
+    if wix == 3:
+        wts = 1
+        wtr = 0.5
+    if wix == 4:
+        wtf = 7
+        wtr = 0.6
+    if LSKY[level] == 0:
+        wtw = 0
+        wts = 0
+        wtf = 1
+        wtr = 0
+    wkr = min(1, dt * 0.35)
+    wetk += (wtw - wetk) * wkr
+    snowk += (wts - snowk) * wkr
+    fogw += (wtf - fogw) * wkr
+    stormk += (wtr - stormk) * wkr
+    set_vec4("uWet", "world", wetk, snowk, fogw, stormk)
+    set_vec4("uWet", "grass", wetk, snowk, fogw, stormk)
+    set_vec4("uWet", "sky", wetk, snowk, fogw, stormk)
+    set_vec4("uTerr", "world", GRLT[level], 0.55 * LWS[level] * (1 + stormk), GRDRY[level], max(LSNO[level], snowk * 0.7))
+
+
+@warp
+def draw_precip():
+    if wetk > 0.03 or snowk > 0.03:
+        cam_u("precip")
+        if snowk > wetk:
+            set_vec4("uPrec", "precip", snowk, 1, 0, 0)
+            set_vec3("uPCol", "precip", 1.6, 1.65, 1.75)
+        else:
+            set_vec4("uPrec", "precip", wetk, 0, 0, 0)
+            set_vec3("uPCol", "precip", 1.2, 1.3, 1.45)
+        set_vec4("uWindP", "precip", LWX[level], LWZ[level], 1.5 + LWS[level] * 2, 0)
+        draw_list("PRECIP", "precip")
+

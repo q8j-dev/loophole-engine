@@ -51,6 +51,8 @@ class Obj:
 
 class Level:
     def __init__(self, game, name):
+        self.sky_on = False
+        self.weather = "clear"
         self.game = game
         self.name = name
         self.ops = []
@@ -82,7 +84,7 @@ class Level:
         self.beams = True
         self.stripe = True
         self.probe = None
-        self.sky = None
+        self.sky_kind = None
         self.sun_light = None
         self.fog = None
         self.terrain_def = None
@@ -417,6 +419,35 @@ class Level:
         self.triggers.append(dict(name=name, box=_box(x0, y0, z0, x1, y1, z1), kind=1, to=0))
         return self
 
+    WEATHERS = ("clear", "rain", "snow", "fog")
+
+    def sky(self, time=None, preset=None, weather="clear", clouds=None, fog=None, sun_angle=0.0):
+        if not self.sky_on:
+            self.outdoor()
+        if weather not in self.WEATHERS:
+            raise ValueError(f"weather must be one of {', '.join(self.WEATHERS)}")
+        self.weather = weather
+        if clouds is not None:
+            self.clouds = clouds
+        if fog is not None:
+            self.fog = fog
+        if preset is not None:
+            self.sky_kind = preset
+        if time is not None:
+            h = float(time) % 24.0
+            el = math.sin((h - 6.0) / 12.0 * math.pi) * 62.0
+            az = math.radians((h - 6.0) / 12.0 * 180.0 + sun_angle)
+            e2 = math.radians(max(abs(el), 18.0) if el < -4 else max(el, 4.0))
+            if el < -4:
+                az += math.pi
+            self.sun_dir = (math.cos(az) * math.cos(e2), math.sin(e2), math.sin(az) * math.cos(e2) * 0.6 + 0.25)
+            n = math.sqrt(sum(v * v for v in self.sun_dir))
+            self.sun_dir = tuple(v / n for v in self.sun_dir)
+            self.sky_kind = dict(time=h, elevation=el)
+        if weather in ("rain", "fog") and preset is None and time is None:
+            self.sky_kind = "overcast"
+        return self
+
     def wind(self, direction=(1.0, 0.35), strength=1.0):
         d = np.array(direction, float)
         d = d / max(np.linalg.norm(d), 1e-6)
@@ -434,7 +465,8 @@ class Level:
 
     def outdoor(self, sky="day", sun=(0.4, 0.75, 0.3), sun_color=None, fog=0.0035, clouds=0.45, shafts=0.6):
         self.shafts = float(shafts)
-        self.sky = sky
+        self.sky_kind = sky
+        self.sky_on = True
         self.sun_dir = tuple(np.array(sun, float) / np.linalg.norm(sun))
         self.sun_color = sun_color
         self.fog = fog
@@ -446,8 +478,10 @@ class Level:
         self.window_style = "sky"
         return self
 
-    GRASS_STYLES = {"lawn": (0.75, 1.15, 0.0, 0.02, 0.0), "meadow": (1.45, 1.0, 0.1, 0.12, 0.0),
-                    "dry": (1.1, 0.8, 0.85, 0.02, 0.15), "forest": (0.9, 0.5, 0.15, 0.04, 0.75)}
+    GRASS_STYLES = {"lawn": (0.75, 1.15, 0.0, 0.02, 0.0, 0.0), "meadow": (1.45, 1.0, 0.1, 0.12, 0.0, 0.0),
+                    "dry": (1.1, 0.8, 0.85, 0.02, 0.15, 0.0), "forest": (0.9, 0.5, 0.15, 0.04, 0.75, 0.0),
+                    "snow": (0.8, 0.25, 0.6, 0.0, 0.0, 1.0), "tropical": (1.25, 1.2, -0.25, 0.05, 0.0, 0.0),
+                    "swamp": (1.3, 0.9, -0.1, 0.0, 0.45, -1.0)}
 
     def terrain(self, x0, z0, x1, z1, height=None, base=0.0, step=1.0, material="terrain", seed=1, hills=4.0, grass=1.0,
                 grass_style="lawn"):
@@ -527,6 +561,9 @@ class Level:
     FORESTS = {
         "mixed": [("oak", 3), ("birch", 2), ("pine", 2), ("spruce", 2), ("maple", 1)],
         "autumn": [("maple", 4), ("oak", 2), ("birch", 2)],
+        "snowy": [("spruce", 3), ("pine", 2)],
+        "tropical": [("palm", 4), ("bigleaf", 2)],
+        "swamp": [("willow", 2), ("snag", 2), ("birch", 1)],
         "broadleaf": [("oak", 3), ("birch", 2)],
         "pine": [("pine", 3), ("spruce", 2)],
         "birch": [("birch", 4), ("oak", 1)],
@@ -540,7 +577,9 @@ class Level:
                              seed=seed, clearance=1.2)
         if undergrowth:
             taken = [(x, z, 1.4) for x, z, _ in trees]
-            under = [("bush", 3), ("fern", 4), ("grass", 3)]
+            under = {"tropical": [("bigleaf", 3), ("fern", 2), ("grass", 3)],
+                     "swamp": [("reeds", 4), ("fern", 2), ("bush", 1), ("deadlog", 1)],
+                     "snowy": [("bush", 2), ("grass", 1)]}.get(kind, [("bush", 3), ("fern", 4), ("grass", 3)])
             if "log" in self._kinds():
                 under.append(("log", 0.35))
             self.scatter(under, x0, z0, x1, z1, spacing=2.2 / d ** 0.5, scale=(0.7, 1.2), seed=seed + 1,

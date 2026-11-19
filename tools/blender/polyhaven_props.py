@@ -15,7 +15,7 @@ SPECS = {
     "bed": ("GothicBed_01", 4000, 512), "woodbarrel": ("Barrel_01", 1800, 512),
     "woodcrate": ("wooden_crate_01", 2500, 512), "bench": ("painted_wooden_bench", 1200, 512),
     "firepit": ("stone_fire_pit", 2500, 512), "walllamp": ("industrial_wall_lamp", 1500, 256),
-    "streetlamp": ("street_lamp_01", 3000, 512), "lantern": ("Lantern_01", 5000, 1024), "log": ("dead_tree_trunk", 900, 512), "mossrock": ("rock_moss_set_01", 1500, 512),
+    "streetlamp": ("street_lamp_01", 3000, 512), "lantern": ("Lantern_01", 5000, 1024), "log": ("dead_tree_trunk", 900, 512), "deadlog": ("dead_tree_trunk_02", 1800, 512), "mossrock": ("rock_moss_set_01", 1500, 512),
     "boulder": ("boulder_01", 1600, 1024), "rock": ("namaqualand_boulder_02", 1100, 512),
     "stump": ("tree_stump_01", 1100, 512), "armchair": ("ArmChair_01", 3000, 512),
     "nightstand": ("ClassicNightstand_01", 1500, 512), "cabinet": ("painted_wooden_cabinet", 2500, 512),

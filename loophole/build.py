@@ -35,7 +35,7 @@ API_VARS = {
     "api_fov": "field of view", "api_expo": "exposure", "api_fade": "fade", "api_flash": "flash",
     "api_walk": "walk speed", "api_jump": "jump power", "api_grav": "gravity", "api_paused": "paused",
     "api_locked": "mouse locked", "api_vm": "viewmodel", "api_lcoll": "last collected", "api_ltouch": "last touched",
-    "api_ltrig": "last trigger", "api_water": "water depth", "api_msg": "message", "api_stat": "status", "quality": "quality",
+    "api_ltrig": "last trigger", "api_water": "water depth", "api_wea": "weather", "api_msg": "message", "api_stat": "status", "quality": "quality",
 }
 API_LISTS = {
     "obj_name": "obj name", "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw",
@@ -57,7 +57,7 @@ USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "pla
                 "field_of_view": "field of view", "exposure": "exposure", "fade": "fade", "flash": "flash",
                 "walk_speed": "walk speed", "jump_power": "jump power", "gravity": "gravity", "paused": "paused",
                 "mouse_locked": "mouse locked", "viewmodel": "viewmodel", "last_collected": "last collected",
-                "last_touched": "last touched", "last_trigger": "last trigger", "message": "message", "status": "status", "quality": "quality", "water_depth": "water depth", "obj_name": "obj name",
+                "last_touched": "last touched", "last_trigger": "last trigger", "message": "message", "status": "status", "quality": "quality", "water_depth": "water depth", "weather": "weather", "obj_name": "obj name",
                 "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw", "obj_pitch": "obj pitch",
                 "obj_roll": "obj roll", "obj_scale": "obj scale", "obj_visible": "obj visible", "obj_solid": "obj solid",
                 "obj_glow": "obj glow", "obj_open": "obj open", "obj_touching": "obj touching",
@@ -286,7 +286,7 @@ def ground_relative(L):
 
 def voxelize(L, li):
     ground_relative(L)
-    if L.sky:
+    if L.sky_kind:
         c = voxelize_outdoor(L, li)
         return finish_voxel(c, L, li)
     boxes = [b for op, b in L.ops if op == "carve"]
@@ -339,10 +339,10 @@ def finish_voxel(c, L, li):
     c.stripe = L.stripe
     c.rings = [o.pos for o in L.objects if o.kind == 2]
     c.level_index = li
-    c.sky = L.sky
+    c.sky = L.sky_kind
     q = {"draft": (48, 10, 2, 2, 64), "normal": (128, 24, 3, 3, 96), "high": (256, 32, 4, 4, 128)}[L.bake_quality]
     c.bake_gi_rays, c.bake_ao_rays, c.bake_dres, c.bake_ns, c.bake_amb_rays = q
-    if L.sky:
+    if L.sky_kind:
         c.bake_amb_step = 2.0
         c.bake_amb_rays = 48
     c.terrain = None
@@ -353,7 +353,7 @@ def finish_voxel(c, L, li):
         RP, RN = f.ring_mesh()
         c.terrain = dict(grid=(f.xs, f.zs, f.H), P=TP, N=TN, M=TM, S=TS, step=L.terrain_def["step"], field=f,
                          ring=(RP, RN), tlm_step=0.5, mat=TM[0] if len(TM) else 70.0)
-    if L.sky:
+    if L.sky_kind:
         c.sun = dict(d=L.sun_dir, col=sky_preset(L)["sun"])
         c.sky_rad = sky_preset(L)["amb"]
     return c
@@ -373,8 +373,28 @@ SKIES = {
 }
 
 
+def sky_mix(a, b, t):
+    A, B = SKIES[a], SKIES[b]
+    return {k: tuple(float(x) * (1 - t) + float(y) * t for x, y in zip(A[k], B[k])) for k in A}
+
+
+def sky_at(el):
+    stops = [(-90, "night"), (-12, "night"), (-4, "dusk"), (2, "sunset"), (12, "sunset"), (30, "day"), (90, "day")]
+    for (e0, a), (e1, b) in zip(stops, stops[1:]):
+        if e0 <= el <= e1:
+            return sky_mix(a, b, (el - e0) / max(e1 - e0, 1e-6))
+    return dict(SKIES["day"])
+
+
 def sky_preset(L):
-    p = dict(SKIES.get(L.sky, SKIES["day"]))
+    if isinstance(L.sky_kind, dict):
+        p = sky_at(L.sky_kind["elevation"])
+        if getattr(L, "weather", "clear") in ("rain", "fog"):
+            o = SKIES["overcast"]
+            p = {k: tuple(x * 0.35 + y * 0.65 * (0.25 + 0.75 * max(0.0, min(1.0, (L.sky_kind["elevation"] + 6) / 30)))
+                          for x, y in zip(p[k], o[k])) for k in p}
+    else:
+        p = dict(SKIES.get(L.sky_kind, SKIES["day"]))
     if L.sun_color:
         p["sun"] = tuple(np.array(color(L.sun_color)) * 3.4)
     return p
@@ -632,7 +652,7 @@ TPM = {}
 LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "HV1", "HKILL", "HPORT", "LSX", "LSY",
               "LSZ", "LSYAW", "LSPIT", "LKILL", "LO0", "LON", "LT0", "LTN", "TNAME", "TKIND", "TARG", "TX0", "TY0",
               "TZ0", "TX1", "TY1", "TZ1", "LL0", "LLN", "LNM", "LTX", "LTY", "LTZ", "LTW", "LDDX", "LDDY", "LDDZ",
-              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LFLK", "LCUT", "LWX", "LWZ", "LWS", "LRAY", "LK0", "LKN", "KH", "KU0", "KU1", "KV0", "KV1", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
+              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LFLK", "LCUT", "LWX", "LWZ", "LWS", "LRAY", "LWEA", "LSNO", "LK0", "LKN", "KH", "KU0", "KU1", "KV0", "KV1", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
               "AMB0", "AMBNX", "AMBNY", "AMBNZ", "AMBST", "AMBOX", "AMBOY", "AMBOZ", "AMB", "LPX", "LPY", "LPZ",
               "LB0X", "LB0Y", "LB0Z", "LB1X", "LB1Y", "LB1Z", "LFY", "LCY_", "LV0", "LVNN", "VX0", "VZ0", "VX1",
               "VZ1", "VY0", "VY1", "VPW", "LSP0", "LSPN", "SPX", "SPY", "SPZ", "LSKY", "LSUN", "LTER", "TOX", "TOZ",
@@ -836,11 +856,14 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
     L["LVN"].append(min(8, sum(1 for q in lts if q["vol"] > 0)))
     L["LHZ"].append(Lv.haze)
     L["LCUT"].append(r4(getattr(Lv, "cut", 0.0)))
-    wd = getattr(Lv, "wind_def", (0.94, 0.33, 0.6 if Lv.sky else 0.0))
+    wd = getattr(Lv, "wind_def", (0.94, 0.33, 0.6 if Lv.sky_kind else 0.0))
     L["LWX"].append(r4(wd[0]))
     L["LWZ"].append(r4(wd[1]))
     L["LWS"].append(r4(wd[2]))
-    L["LRAY"].append(r4(getattr(Lv, "shafts", 0.6) if Lv.sky else 0.0))
+    L["LRAY"].append(r4(getattr(Lv, "shafts", 0.6) if Lv.sky_kind else 0.0))
+    L["LWEA"].append(Lv.WEATHERS.index(getattr(Lv, "weather", "clear")) + 1)
+    gsn = Level_styles.get((Lv.terrain_def or {}).get("grass_style", "lawn"), (0,) * 6)
+    L["LSNO"].append(r4(gsn[5]))
     L["LHA"].append(Lv.haze_amb)
     L["LEXP"].append(Lv.exposure)
     L["LAE"].append(Lv.auto_exposure)
@@ -888,8 +911,8 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
         L["SPX"].append(p[0])
         L["SPY"].append(p[1])
         L["SPZ"].append(p[2])
-    L["LSKY"].append(1 if Lv.sky else 0)
-    if Lv.sky:
+    L["LSKY"].append(1 if Lv.sky_kind else 0)
+    if Lv.sky_kind:
         sp = sky_preset(Lv)
         sd = Lv.sun_dir
         fb = float(c.field.base) if getattr(c, "field", None) is not None else 0.0
@@ -941,7 +964,7 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
             L["GRDRY"][-1] = r4(gs_[2])
             L["GRFL"][-1] = r4(gs_[3])
             L["GRLT"][-1] = r4(gs_[4])
-    if Lv.sky and c.field is not None:
+    if Lv.sky_kind and c.field is not None:
         f = c.field
         for (lo, hi) in ((np.array([f.x0 - 1, -50, f.z0 - 1]), np.array([f.x0, 200, f.z1 + 1])),
                          (np.array([f.x1, -50, f.z0 - 1]), np.array([f.x1 + 1, 200, f.z1 + 1])),
@@ -1192,6 +1215,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     for n in ("device", "arms", "player"):
         x, y, s, t = props.region(n)
         consts.update({f"PR_{n.upper()}_X": x, f"PR_{n.upper()}_Y": y, f"PR_{n.upper()}_S": s, f"PR_{n.upper()}_T": t})
+    L["WEA"] = ["clear", "rain", "snow", "fog"]
     L["FADV"] = json.loads((DATA / "font.json").read_text(encoding="utf-8"))["adv"]
     L["JX"] = [0.5, 0.25, 0.75, 0.125, 0.625, 0.375, 0.875, 0.0625]
     L["JY"] = [0.3333, 0.6667, 0.1111, 0.4444, 0.7778, 0.2222, 0.5556, 0.8889]
@@ -1258,7 +1282,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     cfg_text = ("Configuration for https://turbowarp.org/\nYou can move, resize, and minimize this comment, "
                 "but don't edit it by hand. This comment can be deleted to remove the stored settings.\n"
                 + json.dumps(tw_cfg, separators=(",", ":")) + " // _twconfig_")
-    api_values = {"message": "", "status": "", "quality": game.quality, "viewmodel": game.viewmodel, "controls": 1, "camera mode": game.camera, "field of view": game.fov,
+    api_values = {"weather": "clear", "message": "", "status": "", "quality": game.quality, "viewmodel": game.viewmodel, "controls": 1, "camera mode": game.camera, "field of view": game.fov,
                   "exposure": 1, "walk speed": game.walk_speed, "jump power": game.jump_power, "gravity": 20.0,
                   "camera distance": game.camera_distance, "camera pitch": game.camera_pitch,
                   "level": game.start_level}

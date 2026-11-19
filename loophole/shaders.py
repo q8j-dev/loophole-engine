@@ -281,6 +281,7 @@ void main() {
 """
 
 WORLD_FS = HEAD + """
+uniform vec4 uWet;
 uniform vec4 uTerr;
 uniform vec4 uWind2;
 uniform sampler2D uGBn;
@@ -570,6 +571,7 @@ float occ(vec3 p, vec3 n, vec4 s) {
 
 uniform vec2 uNF;
 uniform vec3 uRim;
+float snowSp = 0.0;
 void main() {
   gate(vW);
   if (uCut.x > 0.5) {
@@ -641,7 +643,7 @@ void main() {
     float wdist = length(uCP - vW);
     if (uFog.w > 0.0) {
       float wfh = exp(-max(vW.y - uFogS.x, 0.0) * uFogS.y);
-      float wfa = (1.0 - exp(-wdist * uFog.w * wfh)) * uFogS.z;
+      float wfa = (1.0 - exp(-wdist * uFog.w * uWet.z * wfh)) * uFogS.z;
       wc = mix(wc, uFog.rgb * wa, wfa);
     }
     vec3 wcn = wc / max(wa, 0.001);
@@ -675,6 +677,15 @@ void main() {
     float sunv = smoothstep(0.15, 0.7, dot(E0, vec3(0.3, 0.5, 0.2)) / max(dot(uSunC.rgb, vec3(0.3, 0.5, 0.2)), 0.01) * 1.6);
     vec3 sunT = uSunC.rgb * uSunC.w * (0.05 + 0.1 * wrap) * sunv;
     vec3 LE = E0 * (0.8 + 0.3 * wrap) + uSkyA * (1.3 + 0.9 * (1.0 - sunv)) + E0 * back * 0.6 * sunv + sunT;
+    if (uTerr.w > 0.0) {
+      vec3 cnv = vIrr.w < 5.5 ? normalize(vTan) : LN;
+      float upf = vIrr.w < 5.5 ? abs(cnv.y) : LN.y;
+      float snz = vnoise(vLM * 260.0) * 0.7 + vnoise(vLM * 900.0 + 5.0) * 0.3;
+      float lsn = uTerr.w * smoothstep(0.3, 0.75, upf + (h2 - 0.5) * 0.25) * smoothstep(0.4, 0.55, snz) * 0.92;
+      float ndl = dot(la, vec3(0.333));
+      lalb = mix(lalb, vec3(0.6, 0.62, 0.66) * (0.8 + ndl * 0.6), lsn);
+    }
+    lalb *= 1.0 - uWet.x * 0.25;
     vec3 lcol = lalb * LE + lalb * LE * back * 0.25 * sunv;
     for (int i = 0; i < 24; i++) {
       if (float(i) >= uLtN) break;
@@ -688,7 +699,7 @@ void main() {
     lcol *= mix(1.0, exp(-ldist * uHaze.x * 0.35), 0.7);
     if (uFog.w > 0.0) {
       float fh = exp(-max(vW.y - uFogS.x, 0.0) * uFogS.y);
-      float fa = (1.0 - exp(-ldist * uFog.w * fh)) * uFogS.z;
+      float fa = (1.0 - exp(-ldist * uFog.w * uWet.z * fh)) * uFogS.z;
       float fs = pow(max(dot(-lV, uFogSun), 0.0), 8.0);
       lcol = mix(lcol, uFog.rgb * (1.0 + fs * 0.9), fa);
     }
@@ -827,6 +838,15 @@ void main() {
       }
       a = mix(mix(gr, ad * vec3(0.7, 0.66, 0.6), wd), ar * vec3(1.05, 1.0, 0.95), wr);
       a *= 1.0 - wetk * 0.45;
+      if (uTerr.w > 0.0) {
+        float sm = uTerr.w * smoothstep(0.62, 0.86, Ng.y + (ns - 0.5) * 0.25 + (ns3 - 0.5) * 0.15);
+        vec3 sa = sampA(3.0, 2.0, uv / 3.0, tl);
+        vec3 sn_ = sampA(3.0, 3.0, uv / 3.0, tl);
+        a = mix(a, sa * 0.9, sm);
+        snowSp = sm * step(0.992, hash12(floor(vW.xz * 45.0) + floor(dist * 3.0)));
+        nm = mix(nm, sn_, sm);
+        wl *= 1.0 - sm;
+      }
       if (wl > 0.003) {
         vec2 lu = uv / 1.8 + vec2(ns * 0.3, ns2 * 0.2);
         vec3 la_ = sampA(3.0, 12.0, lu, tl);
@@ -849,6 +869,10 @@ void main() {
         float gm = smoothstep(0.35, 0.65, ns2 + (ns3 - 0.5) * 0.5);
         float pe = smoothstep(0.2, 0.7, pth + (ns3 - 0.5) * 0.5);
         a = mix(a, mix(pd * vec3(0.86, 0.75, 0.58), pa * vec3(0.76, 0.7, 0.6), gm), pe);
+        if (uTerr.w > 0.0) {
+          vec3 tsn = sampA(3.0, 2.0, vW.xz / 2.0, pl) * vec3(0.72, 0.72, 0.75);
+          a = mix(a, mix(tsn, a * 0.55, smoothstep(0.55, 0.9, pth + (ns2 - 0.5) * 0.4) * 0.6), pe * uTerr.w);
+        }
         nm = mix(nm, mix(pdn, pn, gm), pe);
         vec3 pdd = sampA(3.0, 6.0, vW.xz / 0.55 + 0.31, max(pl - 1.0, 0.0));
         float dl_ = dot(pdd, vec3(0.33));
@@ -1202,10 +1226,26 @@ void main() {
   }
   float px = dist / focal;
   float ao = (1.0 - clamp(o, 0.0, 0.85)) * mix(vAO, 0.8 + vAO * 0.2, clamp(px / 0.012 - 0.6, 0.0, 1.0));
+  float puddle = 0.0;
+  if (uTerr.w > 0.0 && !leaf && !(vIrr.w > 3.5 && vIrr.w < 4.5)) {
+    float sup = uTerr.w * smoothstep(0.55, 0.85, Ng.y + (vnoise(vW.xz * 2.0) - 0.5) * 0.3);
+    alb = mix(alb, vec3(0.6, 0.62, 0.66), sup);
+  }
+  if (uWet.x > 0.01 && Ng.y > 0.3 && !leaf) {
+    float exw = uWet.x * smoothstep(0.3, 0.8, Ng.y);
+    alb *= 1.0 - 0.4 * exw;
+    if (vIrr.w > 3.5 && vIrr.w < 4.5) {
+      float pn = vnoise(vW.xz * 0.35) * 0.65 + vnoise(vW.xz * 1.1 + 3.0) * 0.35;
+      puddle = smoothstep(0.55, 0.62, pn) * exw * smoothstep(0.9, 0.98, Ng.y);
+      alb = mix(alb, alb * 0.35, puddle);
+      N = normalize(mix(N, Ng, puddle));
+    }
+  }
   vec3 F0 = mix(vec3(0.04), alb, metal);
   vec3 diff = alb * (1.0 - metal * 0.85);
   float rough = mix(0.85, 0.12, clamp(gloss * gscale, 0.0, 1.0));
   if (prough >= 0.0) rough = clamp(prough, 0.08, 1.0);
+  if (uWet.x > 0.01 && Ng.y > 0.3) rough = mix(rough, mix(0.22, 0.03, puddle), uWet.x * smoothstep(0.3, 0.8, Ng.y));
   float a = rough * rough;
   vec3 spec = vec3(0.0);
   vec3 ddir = vec3(0.0);
@@ -1277,11 +1317,12 @@ void main() {
   }
   vec3 col = diff * (max(E - dloss, 0.0) * ao + ddir) + spec * mix(1.0, so, props ? 0.0 : 1.0) * ao + envs * ao + emis;
   col += uRim * (0.1 + 1.3 * pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 2.4));
+  col += uSunC.rgb * uSunC.w * snowSp * clamp(so * 1.6 - 0.3, 0.0, 1.0) * 2.5;
   float ext = exp(-dist * uHaze.x * 0.35);
   col = col * mix(1.0, ext, 0.7);
   if (uFog.w > 0.0) {
     float fh = exp(-max(vW.y - uFogS.x, 0.0) * uFogS.y);
-    float fa = (1.0 - exp(-dist * uFog.w * fh)) * uFogS.z;
+    float fa = (1.0 - exp(-dist * uFog.w * uWet.z * fh)) * uFogS.z;
     float fs = pow(max(dot(-V, uFogSun), 0.0), 8.0);
     col = mix(col, uFog.rgb * (1.0 + fs * 0.9), fa);
   }
@@ -1678,6 +1719,7 @@ void main() {
 
 SKY_FS = HEAD + CAM_U + """
 uniform float u_timer;
+uniform vec4 uWet;
 uniform vec4 uSun;
 uniform vec4 uSunC;
 uniform vec4 uSkyZ;
@@ -1717,10 +1759,13 @@ void main() {
   }
   col += uSunC.rgb * smoothstep(uSkyH.w, uSkyH.w + 0.0006, sd) * 40.0 * smoothstep(-0.02, 0.02, y);
   if (y < 0.0) col = mix(col, uSkyG.rgb, smoothstep(0.0, 0.12, -y));
+  float grey = dot(col, vec3(0.3, 0.5, 0.2));
+  col = mix(col, vec3(grey) * vec3(0.92, 0.96, 1.02) * 0.75, uWet.w * 0.8);
   if (uFog.w > 0.0) {
-    float fs = pow(sd, 8.0);
+    float fs = pow(sd, 8.0) * (1.0 - uWet.w);
     vec3 fc = uFog.rgb * (1.0 + fs * 0.9);
-    col = mix(col, fc, (1.0 - smoothstep(-0.02, 0.22, y)) * 0.85 * uFogS.z);
+    float fk = clamp((uWet.z - 1.0) / 6.0, 0.0, 1.0);
+    col = mix(col, fc, max((1.0 - smoothstep(-0.02, 0.22 + fk * 0.6, y)) * 0.85 * uFogS.z, fk * 0.85));
   }
   gl_FragColor = enc(col, 1.0);
 }
@@ -1834,6 +1879,7 @@ void gbOut(vec3 w) {
   float lo = floor(v - hi * 256.0);
   gl_FragColor = vec4(hi / 255.0, lo / 255.0, 0.4, 1.0);
 }
+uniform vec4 uWet;
 varying float vDry;
 varying float vGust;
 void main() {
@@ -1852,10 +1898,12 @@ void main() {
   alb = mix(alb, vec3(dot(alb, vec3(0.5, 0.4, 0.1))) * vec3(1.6, 1.25, 0.62), vDry);
   vec3 tl = texture2D(uTLM, (vW.xz - uTLMP.xy) * uTLMP.zw).rgb;
   vec3 E = tl * tl * 4.0;
+  alb *= 1.0 - uWet.x * 0.3;
+  alb = mix(alb, vec3(0.5, 0.52, 0.56), uWet.y * 0.6 * vShade);
   vec3 col = alb * E * vShade * 1.1 * (1.0 + vGust * 0.22 * vShade);
   float dist = length(uCP - vW);
   if (uFog.w > 0.0) {
-    float fa = (1.0 - exp(-dist * uFog.w)) * uFogS.z;
+    float fa = (1.0 - exp(-dist * uFog.w * uWet.z)) * uFogS.z;
     col = mix(col, uFog.rgb, fa);
   }
   gl_FragColor = enc(col, 1.0);
