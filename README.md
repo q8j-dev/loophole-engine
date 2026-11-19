@@ -11,10 +11,11 @@ A 3D game engine for Scratch and TurboWarp. You describe a level in a short Pyth
 | Starter lab | The template `loophole new` makes: a small lab with a cube, a button and a door | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Starter.sb3) | [Starter.sb3](https://github.com/q8j-dev/loophole-engine/releases/latest/download/Starter.sb3) (6 MB) |
 | Afterglow | Lab puzzle, then a dusk valley where you light three lanterns | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Afterglow.sb3) | [Afterglow.sb3](https://github.com/q8j-dev/loophole-engine/releases/latest/download/Afterglow.sb3) (29 MB) |
 | Orchard Dash | Third-person race for 12 apples past patrolling rats | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Orchard-Dash.sb3) | [Orchard-Dash.sb3](https://github.com/q8j-dev/loophole-engine/releases/latest/download/Orchard-Dash.sb3) (13 MB) |
-| Crypt Crawl | Top-down torchlit crypt with goblets and giant rats | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Crypt-Crawl.sb3) | [Crypt-Crawl.sb3](https://github.com/q8j-dev/loophole-engine/releases/latest/download/Crypt-Crawl.sb3) (7 MB) |
+| Crypt Crawl | Top-down torchlit crypt with goblets, guarded by skeleton warriors you fight with a sword | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Crypt-Crawl.sb3) | [Crypt-Crawl.sb3](https://github.com/q8j-dev/loophole-engine/releases/latest/download/Crypt-Crawl.sb3) (7 MB) |
 | Portal Lab | Portal puzzles with a cube, a ledge and a slime pit | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Portal-Lab.sb3) | [Portal-Lab.sb3](https://github.com/q8j-dev/loophole-engine/releases/latest/download/Portal-Lab.sb3) (10 MB) |
 | Autumn Woods | A forest to walk through, made with two `forest()` calls | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Autumn-Woods.sb3) | [Autumn-Woods.sb3](https://github.com/q8j-dev/loophole-engine/releases/latest/download/Autumn-Woods.sb3) (18 MB) |
 | The Long Walk | Autumn woods, a lake to swim across, a snowy pass and a warm cabin | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/The-Long-Walk.sb3) | [The-Long-Walk.sb3](https://github.com/q8j-dev/loophole-engine/releases/latest/download/The-Long-Walk.sb3) (31 MB) |
+| Kart Cup | Three laps of a hillside kart track with a lap timer and a saved best lap | [Play in TurboWarp](https://turbowarp.org/?project_url=https://q8j-dev.github.io/loophole-engine/games/Kart-Cup.sb3) | [Kart-Cup.sb3](https://github.com/q8j-dev/loophole-engine/releases/latest/download/Kart-Cup.sb3) (17 MB) |
 
 **Make a game in your browser.** [Loophole Studio](https://q8j-dev.github.io/loophole-engine/) runs the real build in the page. Pick a template and change the level in 3D or in code: the Level tab shows the level, lets you place props, lights, collectibles, enemies, checkpoints, zones, water, forests and sounds from the toolbar, and move, turn or resize anything with the handles. Every change is written into `world.py` as a normal line of code, and typing in `world.py` updates the 3D view. Press Build game and it plays beside the code. Download the `.sb3` to add Scratch blocks in TurboWarp. The first build downloads about 40 MB; later builds start in a few seconds. New to it? The [tutorial](docs/tutorial.md) makes a small chase game in about 15 minutes.
 
@@ -46,15 +47,19 @@ Every image on this page is a real TurboWarp frame captured by the playtest harn
 | --- | --- |
 | ![](docs/img/touch.jpg) | ![](docs/img/cutscene.jpg) |
 
-| Afterglow valley at dusk | Lab puzzle, first person | Orchard, third person | Crypt, top down |
-| --- | --- | --- | --- |
-| ![](docs/img/valley.jpg) | ![](docs/img/lab.jpg) | ![](docs/img/orchard.jpg) | ![](docs/img/crypt.jpg) |
+| Kart Cup: drifting onto the kerb | Crypt Crawl: fighting skeleton warriors |
+| --- | --- |
+| ![](docs/img/racing.jpg) | ![](docs/img/crypt.jpg) |
+
+| Afterglow valley at dusk | Lab puzzle, first person | Orchard, third person |
+| --- | --- | --- |
+| ![](docs/img/valley.jpg) | ![](docs/img/lab.jpg) | ![](docs/img/orchard.jpg) |
 
 ![Two facing portals in a narrow room make a recursive tunnel](docs/img/portals.jpg)
 
 ## What you get
 
-- Lightmaps with baked global illumination, a sun and sky for outdoor levels, flickering torches and switchable lights.
+- Lightmaps with baked global illumination, a sun and sky for outdoor levels, flickering torches and switchable lights. Ambient occlusion in screen space, glossy highlights from baked lights, and dust drifting through light beams.
 - PBR materials from a CC0 texture library (lab panels, brick, plaster, cobble, grass, rock, gravel, roof tiles and more), plus about 60 props such as trees, lamps, furniture, barrels and statues.
 - Terrain with grass that ripples in the wind, wildflower meadows, paths and a horizon. Buildings with roofs, framed windows and doors.
 - Lakes and rivers with reflections, ripples, shore foam and swimming. Biomes for meadow, forest, snow, tropical, swamp and dry country, any time of day with stars at night, and rain, snow or fog that Scratch can switch on and off.
@@ -62,7 +67,9 @@ Every image on this page is a real TurboWarp frame captured by the playtest harn
 - First person, third person, top-down and free cameras. Four animated player characters, or import your own rigged glTF.
 - Objects that you can pick up and carry, buttons and doors, pickups that spin and glow, triggers and goals.
 - Physics: boxes stack and slide when you walk into them, objects have mass, friction and bounce, pressure plates need enough weight, doors swing on hinges and lamps sway on ropes.
-- Characters that think: they find their way around walls to follow you, wander, patrol or run away, and send `sees player` when they spot you. In Crypt Crawl the rats give chase.
+- Characters that think: they find their way around walls to follow you, wander, patrol or run away, and send `sees player` when they spot you. Any character model, including the skeleton warriors in Crypt Crawl, plays idle, walk, run, attack, hit and death animations by itself.
+- Combat for kids: `game.combat()` gives the player health and a sword swing on F, plus a throw on G. Enemies flash when hit, get knocked back, fall over and fade away. No blood.
+- Vehicles: karts, a race car, a police car, a taxi and an SUV to get into with E. They have suspension that leans in corners, drifting on the handbrake, a chase camera and an engine sound that rises with speed. `level.road(...)` lays an asphalt track with kerbs, a checkered start line, checkpoint gates and cones.
 - Plays on tablets, touch Chromebooks and game controllers as well as keyboard and mouse: a joystick and buttons appear when you touch the screen, controllers rumble, and every control can be rebound.
 - Checkpoints, save slots that stay in the browser, and save codes made of digits that fit in a cloud variable.
 - Cutscenes written in `world.py`: camera paths, subtitles, fades and moving objects, skippable with jump.

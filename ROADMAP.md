@@ -68,6 +68,10 @@ Status: `[ ]` not started, `[~]` works but has known gaps, `[x]` built and check
 - [x] Objects that follow paths, spin, bob and fire `touch` and `collect` broadcasts
 - [x] Example games in different genres, each with a natural-input playthrough: Afterglow (first-person puzzle and exploration), Orchard Dash (third-person timed collectathon), Crypt Crawl (top-down dungeon), Portal Lab (portal puzzle with a cube, a ledge and a momentum fling)
 - [x] Player characters: suit, knight, mage, rogue, barbarian, or any rigged glTF with idle, walk, run and jump clips
+- [x] Animated NPCs: any character model as an object plays idle, walk, run, attack, hit and death clips from its AI mode. Crypt Crawl's skeleton warriors use the CC0 KayKit skeletons.
+- [x] Combat: player health with a hurt flash, rumble and sounds; sword swing with aim assist, thrown projectiles, enemies with health, knockback and death; Helpers blocks for all of it. Crypt Crawl's playthrough fights through with the F key.
+- [x] Vehicles: karts and cars with suspension lean, drift, wheels that spin and steer, a chase camera with speed field of view, and engine pitch from speed. Roads with kerbs, a start line, gates and cones. Kart Cup has a natural-input three-lap playthrough and builds in about 40 seconds (about 80 in Studio).
+- [x] Indoor look: screen-space ambient occlusion, specular from baked lights, dust in light shafts
 
 ### 6. Reach
 - [x] OBJ, glTF and GLB import with base colour, normal and roughness textures
@@ -90,5 +94,7 @@ Status: `[ ]` not started, `[~]` works but has known gaps, `[x]` built and check
 - Portals work only in first person, and portal views render at half resolution.
 - The Portal Lab playthrough is timing-sensitive in the harness: it passes as written in `tools/harness/runs/portals.txt`, but removing the extra `log` steps after the first teleport has made the walk west along the ledge stall in some runs. The cause is not yet found.
 - Characters use rigid skinning (each vertex follows one bone) with a limit of 32 bones, so very smooth organic rigs crease at the joints.
+- Vehicles collide as boxes, they can't tip over or flip, and there are no computer-driven racers yet.
+- Ambient occlusion is screen space, so creases at the edge of the screen and behind thin objects lose some darkening.
 - Games need TurboWarp because they use the Pen+ extension. They don't run on scratch.mit.edu.
 - A clone of the repo is about 150 MB, half of it git history from earlier texture versions.
