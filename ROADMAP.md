@@ -22,7 +22,7 @@ Status: `[ ]` not started, `[~]` in progress, `[x]` built and checked in a 1080p
 - [ ] Runtime stripped of chamber hacks (finale flood, `uRm`, portal-only uniforms, VO, ride, title)
 - [ ] Generic dynamic shadow casters (object boxes plus the player capsule)
 - [ ] Shipped prebuilt assets: material atlas, decor atlases, kit meshes, prop meshes and atlas, sound pack
-- [ ] Starter template renders and plays in the headless harness
+- [x] Starter template renders in the headless harness (62 fps at 1600x900 internal)
 
 ### 2. Scratch API
 - [ ] Player variables, readable and writable (teleport by setting `player x`)
@@ -39,11 +39,23 @@ Status: `[ ]` not started, `[~]` in progress, `[x]` built and checked in a 1080p
 - [ ] 1080p screenshots, a GIF, README with a 5-minute guide
 - [ ] `docs/`: world API, Scratch API, renderer
 
-### 4. Reach
+### 4. Outdoor
+- [ ] Sun as a directional light baked into the lightmaps, sky light from rays that escape the level
+- [ ] Sky dome (day, sunset, night, overcast presets) with clouds and sun disc, drawn into reflections
+- [ ] Heightmap terrain with its own collision and baked vertex lighting
+- [ ] Open levels without a ceiling, with distance fog
+- [ ] Showcase includes an outdoor space next to an indoor one
+
+### 5. Game variety
+- [ ] Camera modes in the API: first person, free, third person orbit, top down
+- [ ] Objects that follow paths (NPCs, enemies, moving platforms), spin, and fire `touch` and `collect` broadcasts
+- [ ] Three small example games in different genres, built only on the public API (collectathon, third-person platformer, top-down chase)
+
+### 6. Reach
 - [ ] OBJ and GLB import with a base colour texture
 - [ ] Portals as an optional engine feature
 - [ ] Moving platforms
 
-### 5. Ship
+### 7. Ship
 - [ ] MIT license, CREDITS for CC0 assets
-- [ ] Public repo on GitHub, pushed at each milestone
+- [~] Public repo on GitHub (https://github.com/q8j-dev/loophole-engine), pushed at each milestone
