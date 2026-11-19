@@ -762,6 +762,7 @@ void main() {
       vec3 gr = mix(a, dg, near * 0.45);
       float gv = ns * 0.6 + ns3 * 0.4;
       gr *= mix(vec3(0.36, 0.5, 0.24), vec3(0.55, 0.6, 0.3), gv) * (0.72 + 0.4 * smoothstep(0.3, 0.7, ns2));
+      gr = mix(gr, vec3(dot(gr, vec3(0.45, 0.45, 0.1))) * vec3(1.45, 1.12, 0.58), uTerr.z * (0.75 + 0.25 * gv));
       a = mix(mix(gr, ad * vec3(0.7, 0.66, 0.6), wd), ar * vec3(1.05, 1.0, 0.95), wr);
       if (wl > 0.003) {
         vec2 lu = uv / 1.8 + vec2(ns * 0.3, ns2 * 0.2);
@@ -1734,7 +1735,7 @@ void main() {
   p.xz += away / max(pd, 0.05) * push * 0.45 * sw * sz;
   p.y -= push * 0.35 * sw * sz;
   vGust = gust(base, u_timer);
-  vDry = uGT.z * (0.6 + 0.4 * fract(aSeed.x * 31.7));
+  vDry = min(1.0, uGT.z * (0.95 + 0.3 * fract(aSeed.x * 31.7)));
   float qx = mod(k, 2.0);
   float qy = mod(floor(k / 2.0), 2.0);
   vec2 local = vec2(aCorner.x * 0.5 + 0.5, 1.0 - aCorner.y);
@@ -1785,7 +1786,7 @@ void main() {
   float h1 = fract(sin(dot(cq, vec2(12.9898, 78.233))) * 43758.5453);
   float h2 = fract(sin(dot(cq, vec2(39.346, 11.135))) * 24634.6345);
   alb *= mix(vec3(1.12, 1.02, 0.6), vec3(0.8, 0.95, 0.95), h1) * (0.78 + 0.4 * h2);
-  alb = mix(alb, vec3(dot(alb, vec3(0.5, 0.4, 0.1))) * vec3(1.35, 1.1, 0.62), vDry);
+  alb = mix(alb, vec3(dot(alb, vec3(0.5, 0.4, 0.1))) * vec3(1.6, 1.25, 0.62), vDry);
   vec3 tl = texture2D(uTLM, (vW.xz - uTLMP.xy) * uTLMP.zw).rgb;
   vec3 E = tl * tl * 4.0;
   vec3 col = alb * E * vShade * 1.1 * (1.0 + vGust * 0.22 * vShade);
