@@ -17,7 +17,8 @@ EXAMPLES = [
 ]
 EXT = {"penPlus.js": "https://extensions.turbowarp.org/obviousAlexC/penPlus.js",
        "pointerlock.js": "https://extensions.turbowarp.org/pointerlock.js",
-       "gamepad.js": "https://extensions.turbowarp.org/gamepad.js"}
+       "gamepad.js": "https://extensions.turbowarp.org/gamepad.js",
+       "local-storage.js": "https://extensions.turbowarp.org/local-storage.js"}
 
 
 def copy_package(out):

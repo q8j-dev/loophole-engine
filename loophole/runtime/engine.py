@@ -471,6 +471,12 @@ def respawn():
     pz = LSZ[level]
     yaw = LSYAW[level]
     pitch = LSPIT[level]
+    if api_cpx != "":
+        px = api_cpx
+        py = api_cpy
+        pz = api_cpz
+        yaw = api_cpyaw
+        pitch = 0
     vx = 0
     vy = 0
     vz = 0
@@ -494,6 +500,11 @@ def sounds_step():
 def load_level(lv):
     QON[1] = 0
     QON[2] = 0
+    if lv != level or FR < 2:
+        api_cpx = ""
+        api_cpy = ""
+        api_cpz = ""
+        api_cpyaw = ""
     level = lv
     api_wea = WEA[LWEA[lv]]
     wetk = 0
@@ -1625,6 +1636,14 @@ def triggers_step():
                 broadcast("enter")
                 if TKIND[tk] == 1:
                     die()
+                elif TKIND[tk] == 3:
+                    if api_cpx != (TX0[tk] + TX1[tk]) / 2 or api_cpz != (TZ0[tk] + TZ1[tk]) / 2:
+                        api_cpx = (TX0[tk] + TX1[tk]) / 2
+                        api_cpy = TY0[tk]
+                        api_cpz = (TZ0[tk] + TZ1[tk]) / 2
+                        api_cpyaw = yaw
+                        play("arrive")
+                        broadcast("checkpoint")
                 elif TKIND[tk] == 2:
                     play("success")
                     if TARG[tk] > 0:

@@ -285,3 +285,149 @@ def fly_camera(x, y, z, turn, tilt, seconds):
 def camera_back():
     camera_mode = 0
     controls = 1
+
+
+@block("save game to slot %s")
+def save_slot(slot):
+    """Saves the level, where the player is, the checkpoint, which things are collected or open, and everything in the save data list. It stays in this browser, even after closing it."""
+    make_save_text()
+    store_ns(GAME_ID)
+    store_set(join("slot ", slot), save_text)
+    show_message_for("Game saved", 1.5)
+
+
+@block("load game from slot %s")
+def load_slot(slot):
+    """Puts the player back where the save was made. Sets save found to 0 if the slot is empty."""
+    store_ns(GAME_ID)
+    save_text = store_get(join("slot ", slot))
+    use_save_text()
+
+
+@block("delete save slot %s")
+def delete_slot(slot):
+    store_ns(GAME_ID)
+    store_remove(join("slot ", slot))
+
+
+@block("make save code")
+def make_save_code():
+    """Puts the whole save into save code as digits only, so it fits in a cloud variable or can be written down."""
+    make_save_text()
+    encode_save()
+
+
+@block("load save code %s")
+def load_save_code(code):
+    decode_save(code)
+    use_save_text()
+
+
+@warp
+@block("add %s to save text")
+def save_field(value):
+    save_text = join(join(save_text, value), ";")
+
+
+@warp
+@block("make save text")
+def make_save_text():
+    save_text = "LH1;"
+    save_field(level)
+    save_field(round(player_x * 100) / 100)
+    save_field(round(player_y * 100) / 100)
+    save_field(round(player_z * 100) / 100)
+    save_field(round(player_yaw))
+    save_field(checkpoint_x)
+    save_field(checkpoint_y)
+    save_field(checkpoint_z)
+    save_field(checkpoint_yaw)
+    flags = ""
+    for item in range(len(obj_visible)):
+        flags = join(flags, obj_visible[item + 1])
+    save_field(flags)
+    flags = ""
+    for item in range(len(obj_open)):
+        flags = join(flags, round(obj_open[item + 1]))
+    save_field(flags)
+    for item in range(len(save_data)):
+        save_text = join(join(save_text, save_data[item + 1]), "|")
+
+
+@warp
+@block("split save text")
+def split_save_text():
+    save_fields.clear()
+    piece = ""
+    for item in range(strlen(save_text)):
+        character = letter(item + 1, save_text)
+        if character == ";":
+            save_fields.append(piece)
+            piece = ""
+        else:
+            piece = join(piece, character)
+    save_fields.append(piece)
+
+
+@block("use save text")
+def use_save_text():
+    split_save_text()
+    if save_fields[1] != "LH1":
+        save_found = 0
+    else:
+        save_found = 1
+        if level != save_fields[2]:
+            go_to_level = save_fields[2]
+            while level != save_fields[2]:
+                wait(0)
+            wait(1)
+        apply_save_text()
+
+
+@warp
+@block("apply save text")
+def apply_save_text():
+    player_x = save_fields[3]
+    player_y = save_fields[4]
+    player_z = save_fields[5]
+    player_yaw = save_fields[6]
+    checkpoint_x = save_fields[7]
+    checkpoint_y = save_fields[8]
+    checkpoint_z = save_fields[9]
+    checkpoint_yaw = save_fields[10]
+    if strlen(save_fields[11]) == len(obj_visible):
+        for item in range(len(obj_visible)):
+            obj_visible[item + 1] = letter(item + 1, save_fields[11])
+    if strlen(save_fields[12]) == len(obj_open):
+        for item in range(len(obj_open)):
+            obj_open[item + 1] = letter(item + 1, save_fields[12])
+    save_data.clear()
+    piece = ""
+    for item in range(strlen(save_fields[13])):
+        character = letter(item + 1, save_fields[13])
+        if character == "|":
+            save_data.append(piece)
+            piece = ""
+        else:
+            piece = join(piece, character)
+
+
+@warp
+@block("encode save text")
+def encode_save():
+    save_code = ""
+    for item in range(strlen(save_text)):
+        character = letter(item + 1, save_text)
+        position = 1
+        while position < 64 and letter(position, CODE_CHARS) != character:
+            position += 1
+        save_code = join(save_code, position + 10)
+
+
+@warp
+@block("decode save code %s")
+def decode_save(code):
+    save_text = ""
+    for item in range(floor(strlen(code) / 2)):
+        position = join(letter(item * 2 + 1, code), letter(item * 2 + 2, code)) - 10
+        save_text = join(save_text, letter(position, CODE_CHARS))

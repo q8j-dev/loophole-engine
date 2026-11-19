@@ -254,6 +254,7 @@ Some sounds come for free: outdoor levels have a soft wind, forests have birds (
 | `trigger(name, x0, y0, z0, x1, y1, z1)` | Sends `enter <name>` and `leave <name>` when the player crosses it. |
 | `goal(x0, y0, z0, x1, y1, z1, to=None)` | Ends the level. It goes to level `to`, or the next level, or sends `game complete` on the last level. |
 | `hazard(x0, y0, z0, x1, y1, z1)` | Kills the player, who respawns. |
+| `checkpoint(x0, y0, z0, x1, y1, z1)` | Walking through it makes it the respawn point and sends `checkpoint`. The checkpoint resets on a new level. |
 
 ## Look
 

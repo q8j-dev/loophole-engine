@@ -31,6 +31,8 @@ A new project comes with a sprite called Helpers. Its My Blocks section has read
 | `fade to black in () seconds`, `fade in from black in () seconds` | Fades the screen. |
 | `fly camera to x () y () z () turn () tilt () in () seconds` | Glides a free camera, for cutscenes. |
 | `camera back to player` | Ends a cutscene. |
+| `save game to slot ()`, `load game from slot ()`, `delete save slot ()` | Saves the level, the player's position, the checkpoint, which objects are collected or open, and the `save data` list on this computer, in TurboWarp's local storage. Loading an empty slot sets `save found` to 0. |
+| `make save code`, `load save code ()` | Turns the same save into `save code`, digits only, so it fits in a cloud variable or can be written down. Letters in `save data` come back in capitals. |
 
 It also has four example scripts with notes beside them: a button that opens a door, counting collectibles, an enemy that walks back and forth, and a camera fly-through on the C key. Custom blocks belong to the sprite they are made in, so build your scripts in Helpers, or drag the definitions onto another sprite to copy them. Delete the sprite if you don't want it; a rebuild won't bring it back.
 
@@ -112,6 +114,7 @@ These combine the keyboard, a game controller and the touch controls, so one scr
 | `paused` | read, set | 1 while paused. Set it to 1 to pause, 0 to resume. |
 | `mouse locked` | read | 1 while the mouse is captured for looking around. |
 | `fps` | read | Frames per second. |
+| `checkpoint x`, `checkpoint y`, `checkpoint z`, `checkpoint yaw` | read, set | Where the player respawns. Empty means the level's start. Set them to make your own checkpoint. |
 
 ## Lists
 
@@ -136,6 +139,7 @@ Each object in the current level has one item in every `obj` list, in the order 
 | `obj goal x`, `obj goal z` | read, set | Where a character in `goto` mode walks to. |
 | `obj vx`, `obj vy`, `obj vz` | read, set | Speed of a physics object in metres per second. Set `obj vy` to 6 to throw it up. |
 | `obj sees player` | read | 1 while that character can see the player. |
+| `save data` | read, set | Anything you want kept in a save, like score or health. The save blocks store every item and put them back on load. |
 | `sound queue` | add | Add a sound name and the engine plays it: `alarm`, `arrive`, `boost`, `button`, `click`, `door_close`, `door_open`, `fail`, `hum`, `impact`, `jump`, `land`, `pickup`, `release`, `rumble`, `success`, `unpress`, `whoosh`. |
 
 Example: switch on a light called `beacon1` when the player collects something.

@@ -433,6 +433,10 @@ class Level:
             self.paint("exit", b[0], b[1], b[2], b[3], b[1] + 0.01, b[5], facing="+y")
         return self
 
+    def checkpoint(self, x0, y0, z0, x1, y1, z1, name="checkpoint"):
+        self.triggers.append(dict(name=name, box=_box(x0, y0, z0, x1, y1, z1), kind=3, to=0))
+        return self
+
     def hazard(self, x0, y0, z0, x1, y1, z1, name="hazard"):
         self.triggers.append(dict(name=name, box=_box(x0, y0, z0, x1, y1, z1), kind=1, to=0))
         return self
