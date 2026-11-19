@@ -423,6 +423,93 @@ def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=330, tint=(
     return m.save(name)
 
 
+def frond_strand(fronds, w, h, seed):
+    rng = np.random.default_rng(seed)
+    canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    dr = ImageDraw.Draw(canvas)
+    pts = [(w / 2 + math.sin(t * 2.4 + seed) * w * 0.06, t * h) for t in np.linspace(0, 1, 16)]
+    for a, b in zip(pts, pts[1:]):
+        dr.line([a, b], fill=(96, 92, 58, 255), width=max(2, w // 90))
+    y = 0.0
+    while y < h * 0.95:
+        fr = fronds[int(rng.integers(0, len(fronds)))]
+        sc = w * rng.uniform(0.75, 1.0) / max(fr.size)
+        im = fr.resize((max(4, int(fr.size[0] * sc)), max(4, int(fr.size[1] * sc))), Image.LANCZOS)
+        if im.size[0] > im.size[1]:
+            im = im.rotate(-90 + rng.uniform(-12, 12), expand=True, resample=Image.BICUBIC)
+        arr = np.asarray(im).astype(np.float32)
+        arr[..., :3] = np.clip(arr[..., :3] * rng.uniform(0.85, 1.15), 0, 255)
+        im = Image.fromarray(arr.astype(np.uint8), "RGBA")
+        x = int(w / 2 - im.size[0] / 2 + rng.normal(0, w * 0.05))
+        canvas.alpha_composite(im, (min(max(x, 0), w - im.size[0]) if im.size[0] < w else 0, int(y)))
+        y += im.size[1] * rng.uniform(0.35, 0.55)
+    return canvas
+
+
+def willow(name, seed, src, bark, height=7.0, crown=3.6, strands=300):
+    rng = np.random.default_rng(seed)
+    fronds = sorted(sprites(load_rgba(src, "jacaranda_tree__leaves_diff.jpg", "jacaranda_tree__leaves_alpha.png"),
+                            20000, max_fill=0.8, max_frac=0.5), key=lambda s: -s.size[0] * s.size[1])[:3]
+    tile = np.zeros((TILE, TILE, 3), np.float32)
+    ntile = np.zeros_like(tile)
+    ntile[..., :2] = 0.5
+    ntile[..., 2] = 1.0
+    rtile = np.zeros_like(tile)
+    bark_a = bark_strip(bark["diff"], TILE // 2, TILE, 3, (0.95, 0.9, 0.82))
+    bark_n = bark_strip(bark["nor"], TILE // 2, TILE, 3)
+    tile[:, :TILE // 2] = np.sqrt(bark_a ** 2.2)
+    ntile[:, :TILE // 2] = bark_n
+    rtile[:, :TILE // 2, 0] = 0.85
+    for k in range(2):
+        st = frond_strand(fronds, 256, 1024, seed * 5 + k)
+        a_ = np.asarray(st).copy()
+        st = Image.fromarray(a_, "RGBA")
+        al, nm, rm = rgba_to_maps(st, 0.6)
+        al = al * np.array([0.82, 0.98, 0.62])
+        tile[:, TILE // 2 + k * 256:TILE // 2 + (k + 1) * 256] = al
+        ntile[:, TILE // 2 + k * 256:TILE // 2 + (k + 1) * 256] = nm
+        rtile[:, TILE // 2 + k * 256:TILE // 2 + (k + 1) * 256] = rm
+    m = Mesh()
+    tp = [np.array([0.0, 0.0, 0.0])]
+    d = np.array([rng.normal(0, 0.1), 1.0, rng.normal(0, 0.1)])
+    for i in range(1, 7):
+        d = d + rng.normal(0, 0.07, 3)
+        d[1] = max(d[1], 0.7)
+        d /= np.linalg.norm(d)
+        tp.append(tp[-1] + d * height * 0.45 / 6)
+    r0 = 0.3 * height / 7
+    m.tube(tp, [r0 * (1.4 if i == 0 else 1.0) * (1 - 0.4 * i / 6) for i in range(7)], 0.0, 0.5, 0.0, 1.0, segs=8,
+           sway=[0.0] * 7)
+    tips = []
+    for b in range(7):
+        ang = 2 * math.pi * b / 7 + rng.uniform(-0.3, 0.3)
+        out = np.array([math.cos(ang), rng.uniform(1.1, 1.6), math.sin(ang)])
+        path = branch_path(tp[-1], out, crown * rng.uniform(0.9, 1.2), 6, 1.4, rng, curl=0.1)
+        m.tube(path, [r0 * 0.55 * (1 - 0.8 * k / 6) + 0.01 for k in range(7)], 0.0, 0.5, 0.0, 0.3, segs=4,
+               sway=[0.05 + 0.15 * k / 6 for k in range(7)])
+        tips += path[2:]
+    for s_ in range(strands):
+        tip = tips[int(rng.integers(0, len(tips)))] + rng.normal(0, crown * 0.04, 3)
+        top = s_ % 3 == 0
+        L = (rng.uniform(0.8, 1.5) if top else rng.uniform(0.4, 0.85) * (tip[1] - 0.4))
+        L = max(L, 0.9)
+        k = int(rng.integers(0, 2))
+        rect = (0.5 + k * 0.25, 0.0, 0.75 + k * 0.25, 1.0)
+        out = tip - tp[-1]
+        out[1] = 0
+        out /= max(np.linalg.norm(out), 1e-6)
+        upv = np.array([0, 1.0, 0]) if not top else np.array([0, 1.0, 0]) - out * 0.55
+        upv = upv / np.linalg.norm(upv)
+        for q in range(2):
+            a = rng.uniform(0, math.pi)
+            right = np.array([math.cos(a), 0, math.sin(a)])
+            right -= upv * np.dot(right, upv)
+            right /= np.linalg.norm(right)
+            m.card(tip - upv * L, right, upv, L * 0.17, L, rect, out * 0.7 + np.array([0, 0.5, 0]), sway=1.0, rows=2)
+    save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
+    return m.save(name)
+
+
 def pine(name, seed, src, height=8.0, whorls=14, bare=0.18, width=0.3, shape=1.0, droop=0.25, gap=0.22, tint=(0.46, 0.6, 0.42)):
     rng = np.random.default_rng(seed)
     tw = load_rgba(src, "pine_tree_01__twig_diff.jpg", "pine_tree_01__twig_alpha.png")
@@ -606,6 +693,9 @@ def main():
     print("oak", broadleaf("oak", 3, src, bark))
     print("birch", broadleaf("birch", 9, src, bark, height=7.5, crown=2.1,
                              clusters=250, tint=(1.5, 1.45, 1.35), leaf_tint=np.array([1.05, 1.08, 0.9])))
+    print("maple", broadleaf("maple", 21, src, bark, height=6.8, crown=3.1, clusters=360, tint=(1.1, 1.0, 0.95),
+                             leaf_tint=np.array([1.75, 0.8, 0.32])))
+    print("willow", willow("willow", 4, src, bark))
     print("pine", pine("pine", 5, src, height=9.0, whorls=11, bare=0.4, width=0.26, shape=0.6, droop=0.1, gap=0.3,
                        tint=(0.5, 0.6, 0.4)))
     print("spruce", pine("spruce", 8, src, height=10.0, whorls=17, bare=0.1, width=0.26, shape=1.1, droop=0.42,

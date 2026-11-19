@@ -524,7 +524,8 @@ class Level:
         return placed
 
     FORESTS = {
-        "mixed": [("oak", 3), ("birch", 2), ("pine", 2), ("spruce", 2)],
+        "mixed": [("oak", 3), ("birch", 2), ("pine", 2), ("spruce", 2), ("maple", 1)],
+        "autumn": [("maple", 4), ("oak", 2), ("birch", 2)],
         "broadleaf": [("oak", 3), ("birch", 2)],
         "pine": [("pine", 3), ("spruce", 2)],
         "birch": [("birch", 4), ("oak", 1)],
@@ -543,7 +544,10 @@ class Level:
                 under.append(("log", 1))
             self.scatter(under, x0, z0, x1, z1, spacing=2.2 / d ** 0.5, scale=(0.7, 1.2), seed=seed + 1,
                          clearance=0.4, taken=taken)
-            self.scatter([("boulder", 1), ("rock", 2), ("stump", 1)], x0, z0, x1, z1, spacing=9.0, scale=(0.5, 1.1),
+            rocks = [("boulder", 1), ("rock", 2), ("stump", 1)]
+            if "mossrock" in self._kinds():
+                rocks.append(("mossrock", 1))
+            self.scatter(rocks, x0, z0, x1, z1, spacing=9.0, scale=(0.35, 0.8),
                          seed=seed + 2, clearance=0.6, fill=0.5, taken=taken)
         return self
 

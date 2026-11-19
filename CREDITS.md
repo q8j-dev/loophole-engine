@@ -17,7 +17,7 @@ leafy_grass, dark_rock, coast_sand_01, brown_mud_dry, brick_wall_001, old_wood_f
 
 These Poly Haven models were decimated, unwrapped and baked into the prop library by `tools/build_props.py`:
 
-ArmChair_01, Barrel_01, boulder_01, brass_goblets, Chandelier_01, ClassicNightstand_01, concrete_cat_statue, food_apple_01, GothicBed_01, gothic_statue, hanging_picture_frame_01, industrial_wall_lamp, industrial_wall_sconce, Lantern_01, namaqualand_boulder_02, painted_wooden_bench, painted_wooden_cabinet, Sofa_01, stone_fire_pit, street_lamp_01, street_rat, tool_cart, treasure_chest, tree_stump_01, vintage_oil_lamp, wine_barrel_01, wooden_bookshelf_worn, wooden_bucket_01, wooden_candlestick, wooden_crate_01, WoodenChair_01, WoodenTable_01
+ArmChair_01, Barrel_01, boulder_01, brass_goblets, Chandelier_01, ClassicNightstand_01, concrete_cat_statue, food_apple_01, GothicBed_01, gothic_statue, hanging_picture_frame_01, industrial_wall_lamp, industrial_wall_sconce, Lantern_01, namaqualand_boulder_02, painted_wooden_bench, painted_wooden_cabinet, Sofa_01, stone_fire_pit, street_lamp_01, street_rat, tool_cart, treasure_chest, tree_stump_01, vintage_oil_lamp, wine_barrel_01, wooden_bookshelf_worn, wooden_bucket_01, wooden_candlestick, wooden_crate_01, WoodenChair_01, WoodenTable_01, dead_tree_trunk, rock_moss_set_01
 
 ## Characters
 
@@ -25,7 +25,7 @@ The knight, mage, rogue and barbarian player characters come from the KayKit Cha
 
 ## Foliage
 
-`tools/make_foliage.py` builds the trees, bushes, grass and ferns from these Poly Haven textures: island_tree_01 leaves, pine_tree_01 twigs and bark, fir_sapling twigs, grass_medium_01, fern_02, bark_brown_02.
+`tools/make_foliage.py` builds the trees, bushes, grass and ferns from these Poly Haven textures: island_tree_01 leaves, jacaranda_tree leaves (willow fronds), pine_tree_01 twigs and bark, fir_sapling twigs, grass_medium_01, fern_02, bark_brown_02.
 
 ## Fonts
 

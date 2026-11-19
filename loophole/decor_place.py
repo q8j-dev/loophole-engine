@@ -113,7 +113,7 @@ def build(c):
         if name in FOLIAGE:
             fl_ = vflags(name)[0]
             sel = fl_ < 4.5
-            if sel.any() and name in ("oak", "birch", "pine", "spruce"):
+            if sel.any() and name in ("oak", "birch", "pine", "spruce", "maple", "willow"):
                 lo, hi = P[sel].min(0), P[sel].max(0)
                 c_ = (lo + hi) / 2
                 r_ = 0.16 * float(np.mean(scale[::2]))
