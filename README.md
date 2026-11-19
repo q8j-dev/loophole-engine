@@ -12,6 +12,14 @@ Every image on this page is a real TurboWarp frame captured by the playtest harn
 | --- | --- | --- |
 | ![](docs/img/meadow.jpg) | ![](docs/img/sunbeams.jpg) | ![](docs/img/dusk_forest.jpg) |
 
+| Lake with reeds and lily pads | Snowy pass in falling snow | Tropical lagoon |
+| --- | --- | --- |
+| ![](docs/img/lake.jpg) | ![](docs/img/snow.jpg) | ![](docs/img/tropical.jpg) |
+
+| Rain on a meadow | Starry night |
+| --- | --- |
+| ![](docs/img/rain.jpg) | ![](docs/img/night.jpg) |
+
 | Afterglow valley at dusk | Lab puzzle, first person | Orchard, third person | Crypt, top down |
 | --- | --- | --- | --- |
 | ![](docs/img/valley.jpg) | ![](docs/img/lab.jpg) | ![](docs/img/orchard.jpg) | ![](docs/img/crypt.jpg) |
@@ -23,6 +31,7 @@ Every image on this page is a real TurboWarp frame captured by the playtest harn
 - Lightmaps with baked global illumination, a sun and sky for outdoor levels, flickering torches and switchable lights.
 - PBR materials from a CC0 texture library (lab panels, brick, plaster, cobble, grass, rock, gravel, roof tiles and more), plus about 60 props such as trees, lamps, furniture, barrels and statues.
 - Terrain with grass that ripples in the wind, wildflower meadows, paths and a horizon. Buildings with roofs, framed windows and doors.
+- Lakes and rivers with reflections, ripples, shore foam and swimming. Biomes for meadow, forest, snow, tropical, swamp and dry country, any time of day with stars at night, and rain, snow or fog that Scratch can switch on and off.
 - Forests in one line: `level.forest(x0, z0, x1, z1)` plants oaks, maples, birches, willows, pines and spruces with bushes, ferns, logs and mossy rocks, lit with dappled shade and sunbeams, at 60 frames per second.
 - First person, third person, top-down and free cameras. Four animated player characters, or import your own rigged glTF.
 - Objects that you can pick up and carry, buttons and doors, pickups that spin and glow, enemies that walk paths, triggers and goals.
@@ -91,6 +100,7 @@ Each example uses only the public API and has a scripted playthrough in `tools/h
 - [examples/orchard](examples/orchard): Orchard Dash. A third-person race to collect 12 apples before the timer runs out, with rats patrolling the rows. You play the rogue.
 - [examples/crypt](examples/crypt): Crypt Crawl. A top-down crypt lit by torches. Collect three goblets to sink the statue that blocks the treasure vault, and keep away from the giant rats. You play the knight.
 
+- [examples/journey](examples/journey): The Long Walk. Walk from autumn woods past a lake you can swim across to a snowy pass and a warm cabin.
 - [examples/woods](examples/woods): Autumn Woods. A forest to walk through, made with two `forest()` calls.
 - [examples/portals](examples/portals): Portal Lab. Carry a cube up to a ledge through a portal, fall into a floor portal to be flung across a slime pit, and put the cube on the button that opens the exit.
 
