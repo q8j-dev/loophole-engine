@@ -8,6 +8,8 @@ Your own sprites, scripts and variables survive `loophole build`. The build repl
 
 A new project comes with a sprite called Helpers. Its My Blocks section has ready-made blocks built from the variables and lists below:
 
+![The Helpers sprite in TurboWarp: example scripts with a note above each one](img/helpers.jpg)
+
 | Block | What it does |
 | --- | --- |
 | `move object [name] to x () y () z ()` | Moves an object to a new spot. |

@@ -224,6 +224,7 @@ class Level:
     def light(self, x, y, z, color="white", power=8.0, fixture="cage", facing="-y", dynamic=False, name=None,
               haze=0.0, on=True, flicker=0.0):
         n = np.array(globals()["facing"](facing), float)
+        dynamic = dynamic or name is not None
         if fixture == "cage":
             if abs(n[1]) < 0.9:
                 self.deco("cage", (x, y, z), tuple(np.cross((0, 1, 0), n)), tuple(n))
@@ -244,6 +245,7 @@ class Level:
         pos = np.array([x, y, z], float)
         d = np.array(target, float) - pos
         d /= np.linalg.norm(d)
+        dynamic = dynamic or name is not None
         if fixture:
             self.deco("spot", pos - d * 0.1, d, (0, 1, 0))
         self.lights.append(dict(kind="spot", p=tuple(pos + d * 0.02), d=tuple(d), size=(size, size), col=color_(color),

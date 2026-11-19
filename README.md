@@ -110,6 +110,10 @@ You need Python 3.9 or newer and a browser.
 
    When you rebuild, Loophole replaces only its own Engine sprite. Your sprites, scripts, variables and sounds stay as they are.
 
+   A new project also has a Helpers sprite with ready-made blocks such as `move object [name] to x () y () z ()`, `play sound [name]`, `show message [text]` and `fly camera to ...`, plus example scripts to remix: a button that opens a door, counting collectibles, an enemy that paces, and a camera fly-through on the C key. The [Scratch API](docs/scratch-api.md#helpers-sprite) lists every block.
+
+   ![The Helpers sprite in TurboWarp: example scripts with a note above each one](docs/img/helpers.jpg)
+
 If you prefer typing to dragging blocks, `game.script("game.py")` compiles a Python file into Scratch blocks in a Game sprite. The examples use it.
 
 ## Examples

@@ -514,8 +514,12 @@ def objects_load(lv):
     mklist(OPX, nobj)
     mklist(OPY, nobj)
     mklist(OPZ, nobj)
+    mklist(OLX, nobj)
+    mklist(OLY, nobj)
+    mklist(OLZ, nobj)
     for oi in rep(nobj):
         od = o0 + oi - 1
+        OLY[oi] = -9999
         obj_name.append(DNAME[od])
         obj_x.append(DX[od])
         obj_y.append(DY[od])
@@ -1017,8 +1021,22 @@ def objects_step():
                         broadcast("collect")
         if api_hold == ok_:
             hold_step(ok_)
+            OLX[ok_] = obj_x[ok_]
+            OLY[ok_] = obj_y[ok_]
+            OLZ[ok_] = obj_z[ok_]
         elif DPHYS[od] == 1 and obj_visible[ok_] == 1:
+            if OLY[ok_] > -9998:
+                if abs(obj_x[ok_] - OLX[ok_]) + abs(obj_y[ok_] - OLY[ok_]) + abs(obj_z[ok_] - OLZ[ok_]) > 0.002:
+                    obj_y[ok_] = obj_y[ok_] + 1
+                    OAY0[ok_] = OAY0[ok_] + 1
+                    OAY1[ok_] = OAY1[ok_] + 1
+                    OVX[ok_] = 0
+                    OVY[ok_] = 0
+                    OVZ[ok_] = 0
             phys_step(ok_)
+            OLX[ok_] = obj_x[ok_]
+            OLY[ok_] = obj_y[ok_]
+            OLZ[ok_] = obj_z[ok_]
 
 
 @warp

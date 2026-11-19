@@ -1190,9 +1190,17 @@ def game_sprite(A, proj, game, world_path, consts):
             "direction": 90, "draggable": False, "rotationStyle": "don't rotate"}
 
 
-def helpers_sprite(A, proj):
-    src = (HERE / "runtime" / "helpers.py").read_text(encoding="utf-8")
-    c = Compiler(proj, src, list(API_LISTS.values()), aliases=dict(USER_ALIASES))
+class _Spaced(dict):
+    def get(self, k, d=None):
+        if k in self:
+            return self[k]
+        return k.replace("_", " ") if isinstance(k, str) and "_" in k else d
+
+
+def helpers_sprite(A, proj, extra=""):
+    src = (HERE / "runtime" / "helpers.py").read_text(encoding="utf-8") + extra
+    c = Compiler(proj, src, list(API_LISTS.values()), aliases=_Spaced(USER_ALIASES))
+    c.grid = True
     blocks = c.compile()
     return {"isStage": False, "name": "Helpers", "variables": {vid: [n, 0] for n, vid in c.new_vars.items()},
             "lists": {lid: [n, []] for n, lid in c.new_lists.items()}, "broadcasts": {}, "blocks": blocks,

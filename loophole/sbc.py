@@ -78,12 +78,14 @@ class SpriteCompiler:
         self.existing_vars = set(self.local_vars)
         self.existing_lists = set(self.local_lists)
         self.existing_ok = set(existing_ok or [])
-        self.aliases = dict(aliases or {})
+        self.aliases = aliases if aliases is not None else {}
         self.new_vars = {}
         self.new_lists = {}
         self.args = None
         self.script_y = 0
         self.comments = {}
+        self.layout = []
+        self.grid = False
         self.tree = ast.parse(source)
         self._collect()
 
@@ -179,21 +181,86 @@ class SpriteCompiler:
                 else:
                     top = self._proc_def(node)
                 doc = ast.get_docstring(node)
+                cid = None
                 if doc and top:
                     cid = self.p.uid("c")
-                    blk = self.blocks[top]
-                    blk["comment"] = cid
-                    lines = sum(max(1, -(-len(par) // 44)) for par in doc.split("\n"))
-                    self.comments[cid] = {"blockId": top, "x": blk.get("x", 0) + 560, "y": blk.get("y", 0),
-                                          "width": 340, "height": min(420, 30 + lines * 19), "minimized": False,
-                                          "text": doc}
-                stmts = [n for n in ast.walk(node) if isinstance(n, ast.stmt) and n is not node]
-                nest = sum(1 for n in stmts if isinstance(n, (ast.If, ast.For, ast.While)))
-                tall = 110 + 56 * len(stmts) + 40 * nest
-                if doc:
-                    tall = max(tall, 60 + min(420, 30 + sum(max(1, -(-len(p) // 44)) for p in doc.split("\n")) * 19))
-                self.script_y += tall + 60
+                    self.blocks[top]["comment"] = cid
+                    lines = sum(max(1, -(-len(par) // 36)) for par in doc.split("\n"))
+                    self.comments[cid] = {"blockId": top, "x": 0, "y": 0, "width": 380, "height": 44 + lines * 22,
+                                          "minimized": False, "text": doc}
+                proc = top is not None and self.blocks[top]["opcode"] == "procedures_definition"
+                head = (96 if proc else 88)
+                width = 320
+                if proc:
+                    label = self.procs[node.name]["proccode"]
+                    width = 110 + 9 * len(label.replace("%s", "")) + 60 * label.count("%s")
+                width = max(width, self._est_width(node.body, 0))
+                self.layout.append(dict(top=top, cid=cid, proc=proc, w=width, h=head + self._est_height(node.body)))
+                self.blocks[top]["y"] = self.script_y
+                self.script_y += max(self.layout[-1]["h"], self.comments[cid]["height"] if cid else 0) + 64
+                if cid:
+                    self.comments[cid]["x"] = width + 40
+                    self.comments[cid]["y"] = self.blocks[top]["y"]
+        if self.grid:
+            self._grid()
         return self.blocks
+
+    def _est_height(self, body):
+        h = 0
+        for st in body:
+            if isinstance(st, ast.Expr) and isinstance(st.value, ast.Constant):
+                continue
+            if isinstance(st, ast.If):
+                h += 88 + self._est_height(st.body)
+                if st.orelse:
+                    h += 48 + self._est_height(st.orelse)
+            elif isinstance(st, (ast.For, ast.While)):
+                h += 88 + self._est_height(st.body)
+            else:
+                h += 48
+        return max(h, 48)
+
+    def _est_width(self, body, depth):
+        w = 0
+        for st in body:
+            if isinstance(st, ast.Expr) and isinstance(st.value, ast.Constant):
+                continue
+            if isinstance(st, (ast.If, ast.For, ast.While)):
+                w = max(w, 130 + 16 * depth + 9.5 * len(ast.unparse(st.test if not isinstance(st, ast.For) else st.iter)))
+                w = max(w, self._est_width(st.body, depth + 1), self._est_width(st.orelse, depth + 1))
+            else:
+                w = max(w, 100 + 16 * depth + 9.5 * len(ast.unparse(st)))
+        return int(w)
+
+    def _grid(self):
+        sections = [([it for it in self.layout if not it["proc"]], 2), ([it for it in self.layout if it["proc"]], 3)]
+        y = 0
+        for items, cols in sections:
+            if not items:
+                continue
+            for it in items:
+                if it["cid"]:
+                    c = self.comments[it["cid"]]
+                    c["width"] = max(380, min(520, it["w"]))
+                    lines = sum(max(1, -(-len(par) // int(c["width"] / 7.6))) for par in c["text"].split("\n"))
+                    c["height"] = 64 + lines * 19
+            colw = max(max(it["w"], self.comments[it["cid"]]["width"] if it["cid"] else 0) for it in items) + 100
+            for r in range(0, len(items), cols):
+                row = items[r:r + cols]
+                rh = 0
+                for k, it in enumerate(row):
+                    x = k * colw
+                    top_y = y
+                    if it["cid"]:
+                        c = self.comments[it["cid"]]
+                        c["x"] = x
+                        c["y"] = y
+                        top_y = y + c["height"] + 18
+                    self.blocks[it["top"]]["x"] = x
+                    self.blocks[it["top"]]["y"] = top_y
+                    rh = max(rh, top_y - y + it["h"])
+                y += rh + 90
+            y += 140
 
     def _new(self, opcode, parent=None, inputs=None, fields=None, shadow=False, top=False, mutation=None):
         bid = self.p.uid()
@@ -475,8 +542,12 @@ class SpriteCompiler:
         if name in ("play", "play_wait"):
             op = "sound_play" if name == "play" else "sound_playuntildone"
             bid = self._new(op, parent)
-            mid = self._menu("sound_sounds_menu", "SOUND_MENU", a[0].value, bid)
-            self.blocks[bid]["inputs"]["SOUND_MENU"] = [1, mid]
+            if isinstance(a[0], ast.Constant):
+                mid = self._menu("sound_sounds_menu", "SOUND_MENU", a[0].value, bid)
+                self.blocks[bid]["inputs"]["SOUND_MENU"] = [1, mid]
+            else:
+                mid = self._menu("sound_sounds_menu", "SOUND_MENU", "", bid)
+                self.blocks[bid]["inputs"]["SOUND_MENU"] = [3, self._expr(a[0], bid), mid]
             return self._single(bid)
         if name == "set_volume":
             bid = self._new("sound_setvolumeto", parent)
