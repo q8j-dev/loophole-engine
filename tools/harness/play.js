@@ -55,14 +55,22 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     else if (cmd === 'walkto') {
       const tx = +a, tz = +b, lim = +(c || 8000), t0 = Date.now();
       const lv0 = await page.evaluate(() => getv('level'));
-      await page.evaluate(() => key('w', true));
+      const top = await page.evaluate(() => getv('camera mode') == 3);
+      if (!top) await page.evaluate(() => key('w', true));
       while (Date.now() - t0 < lim) {
-        const dist = await page.evaluate((tx, tz) => { const px = getv('player x'), pz = getv('player z'); const dx = tx - px, dz = tz - pz; const dd = Math.hypot(dx, dz); if (dd > 0.3) setv(getv('camera mode') >= 2 ? 'camera yaw' : 'player yaw', Math.atan2(dx, -dz) * 180 / Math.PI); return dd; }, tx, tz);
+        const dist = await page.evaluate((tx, tz, top) => {
+          const px = getv('player x'), pz = getv('player z'); const dx = tx - px, dz = tz - pz; const dd = Math.hypot(dx, dz);
+          if (top) {
+            const cy = getv('camera yaw') * Math.PI / 180;
+            const df = (dx * Math.sin(cy) - dz * Math.cos(cy)) / Math.max(dd, 1e-6), dr = (dx * Math.cos(cy) + dz * Math.sin(cy)) / Math.max(dd, 1e-6);
+            key('w', dd > 0.3 && df > 0.38); key('s', dd > 0.3 && df < -0.38); key('d', dd > 0.3 && dr > 0.38); key('a', dd > 0.3 && dr < -0.38);
+          } else if (dd > 0.3) setv(getv('camera mode') >= 2 ? 'camera yaw' : 'player yaw', Math.atan2(dx, -dz) * 180 / Math.PI);
+          return dd; }, tx, tz, top);
         if (dist < 0.4) break;
         if (await page.evaluate(() => getv('level')) !== lv0) break;
         await sleep(30);
       }
-      await page.evaluate(() => key('w', false));
+      await page.evaluate(() => { for (const k of ['w', 'a', 's', 'd']) key(k, false); });
       await sleep(250);
     }
     else if (cmd === 'hideui') await page.evaluate(() => { const o = S.vm.runtime.targets.find(t => t.isOriginal && t.getName() === 'Overlay'); if (o) { o.setVisible(false); o.show = () => {}; for (const th of S.vm.runtime.threads.filter(t => t.target === o)) S.vm.runtime._stopThread(th); } });

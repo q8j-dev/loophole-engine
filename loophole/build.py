@@ -983,7 +983,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     paw, pah = props.atlas_size()
     consts = {"NLEV": len(game.levels), "START_LEVEL": max(1, min(len(game.levels), game.start_level)),
               "QUALITY": game.quality, "FOV": game.fov, "VMDEF": game.viewmodel,
-              "CAM0": game.camera, "CDIST0": game.camera_distance, "WALK": game.walk_speed, "JUMPV": game.jump_power, "GRAV": 20.0, "FRIC": 5.0, "STOPSPD": 1.9, "ACCEL": 10.0, "AIRACC": 12.0,
+              "CAM0": game.camera, "CDIST0": game.camera_distance, "CPITCH0": game.camera_pitch, "WALK": game.walk_speed, "JUMPV": game.jump_power, "GRAV": 20.0, "FRIC": 5.0, "STOPSPD": 1.9, "ACCEL": 10.0, "AIRACC": 12.0,
               "AIRCAP": 0.8, "STEPH": 0.55, "EYE": 1.6, "EYEC": 1.05, "PHT": 1.75, "PHTC": 1.2, "PW": 0.3,
               "ENVT": 192, "NEAR": 0.01, "FAR": 150.0, "SENS": 0.11, "EXPO": 0.72, "AMBS": 0.01, "HOLDD": 1.6,
               "USED": 2.6, "NSHAD": 4, "HASTER": 1 if has_terrain else 0, "PAW": paw, "PAH": pah,
@@ -1059,7 +1059,8 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
                 + json.dumps(tw_cfg, separators=(",", ":")) + " // _twconfig_")
     api_values = {"message": "", "status": "", "viewmodel": game.viewmodel, "controls": 1, "camera mode": game.camera, "field of view": game.fov,
                   "exposure": 1, "walk speed": game.walk_speed, "jump power": game.jump_power, "gravity": 20.0,
-                  "camera distance": game.camera_distance, "level": game.start_level}
+                  "camera distance": game.camera_distance, "camera pitch": game.camera_pitch,
+                  "level": game.start_level}
     shader_store = {name: {"projectData": {"vertShader": vs.replace(shaders.ATLAS, atlas_src),
                                            "fragShader": fs.replace(shaders.ATLAS, atlas_src)},
                            "modifyDate": 1763400000000}

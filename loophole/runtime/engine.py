@@ -47,9 +47,9 @@ def init():
     api_used = 0
     api_cdist = CDIST0
     api_cyaw = 0
-    api_cpitch = 20
+    api_cpitch = CPITCH0
     cyaw = 0
-    cpitch = 20
+    cpitch = CPITCH0
     snd_q.clear()
     mklist(KCOL, 8)
     jx = 0
@@ -1309,7 +1309,10 @@ def api_cyaw_o():
             api_cpitch = round(pitch * 100) / 100
         else:
             api_cyaw = round(cyaw * 100) / 100
-            api_cpitch = round(cpitch * 100) / 100
+            if api_cam == 3:
+                api_cpitch = round((0 - cpitch) * 100) / 100
+            else:
+                api_cpitch = round(cpitch * 100) / 100
 
 
 @warp

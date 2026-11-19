@@ -448,8 +448,9 @@ def color_(c):
 class Game:
     def __init__(self, title="My Game", viewmodel="none", viewmodels=None, hand_color="cyan", quality=3, fov=72,
                  start_level=1, hands=None, camera="first person", camera_distance=4.0, walk_speed=6.0,
-                 jump_power=7.0, textures="normal", viewmodel_arms=False):
+                 jump_power=7.0, textures="normal", viewmodel_arms=False, camera_pitch=None):
         self.title = title
+        self.camera_pitch = camera_pitch if camera_pitch is not None else (60.0 if camera == "top down" else 20.0)
         self.viewmodel_arms = viewmodel_arms
         if textures not in ("normal", "high"):
             raise ValueError("textures must be 'normal' or 'high'")
