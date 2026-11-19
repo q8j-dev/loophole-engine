@@ -47,6 +47,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     else if (cmd === 'recstop') { global.recOn = false; await global.recDone; }
     else if (cmd === 'rec') { for (let i = 0; i < +a; i++) { await page.screenshot({path: path.join(out, `${b}_${String(i).padStart(3, '0')}.png`)}); await sleep(+(c || 60)); } }
     else if (cmd === 'click') { await page.evaluate(bt => S.vm.postIOData('mouse', {isDown: true, button: +bt, x: 240, y: 180, canvasWidth: 480, canvasHeight: 360}), a); await sleep(150); await page.evaluate(bt => S.vm.postIOData('mouse', {isDown: false, button: +bt, x: 240, y: 180, canvasWidth: 480, canvasHeight: 360}), a); }
+    else if (cmd === 'throttle') { const cdp = await page.createCDPSession(); await cdp.send('Emulation.setCPUThrottlingRate', {rate: +a}); }
     else if (cmd === 'get') console.log('VAR', a, JSON.stringify(await page.evaluate(n => getv(n), a)));
     else if (cmd === 'list') console.log('LIST', a, JSON.stringify(await page.evaluate(n => Lst(n).value, a)));
     else if (cmd === 'pos') await page.evaluate((x, y, z) => { setv('player x', x); setv('player y', y); setv('player z', z); }, +a, +b, +c);

@@ -465,8 +465,9 @@ class Game:
     def __init__(self, title="My Game", viewmodel="none", viewmodels=None, hand_color="cyan", quality=3, fov=72,
                  start_level=1, hands=None, camera="first person", camera_distance=4.0, walk_speed=6.0,
                  jump_power=7.0, textures="normal", viewmodel_arms=False, camera_pitch=None, player_model="suit",
-                 portals=False):
+                 portals=False, auto_quality=True):
         self.title = title
+        self.auto_quality = bool(auto_quality)
         self.portals_on = bool(portals)
         self.portal_colors = ("cyan", "magenta")
         self.player_model = player_model

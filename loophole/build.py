@@ -35,7 +35,7 @@ API_VARS = {
     "api_fov": "field of view", "api_expo": "exposure", "api_fade": "fade", "api_flash": "flash",
     "api_walk": "walk speed", "api_jump": "jump power", "api_grav": "gravity", "api_paused": "paused",
     "api_locked": "mouse locked", "api_vm": "viewmodel", "api_lcoll": "last collected", "api_ltouch": "last touched",
-    "api_ltrig": "last trigger", "api_msg": "message", "api_stat": "status",
+    "api_ltrig": "last trigger", "api_msg": "message", "api_stat": "status", "quality": "quality",
 }
 API_LISTS = {
     "obj_name": "obj name", "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw",
@@ -57,7 +57,7 @@ USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "pla
                 "field_of_view": "field of view", "exposure": "exposure", "fade": "fade", "flash": "flash",
                 "walk_speed": "walk speed", "jump_power": "jump power", "gravity": "gravity", "paused": "paused",
                 "mouse_locked": "mouse locked", "viewmodel": "viewmodel", "last_collected": "last collected",
-                "last_touched": "last touched", "last_trigger": "last trigger", "message": "message", "status": "status", "obj_name": "obj name",
+                "last_touched": "last touched", "last_trigger": "last trigger", "message": "message", "status": "status", "quality": "quality", "obj_name": "obj name",
                 "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw", "obj_pitch": "obj pitch",
                 "obj_roll": "obj roll", "obj_scale": "obj scale", "obj_visible": "obj visible", "obj_solid": "obj solid",
                 "obj_glow": "obj glow", "obj_open": "obj open", "obj_touching": "obj touching",
@@ -1046,7 +1046,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
               "AIRCAP": 0.8, "STEPH": 0.55, "EYE": 1.6, "EYEC": 1.05, "PHT": 1.75, "PHTC": 1.2, "PW": 0.3,
               "ENVT": 192, "NEAR": 0.01, "FAR": 150.0, "SENS": 0.11, "EXPO": 0.72, "AMBS": 0.01, "HOLDD": 1.6,
               "USED": 2.6, "NSHAD": 4, "HASTER": 1 if has_terrain else 0, "PAW": paw, "PAH": pah,
-              "CH0": 5, "PORTALS": 1 if game.portals_on else 0, "PORW": 0.62, "PORH": 1.02, "MAXD": 3, "MINA": 0.004,
+              "CH0": 5, "AUTOQ": 1 if game.auto_quality else 0, "PORTALS": 1 if game.portals_on else 0, "PORW": 0.62, "PORH": 1.02, "MAXD": 3, "MINA": 0.004,
               "COLAR": pcol[0][0], "COLAG": pcol[0][1], "COLAB": pcol[0][2], "COLBR": pcol[1][0], "COLBG": pcol[1][1],
               "COLBB": pcol[1][2],
               "CHAR": gids["char"], "CNJ": L.pop("_CNJ", 0), "CFPS": 15, "G_DEVICE": gids["device"], "G_ARMS": gids["arms"], "G_PLAYER": gids["player"]}
@@ -1119,7 +1119,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     cfg_text = ("Configuration for https://turbowarp.org/\nYou can move, resize, and minimize this comment, "
                 "but don't edit it by hand. This comment can be deleted to remove the stored settings.\n"
                 + json.dumps(tw_cfg, separators=(",", ":")) + " // _twconfig_")
-    api_values = {"message": "", "status": "", "viewmodel": game.viewmodel, "controls": 1, "camera mode": game.camera, "field of view": game.fov,
+    api_values = {"message": "", "status": "", "quality": game.quality, "viewmodel": game.viewmodel, "controls": 1, "camera mode": game.camera, "field of view": game.fov,
                   "exposure": 1, "walk speed": game.walk_speed, "jump power": game.jump_power, "gravity": 20.0,
                   "camera distance": game.camera_distance, "camera pitch": game.camera_pitch,
                   "level": game.start_level}

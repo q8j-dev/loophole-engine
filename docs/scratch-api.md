@@ -54,6 +54,7 @@ Variables marked "read" are updated by the engine every frame. Variables marked 
 | `fade` | set | 0 is normal and 1 is black. Count it up in a loop for a fade-out. |
 | `flash` | set | Set to about 0.5 for a white flash when the player is hurt. It fades back by itself. |
 | `exposure` | set | Brightness multiplier. Default 1. |
+| `quality` | read, set | Render resolution from 1 (960 pixels wide) to 4 (1920). The engine lowers it by itself if the game stays under about 36 frames per second, unless `Game(auto_quality=False)`. |
 
 ### Game flow
 

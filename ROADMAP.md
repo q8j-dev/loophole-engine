@@ -24,6 +24,7 @@ Status: `[ ]` not started, `[~]` works but has known gaps, `[x]` built and check
 - [x] Prebuilt assets in the package: material atlases, kit and prop meshes, decor tiles, characters, fonts, sound pack
 - [x] Per-game texture packing: only the materials and props a game uses, 512-pixel textures by default. The showcase went from 63 MB to 23 MB.
 - [x] Starter template renders in the harness at about 60 fps
+- [x] Automatic quality: render resolution steps down when the frame rate stays low (checked with 8x CPU throttling: 14 fps, quality 3 to 1 in about 6 seconds), and scripts can read or set `quality`
 
 ### 2. Scratch API
 - [x] Player variables, readable and writable (teleport by setting `player x`)

@@ -24,6 +24,7 @@ def init():
     t0 = timer()
     TT = 0
     quality = QUALITY
+    lowq = 0
     lastq = 0
     sens = 1.0
     lockon = 0
@@ -189,6 +190,14 @@ def tick():
         api_fps = fps
         frames = 0
         t0 = timer()
+        if AUTOQ == 1 and state == 1 and quality > 1:
+            if fps < 36:
+                lowq += 1
+            else:
+                lowq = 0
+            if lowq >= 5:
+                quality = quality - 1
+                lowq = 0
     locked = 0
     if plocked():
         locked = 1
@@ -229,6 +238,7 @@ def tick():
 
 @warp
 def flow():
+    quality = max(1, min(4, round(quality)))
     if quality != lastq:
         make_rts()
     if api_goto > 0:
