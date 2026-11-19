@@ -445,8 +445,8 @@ class Level:
         self.window_style = "sky"
         return self
 
-    GRASS_STYLES = {"lawn": (0.75, 1.15, 0.0, 0.02), "meadow": (1.45, 1.0, 0.1, 0.12), "dry": (1.1, 0.8, 0.85, 0.02),
-                    "forest": (0.9, 0.55, 0.15, 0.04)}
+    GRASS_STYLES = {"lawn": (0.75, 1.15, 0.0, 0.02, 0.0), "meadow": (1.45, 1.0, 0.1, 0.12, 0.0),
+                    "dry": (1.1, 0.8, 0.85, 0.02, 0.15), "forest": (0.9, 0.5, 0.15, 0.04, 0.75)}
 
     def terrain(self, x0, z0, x1, z1, height=None, base=0.0, step=1.0, material="terrain", seed=1, hills=4.0, grass=1.0,
                 grass_style="lawn"):

@@ -423,6 +423,7 @@ def sky_load(lv):
     set_vec4("uGR", "grass", GRX[lv], GRY[lv], GRW[lv], GRH[lv])
     set_vec4("uGS", "grass", 26, 13, GRDN[lv], GRSZ[lv])
     set_vec4("uGT", "grass", GRFL[lv], 0, GRDRY[lv], 0)
+    set_vec4("uTerr", "world", GRLT[lv], 0, 0, 0)
     set_vec4("uFog", "grass", SKY[sb + 17], SKY[sb + 18], SKY[sb + 19], SKY[sb + 20])
     set_vec4("uFogS", "grass", SKY[sb + 21], SKY[sb + 22], 1, 0)
 
@@ -1785,7 +1786,7 @@ def frame_uniforms():
     if api_cam >= 2:
         set_vec2("uNF", "world", 0.6, 1.9)
     else:
-        set_vec2("uNF", "world", 0, 0.001)
+        set_vec2("uNF", "world", 0.25, 0.85)
     if api_cam == 0:
         set_vec4("uO1", "world", 0, -999, 0, 0.01)
         set_vec4("uO2", "world", 0, -999, 0, 0.01)

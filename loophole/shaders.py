@@ -152,6 +152,7 @@ varying vec4 vIrr;
 varying vec3 vTan;
 uniform vec4 uSkin;
 uniform vec4 uLOD;
+uniform vec4 uTerr;
 uniform vec4 uBM[96];
 uniform vec4 uSk0;
 uniform vec4 uSk1;
@@ -270,6 +271,7 @@ void main() {
 """
 
 WORLD_FS = HEAD + """
+uniform vec4 uTerr;
 uniform float u_timer;
 """ + GATE + ENC + NOISE + ATLAS + """
 uniform vec3 uCP;
@@ -734,6 +736,9 @@ void main() {
       nm = sampA(2.0, 1.0, tuv, tl);
       float wr = smoothstep(0.84, 0.7, Ng.y + (ns - 0.5) * 0.1);
       float wd = smoothstep(0.7, 0.8, ns2 * 0.75 + ns3 * 0.4) * (1.0 - wr);
+      vec3 tsh = texture2D(uTLM, (vW.xz - uTLMP.xy) * uTLMP.zw).rgb;
+      float shade = 1.0 - smoothstep(0.32, 0.55, dot(tsh, vec3(0.3, 0.5, 0.2)));
+      float wl = smoothstep(0.35, 0.6, ns2 * 0.55 + ns * 0.45 + shade * 0.35 - 0.1) * uTerr.x * shade * (1.0 - wr);
       vec2 tr = uv / 4.0 + 0.37;
       vec3 ar = sampA(2.0, 2.0, tr, tl);
       vec3 nr = sampA(2.0, 3.0, tr, tl);
@@ -745,6 +750,8 @@ void main() {
       float gv = ns * 0.6 + ns3 * 0.4;
       gr *= mix(vec3(0.36, 0.5, 0.24), vec3(0.55, 0.6, 0.3), gv) * (0.72 + 0.4 * smoothstep(0.3, 0.7, ns2));
       a = mix(mix(gr, ad * vec3(0.7, 0.66, 0.6), wd), ar * vec3(1.05, 1.0, 0.95), wr);
+      vec3 litter = ad * mix(vec3(0.5, 0.42, 0.3), vec3(0.36, 0.34, 0.22), ns3) * (0.7 + 0.45 * ns2);
+      a = mix(a, litter, wl);
       nm = mix(mix(nm, nd, wd), nr, wr);
       float pth = texture2D(uTHM, (vW.xz - uTHP.xy) * uTHP.zw).r;
       if (pth > 0.01) {

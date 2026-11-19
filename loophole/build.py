@@ -613,7 +613,7 @@ LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "
               "DPRY2", "DPRS2", "DPRT2", "DBX", "DBY", "DBZ", "DBCX", "DBCY", "DBCZ", "DSX", "DSY", "DSZ", "DKIND",
               "DPHYS", "DCARRY", "DUSE", "DSHAD", "DSOLID", "DVIS", "DX", "DY", "DZ", "DYAW", "DPITCH", "DROLL",
               "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DHR", "DHG", "DHB", "DBOB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
-              "DPSP", "DPLOOP", "DPFACE", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL"]
+              "DPSP", "DPLOOP", "DPFACE", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
 
 
 def portal_blockers(L, Lv, c, rects, h0):
@@ -815,7 +815,7 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
         vals = [0.0] * 21
     L["SKY"].extend(vals + [0.0] * (24 - len(vals)))
     for k in ("TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH",
-              "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL"):
+              "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"):
         L[k].append(0)
     if c.terrain is not None:
         from . import terrain as T
@@ -856,6 +856,7 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
             L["GRDN"][-1] = r4(gs_[1] * Lv.terrain_def.get("grass", 1.0))
             L["GRDRY"][-1] = r4(gs_[2])
             L["GRFL"][-1] = r4(gs_[3])
+            L["GRLT"][-1] = r4(gs_[4])
     if Lv.sky and c.field is not None:
         f = c.field
         for (lo, hi) in ((np.array([f.x0 - 1, -50, f.z0 - 1]), np.array([f.x0, 200, f.z1 + 1])),
