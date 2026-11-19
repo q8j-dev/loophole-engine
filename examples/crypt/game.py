@@ -3,6 +3,7 @@ def begin():
     goblets = 0
     health = 3
     hurt = 0
+    resting = 0
     alive = 1
     controls = 1
     fade = 0
@@ -26,7 +27,7 @@ def got_goblet():
 
 
 def chase(name):
-    if alive == 1:
+    if alive == 1 and resting == 0:
         obj_mode[index_of(obj_name, name)] = "follow"
         message = "A rat spotted you!"
 
@@ -88,9 +89,14 @@ def bitten():
             go_to_level = 1
         else:
             message = "Ouch! A rat bit you"
+            resting = 1
             wait(1.2)
             hurt = 0
-            obj_mode[biter] = "patrol"
+            for rat in range(len(obj_mode)):
+                if obj_mode[rat + 1] == "follow" or obj_mode[rat + 1] == "flee":
+                    obj_mode[rat + 1] = "patrol"
+            wait(2.8)
+            resting = 0
 
 
 @when_broadcast("game complete")

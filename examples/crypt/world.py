@@ -77,3 +77,10 @@ c.object("rat3", "rat", 2, 0, -15, path=[(2, 0, -15), (2, 0, -20), (20, 0, -20),
 c.object("gate", "statue", 11, 0, -23, scale=1.35, kind=1, slide=-3.6, open_speed=0.5, solid=True, yaw=180)
 c.object("chest", "treasure", 11, 0, -31, scale=1.6, solid=True, highlight=(0.5, 0.36, 0.1))
 c.goal(9.5, 0, -30, 12.5, 3, -28.5, paint=False)
+
+intro = c.cutscene("intro", play_at_start=True)
+intro.camera(0, (11, 4.5, -33), turn=180, tilt=-20)
+intro.camera(3.5, (11, 6, -18), turn=180, tilt=-35)
+intro.camera(7, (11, 7.5, 10), turn=0, tilt=-38)
+intro.subtitle(0.4, "Deep under the old chapel lies a treasure vault", duration=3)
+intro.subtitle(3.8, "Find the 3 golden goblets. Watch out for the rats!", duration=3)
