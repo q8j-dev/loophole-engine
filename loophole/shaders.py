@@ -105,6 +105,7 @@ vec3 sampA(float atl, float cid, vec2 uv, float lod) {{
 
 WORLD_VS = HEAD + CAM_U + PROJECT + """
 attribute float aI;
+uniform float u_timer;
 uniform sampler2D uGeo;
 uniform vec4 uGeoI;
 uniform vec4 uGeoP;
@@ -193,6 +194,13 @@ void main() {
   }
   vBA = ba;
   vec3 w = uMP + uMX * aPos.x + uMY * aPos.y + uMZ * aPos.z;
+  if (t5.z > 4.5 && t5.z < 5.5) {
+    float sw = vAO;
+    vAO = 1.0;
+    float ph = w.x * 0.35 + w.z * 0.22;
+    w += vec3(sin(u_timer * 1.4 + ph), 0.0, cos(u_timer * 1.1 + ph * 1.3)) * (0.07 * sw);
+    w += vec3(sin(u_timer * 6.3 + w.y * 3.1 + w.x * 2.3), sin(u_timer * 5.1 + w.z * 2.7) * 0.6, cos(u_timer * 5.7 + w.y * 2.9)) * (0.018 * sw);
+  }
   vW = w;
   vN = uMX * aNrm.x + uMY * aNrm.y + uMZ * aNrm.z;
   vMP = aPos;
@@ -227,6 +235,8 @@ uniform vec4 uHaze;
 uniform vec4 uLf[24];
 uniform sampler2D uTLM;
 uniform vec4 uTLMP;
+uniform sampler2D uTHM;
+uniform vec4 uTHP;
 uniform vec4 uFog;
 uniform vec4 uFogS;
 uniform vec3 uFogSun;
@@ -479,12 +489,25 @@ float occ(vec3 p, vec3 n, vec4 s) {
 
 void main() {
   gate(vW);
+  bool leaf = vIrr.w > 4.5 && vIrr.w < 5.5;
+  if (vMat > 76.5 && vMat < 77.5) {
+    float dz = hash12(gl_FragCoord.xy + fract(u_timer * 17.0) * 113.0);
+    if (dz > 0.42) discard;
+  }
+  if (leaf) {
+    float dl = length(uCP - vW);
+    float al = texture2D(uDR, dmip(vLM, clamp(log2(max(dl * 0.6, 1.0)), 0.0, 4.0))).b;
+    float face = abs(dot(normalize(vN), (uCP - vW) / dl));
+    float thr = mix(0.42, 0.85, 1.0 - smoothstep(0.12, 0.45, face));
+    if (al < thr) discard;
+  }
   if (uGB.x > 0.5) {
     gbOut(vW);
     return;
   }
   float mat = floor(vMat + 0.5);
   vec3 Ng = normalize(vN);
+  if (leaf && dot(Ng, uCP - vW) < 0.0) Ng = -Ng;
   vec3 an = abs(vMN);
   vec2 uv;
   vec3 T;
@@ -576,10 +599,12 @@ void main() {
     vec3 a = sampA(atl, cidA, tuv, lod);
     vec3 nm = sampA(atl, cidA + 1.0, tuv, lod);
     if (mat > 69.5 && mat < 70.5) {
-      float tl = max(lod - 1.0, 0.0);
+      float tl = clamp(log2(max(dist / focal * (1024.0 / 3.0) / 0.75, 1e-4)), 0.0, 6.0);
       float ns = samp(22.0, vW.xz * 0.013, 2.0).r;
       float ns2 = samp(22.0, vW.xz * 0.045 + 0.3, 2.0).g;
       float ns3 = samp(22.0, vW.xz * 0.11 + 0.7, 1.0).b;
+      tuv = vW.xz / 3.0;
+      uv = vW.xz;
       a = sampA(2.0, 0.0, tuv, tl);
       nm = sampA(2.0, 1.0, tuv, tl);
       float wr = smoothstep(0.84, 0.7, Ng.y + (ns - 0.5) * 0.1);
@@ -593,9 +618,22 @@ void main() {
       vec3 dg = sampA(2.0, 0.0, uv * 1.37 + 0.21, max(tl - 1.5, 0.0));
       vec3 gr = mix(a, dg, near * 0.45);
       float gv = ns * 0.6 + ns3 * 0.4;
-      gr *= mix(vec3(0.42, 0.62, 0.3), vec3(0.62, 0.72, 0.36), gv) * (0.8 + 0.35 * smoothstep(0.3, 0.7, ns2));
+      gr *= mix(vec3(0.36, 0.5, 0.24), vec3(0.55, 0.6, 0.3), gv) * (0.72 + 0.4 * smoothstep(0.3, 0.7, ns2));
       a = mix(mix(gr, ad * vec3(0.7, 0.66, 0.6), wd), ar * vec3(1.05, 1.0, 0.95), wr);
       nm = mix(mix(nm, nd, wd), nr, wr);
+      float pth = texture2D(uTHM, (vW.xz - uTHP.xy) * uTHP.zw).r;
+      if (pth > 0.01) {
+        vec2 pu = vW.xz / 1.6;
+        float pl = max(tl - 0.5, 0.0);
+        vec3 pa = sampA(3.0, 6.0, pu, pl);
+        vec3 pn = sampA(3.0, 7.0, pu, pl);
+        vec3 pd = sampA(2.0, 6.0, vW.xz / 2.2 + 0.3, pl);
+        vec3 pdn = sampA(2.0, 7.0, vW.xz / 2.2 + 0.3, pl);
+        float gm = smoothstep(0.35, 0.65, ns2 + (ns3 - 0.5) * 0.5);
+        float pe = smoothstep(0.2, 0.7, pth + (ns3 - 0.5) * 0.5);
+        a = mix(a, mix(pd * vec3(0.78, 0.72, 0.64), pa * vec3(0.72, 0.68, 0.62), gm), pe);
+        nm = mix(nm, mix(pdn, pn, gm), pe);
+      }
     }
     float sv = fract(vSeed * 0.7548777);
     alb = a * a * (1.0 + (sv - 0.5) * 0.16) * mix(vec3(1.0), vec3(1.04, 1.0, 0.9), step(0.82, fract(vSeed * 0.391)));
@@ -706,6 +744,10 @@ void main() {
     } else if (mat < 16.5) {
       alb = vec3(0.86, 0.87, 0.9);
       gloss = 0.7;
+    } else if (mat > 76.5 && mat < 77.5) {
+      alb = vec3(0.02, 0.025, 0.03);
+      gloss = 0.98;
+      metal = 0.9;
     } else if (mat > 75.5 && mat < 76.5) {
       vec3 rd = -V;
       float hy = clamp(rd.y * 1.6 + 0.15, 0.0, 1.0);
@@ -839,7 +881,7 @@ void main() {
     }
   }
   float prough = -1.0;
-  if (vIrr.w > 0.5 && vIrr.w < 2.5 && uMode.w < 0.5) {
+  if (((vIrr.w > 0.5 && vIrr.w < 2.5) || leaf) && uMode.w < 0.5) {
     float lodd = clamp(log2(max(dist / focal * 1400.0 / max(sqrt(ndv), 0.3), 1e-4)), 0.0, 7.0);
     vec3 da = dsamp(uDA, vLM, lodd);
     vec3 dn = dsamp(uDN, vLM, lodd) * 2.0 - 1.0;
@@ -850,7 +892,12 @@ void main() {
     N = normalize(T * dn.x + Bt * dn.y + Ng * max(dn.z, 0.05));
     metal = dr.g;
     prough = max(dr.r, 0.12 + lodd * 0.07);
-    emis = alb / max(max(alb.r, max(alb.g, alb.b)), 0.02) * max(dr.b - 0.04, 0.0) * 3.4;
+    emis = leaf ? vec3(0.0) : alb / max(max(alb.r, max(alb.g, alb.b)), 0.02) * max(dr.b - 0.04, 0.0) * 3.4;
+    if (leaf) {
+      N = normalize(mix(N, Ng, 0.5));
+      metal = 0.0;
+      prough = max(prough, 0.55);
+    }
   }
   if (uMode.w > 0.5) {
     float lodp = clamp(log2(max(dist / focal * uPR.w / max(sqrt(ndv), 0.3), 1e-4)), 0.0, 6.0);
@@ -869,7 +916,7 @@ void main() {
   }
   vec3 E;
   float so = 1.0;
-  if (uMode.x < 0.5 && vIrr.w > 3.5) {
+  if (uMode.x < 0.5 && vIrr.w > 3.5 && vIrr.w < 4.5) {
     vec3 tl = texture2D(uTLM, (vW.xz - uTLMP.xy) * uTLMP.zw).rgb;
     E = tl * tl * 4.0;
     so = clamp(dot(E, vec3(0.4)) * 1.4 - 0.1, 0.0, 1.0);
@@ -974,6 +1021,15 @@ void main() {
     }
     envs = ev * envBRDF(F0, rough, max(dot(N, V), 0.02)) * uEnvP.w;
     envs *= mix(1.0, so, 0.7);
+  }
+  if (leaf) {
+    vec3 sunL = normalize(uFogSun + vec3(0.0, 0.001, 0.0));
+    float wrap = max(dot(N, sunL) * 0.5 + 0.5, 0.0);
+    float back = pow(max(dot(-V, sunL), 0.0), 3.0);
+    vec3 skyA = uFog.w > 0.0 ? uFog.rgb * 0.35 : vec3(0.0);
+    E = E * (0.55 + 0.45 * wrap) + skyA + E * back * 0.9;
+    emis += alb * E * back * 0.35;
+    spec *= 0.3;
   }
   vec3 col = diff * (max(E - dloss, 0.0) * ao + ddir) + spec * mix(1.0, so, props ? 0.0 : 1.0) * ao + envs * ao + emis;
   float ext = exp(-dist * uHaze.x * 0.35);
@@ -1414,6 +1470,84 @@ void main() {
 """
 
 
+GRASS_VS = HEAD + CAM_U + PROJECT + """
+attribute vec4 aSeed;
+attribute vec3 aCorner;
+uniform float u_timer;
+uniform sampler2D uTHM;
+uniform vec4 uTHP;
+uniform vec4 uTHR;
+uniform vec4 uGR;
+uniform vec4 uGS;
+varying vec2 vUV;
+varying vec3 vW;
+varying float vFade;
+varying float vShade;
+void main() {
+  float cell = uGS.x;
+  vec2 cam = uCP.xz;
+  vec2 base = cam + (fract(aSeed.xy - cam / cell) - 0.5) * cell;
+  vec2 tc = (base - uTHP.xy) * uTHP.zw;
+  vec4 hm = texture2D(uTHM, tc);
+  float h = uTHR.x + (hm.r * 255.0 * 256.0 + hm.g * 255.0) / 65535.0 * uTHR.y;
+  float dens = hm.b;
+  float d = length(base - cam);
+  float fade = 1.0 - smoothstep(uGS.y * 0.6, uGS.y, d);
+  float keep = step(aSeed.w, dens * uGS.z) * step(0.0, tc.x) * step(tc.x, 1.0) * step(0.0, tc.y) * step(tc.y, 1.0);
+  float sz = (0.45 + 0.4 * aSeed.z) * fade * keep * uGS.w;
+  float ang = aSeed.z * 6.2831 + aCorner.z * 1.5708;
+  vec3 right = vec3(cos(ang), 0.0, sin(ang));
+  vec3 p = vec3(base.x, h - 0.04, base.y) + right * aCorner.x * sz * 0.6 + vec3(0.0, aCorner.y * sz, 0.0);
+  float sw = aCorner.y * aCorner.y;
+  p.xz += vec2(sin(u_timer * 1.7 + base.x * 0.5 + base.y * 0.3), cos(u_timer * 1.3 + base.y * 0.6)) * 0.07 * sw * sz;
+  float k = floor(aSeed.w * 7.13 * 4.0);
+  float qx = mod(k, 2.0);
+  float qy = mod(floor(k / 2.0), 2.0);
+  vec2 local = vec2(aCorner.x * 0.5 + 0.5, 1.0 - aCorner.y);
+  vUV = uGR.xy + (vec2(qx, qy) + local) * 0.5 * uGR.zw;
+  vW = p;
+  vFade = fade * keep;
+  vShade = 0.55 + 0.45 * aCorner.y;
+  gl_Position = project(p);
+}
+"""
+
+GRASS_FS = HEAD + """
+uniform float u_timer;
+uniform vec3 uCP;
+uniform sampler2D uDA;
+uniform sampler2D uDR;
+uniform sampler2D uTLM;
+uniform vec4 uTLMP;
+uniform vec4 uFog;
+uniform vec4 uFogS;
+uniform vec3 uFogSun;
+""" + GATE + ENC + """
+varying vec2 vUV;
+varying vec3 vW;
+varying float vFade;
+varying float vShade;
+void main() {
+  gate(vW);
+  if (vFade < 0.01) discard;
+  vec2 duv = vec2(vUV.x, vUV.y * (2.0 / 3.0));
+  float al = texture2D(uDR, duv).b;
+  if (al < 0.5) discard;
+  vec3 a = texture2D(uDA, duv).rgb;
+  vec3 alb = a * a;
+  vec3 tl = texture2D(uTLM, (vW.xz - uTLMP.xy) * uTLMP.zw).rgb;
+  vec3 E = tl * tl * 4.0;
+  vec3 col = alb * E * vShade * 1.15;
+  float dist = length(uCP - vW);
+  if (uFog.w > 0.0) {
+    float fa = (1.0 - exp(-dist * uFog.w)) * uFogS.z;
+    col = mix(col, uFog.rgb, fa);
+  }
+  gl_FragColor = enc(col, 1.0);
+}
+"""
+
+
 def merge(vs, fs):
     have = set()
     for line in vs.splitlines():
@@ -1443,4 +1577,5 @@ SHADERS = {k: (merge(v, f), f) for k, (v, f) in {
     "haze": (QUAD_VS, HAZE_FS),
     "comp": (QUAD_VS, COMP_FS),
     "lum": (QUAD_VS, LUM_FS),
+    "grass": (GRASS_VS, GRASS_FS),
 }.items()}

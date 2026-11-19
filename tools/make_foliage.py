@@ -1,0 +1,486 @@
+import argparse
+import math
+import sys
+from pathlib import Path
+
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+KIT = ROOT / "loophole" / "data" / "kit"
+sys.path.insert(0, str(HERE))
+from lh_tiles import save_tile
+
+TILE = 1024
+
+
+def load_rgba(src, diff, alpha):
+    d = Image.open(src / diff).convert("RGB")
+    a = Image.open(src / alpha).convert("L").resize(d.size)
+    im = d.copy()
+    im.putalpha(a)
+    return im
+
+
+def sprites(rgba, min_area=900, region=None, max_fill=0.62, max_frac=0.2):
+    a = np.asarray(rgba)[..., 3] > 128
+    H, W = a.shape
+    lab = np.zeros((H, W), np.int32)
+    out = []
+    seen = np.zeros_like(a)
+    step = 4
+    for y in range(0, H, step):
+        for x in range(0, W, step):
+            if a[y, x] and not seen[y, x]:
+                stack = [(y, x)]
+                ys, xs = [], []
+                seen[y, x] = True
+                while stack:
+                    cy, cx = stack.pop()
+                    ys.append(cy)
+                    xs.append(cx)
+                    for ny, nx in ((cy + step, cx), (cy - step, cx), (cy, cx + step), (cy, cx - step)):
+                        if 0 <= ny < H and 0 <= nx < W and a[ny, nx] and not seen[ny, nx]:
+                            seen[ny, nx] = True
+                            stack.append((ny, nx))
+                if len(ys) * step * step >= min_area:
+                    box = (max(min(xs) - 4, 0), max(min(ys) - 4, 0), min(max(xs) + 5, W), min(max(ys) + 5, H))
+                    bw, bh = box[2] - box[0], box[3] - box[1]
+                    fill = len(ys) * step * step / max(bw * bh, 1)
+                    cy = (box[1] + box[3]) / 2 / H
+                    if fill > max_fill or bw * bh > max_frac * W * H:
+                        continue
+                    if region is not None and not (region[0] <= cy <= region[1]):
+                        continue
+                    out.append(rgba.crop(box))
+    return out
+
+
+def cluster_card(leaves, size, seed, twig=(70, 52, 34), n=90, spread=0.9, leaf_scale=0.17):
+    rng = np.random.default_rng(seed)
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    dr = ImageDraw.Draw(canvas)
+    base = np.array([size * 0.5, size * 0.98])
+    tip = np.array([size * 0.5 + rng.uniform(-0.08, 0.08) * size, size * 0.06])
+    pts = [base + (tip - base) * t + np.array([math.sin(t * 3.1) * size * 0.04, 0]) for t in np.linspace(0, 1, 12)]
+    for i in range(len(pts) - 1):
+        w = int(max(2, size * 0.018 * (1 - i / 12)))
+        dr.line([tuple(pts[i]), tuple(pts[i + 1])], fill=twig + (255,), width=w)
+    for k in range(n):
+        t = rng.uniform(0.05, 1.0) ** 0.8
+        p = base + (tip - base) * t
+        side = 1 if k % 2 else -1
+        ang = side * rng.uniform(20, 80) + rng.uniform(-15, 15)
+        lf = leaves[int(rng.integers(0, len(leaves)))]
+        sc = leaf_scale * size / max(lf.size) * rng.uniform(0.75, 1.15) * (0.7 + 0.3 * t)
+        im = lf.resize((max(4, int(lf.size[0] * sc)), max(4, int(lf.size[1] * sc))), Image.LANCZOS)
+        im = im.rotate(ang + 180 * (rng.random() < 0.15), expand=True, resample=Image.BICUBIC)
+        shade = rng.uniform(0.85, 1.25)
+        r, g, b, a = im.split()
+        im = Image.merge("RGBA", (r.point(lambda v: v * shade), g.point(lambda v: v * shade), b.point(lambda v: v * shade * 0.95), a))
+        w_ = spread * 0.5 * math.sin(math.pi * min(t * 1.1, 1.0)) + 0.05
+        off = np.array([side * rng.uniform(0.0, w_) * size, rng.uniform(-0.05, 0.05) * size])
+        q = p + off - np.array(im.size) / 2
+        canvas.alpha_composite(im, (int(q[0]), int(q[1])))
+    return canvas
+
+
+def needle_card(twigs, size, seed):
+    rng = np.random.default_rng(seed)
+    h = size // 2
+    canvas = Image.new("RGBA", (size, h), (0, 0, 0, 0))
+    dr = ImageDraw.Draw(canvas)
+    dr.line([(2, h // 2), (size - 4, h // 2)], fill=(58, 44, 30, 255), width=max(2, h // 40))
+    for k in range(18):
+        tw = twigs[int(rng.integers(0, len(twigs)))]
+        x = rng.uniform(0.02, 0.9) * size
+        span = h * (0.95 - 0.5 * x / size)
+        sc = span / max(tw.size)
+        im = tw.resize((max(4, int(tw.size[0] * sc)), max(4, int(tw.size[1] * sc))), Image.LANCZOS)
+        side = 1 if k % 2 else -1
+        im = im.rotate(side * rng.uniform(35, 75) - 90 * 0 + 180 * (side < 0), expand=True, resample=Image.BICUBIC)
+        y = h / 2 - im.size[1] / 2 + side * im.size[1] * 0.25
+        canvas.alpha_composite(im, (int(min(max(x - im.size[0] / 2, 0), size - im.size[0])), int(min(max(y, 0), h - im.size[1]))))
+    return canvas
+
+
+def rgba_to_maps(im, rough=0.6, nrm=None):
+    a = np.asarray(im, np.float32) / 255.0
+    rgb, al = a[..., :3], a[..., 3]
+    m = al > 0.3
+    rgb = dilate(rgb, m)
+    lin = rgb ** 2.2
+    alb = np.sqrt(lin)
+    n = np.zeros_like(rgb)
+    n[..., 0] = 0.5
+    n[..., 1] = 0.5
+    n[..., 2] = 1.0
+    if nrm is not None:
+        n = dilate(nrm, m)
+    rm = np.stack([np.full(al.shape, rough), np.zeros_like(al), al], -1)
+    return alb, n, rm
+
+
+def dilate(a, mask, iters=24):
+    a = a.copy()
+    m = mask.copy()
+    for _ in range(iters):
+        pm = np.pad(m, 1)
+        cnt = pm[:-2, 1:-1].astype(np.float32) + pm[2:, 1:-1] + pm[1:-1, :-2] + pm[1:-1, 2:]
+        grow = (~m) & (cnt > 0)
+        if not grow.any():
+            break
+        pa = np.pad(a * m[..., None], ((1, 1), (1, 1), (0, 0)))
+        s = pa[:-2, 1:-1] + pa[2:, 1:-1] + pa[1:-1, :-2] + pa[1:-1, 2:]
+        a = np.where(grow[..., None], s / np.maximum(cnt, 1)[..., None], a)
+        m |= grow
+    return a
+
+
+def bark_strip(path, w, h, reps=3, tint=(1.0, 1.0, 1.0)):
+    b = Image.open(path).convert("RGB").resize((w, h // reps), Image.LANCZOS)
+    out = Image.new("RGB", (w, h))
+    for k in range(reps):
+        out.paste(b, (0, k * (h // reps)))
+    a = (np.asarray(out, np.float32) / 255.0) * np.array(tint)
+    return a
+
+
+class Mesh:
+    def __init__(self):
+        self.P, self.N, self.UV, self.F, self.S = [], [], [], [], []
+
+    def tri(self, ps, ns, uvs, flag, sway):
+        for p, n, uv, s in zip(ps, ns, uvs, sway):
+            self.P.append(p)
+            self.N.append(n)
+            self.UV.append(uv)
+            self.F.append(flag)
+            self.S.append(s)
+
+    def tube(self, path, radii, u0, u1, v0, v1, segs=8, sway=None, flag=1.0, vreps=1.0):
+        path = np.asarray(path, float)
+        n = len(path)
+        frames = []
+        up = np.array([1.0, 0.0, 0.0])
+        for i in range(n):
+            t = path[min(i + 1, n - 1)] - path[max(i - 1, 0)]
+            t /= np.linalg.norm(t)
+            a = np.cross(t, up)
+            if np.linalg.norm(a) < 1e-3:
+                a = np.cross(t, np.array([0.0, 0.0, 1.0]))
+            a /= np.linalg.norm(a)
+            b = np.cross(t, a)
+            frames.append((a, b))
+            up = a
+        L = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))])
+        Lt = max(L[-1], 1e-6)
+        rings = []
+        for i in range(n):
+            a, b = frames[i]
+            ring = []
+            for k in range(segs + 1):
+                ang = 2 * math.pi * k / segs
+                d = a * math.cos(ang) + b * math.sin(ang)
+                ring.append((path[i] + d * radii[i], d, (u0 + (u1 - u0) * k / segs, v0 + (v1 - v0) * (L[i] / Lt))))
+            rings.append(ring)
+        sw = sway if sway is not None else [0.0] * n
+        for i in range(n - 1):
+            for k in range(segs):
+                a, b, c, d = rings[i][k], rings[i][k + 1], rings[i + 1][k + 1], rings[i + 1][k]
+                self.tri([a[0], b[0], c[0]], [a[1], b[1], c[1]], [a[2], b[2], c[2]], flag, [sw[i], sw[i], sw[i + 1]])
+                self.tri([a[0], c[0], d[0]], [a[1], c[1], d[1]], [a[2], c[2], d[2]], flag, [sw[i], sw[i + 1], sw[i + 1]])
+
+    def card(self, center, right, up, w, h, uv_rect, normal, sway=1.0, bend=0.0):
+        r = np.asarray(right, float) * w / 2
+        u = np.asarray(up, float) * h
+        c = np.asarray(center, float)
+        nrm = np.asarray(normal, float)
+        nrm = nrm / np.linalg.norm(nrm)
+        x0, y0, x1, y1 = uv_rect
+        rows = 3
+        grid = []
+        for j in range(rows + 1):
+            t = j / rows
+            row = []
+            for i in range(2):
+                p = c + r * (i * 2 - 1) + u * t + np.array([0, -bend * t * t * h, 0])
+                row.append((p, (x0 + (x1 - x0) * i, y1 + (y0 - y1) * t), sway * (0.4 + 0.6 * t)))
+            grid.append(row)
+        for j in range(rows):
+            a, b, cc, d = grid[j][0], grid[j][1], grid[j + 1][1], grid[j + 1][0]
+            self.tri([a[0], b[0], cc[0]], [nrm] * 3, [a[1], b[1], cc[1]], 5.0, [a[2], b[2], cc[2]])
+            self.tri([a[0], cc[0], d[0]], [nrm] * 3, [a[1], cc[1], d[1]], 5.0, [a[2], cc[2], d[2]])
+
+    def save(self, name):
+        P = np.array(self.P, np.float32)
+        N = np.array(self.N, np.float32)
+        N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-6)
+        UV = np.array(self.UV, np.float32)
+        T = np.zeros((len(P), 4), np.float32)
+        for i in range(0, len(P), 3):
+            p0, p1, p2 = P[i:i + 3]
+            u0, u1, u2 = UV[i:i + 3]
+            e1, e2 = p1 - p0, p2 - p0
+            d1, d2 = u1 - u0, u2 - u0
+            den = d1[0] * d2[1] - d2[0] * d1[1]
+            tg = (e1 * d2[1] - e2 * d1[1]) / den if abs(den) > 1e-9 else np.array([1.0, 0, 0])
+            for k in range(3):
+                t = tg - N[i + k] * np.dot(tg, N[i + k])
+                t /= max(np.linalg.norm(t), 1e-6)
+                T[i + k, :3] = t
+                T[i + k, 3] = 1.0
+        np.savez_compressed(KIT / f"kit_{name}.npz", pos=P, nrm=N, uv=UV, tan=T, flag=np.array(self.F, np.float32),
+                            sway=np.array(self.S, np.float32))
+        return len(P) // 3
+
+
+def branch_path(start, direction, length, steps, droop, rng, curl=0.15):
+    p = np.asarray(start, float)
+    d = np.asarray(direction, float)
+    d /= np.linalg.norm(d)
+    out = [p.copy()]
+    for i in range(steps):
+        d = d + np.array([0, -droop, 0]) / steps + rng.normal(0, curl, 3) / steps
+        d /= np.linalg.norm(d)
+        p = p + d * length / steps
+        out.append(p.copy())
+    return out
+
+
+def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=420, tint=(1, 1, 1), leaf_tint=1.0):
+    rng = np.random.default_rng(seed)
+    leaves = sprites(load_rgba(src, "island_tree_01__leaves_diff.jpg", "island_tree_01__leaves_alpha.png"))
+    cards = [cluster_card(leaves, 512, seed * 7 + k) for k in range(2)]
+    tile = np.zeros((TILE, TILE, 3), np.float32)
+    ntile = np.zeros_like(tile)
+    ntile[..., :2] = 0.5
+    ntile[..., 2] = 1.0
+    rtile = np.zeros_like(tile)
+    bark_a = bark_strip(bark["diff"], TILE // 2, TILE, 3, tint)
+    bark_n = bark_strip(bark["nor"], TILE // 2, TILE, 3)
+    tile[:, :TILE // 2] = np.sqrt(bark_a ** 2.2)
+    ntile[:, :TILE // 2] = bark_n
+    rtile[:, :TILE // 2, 0] = 0.85
+    for k, cimg in enumerate(cards):
+        al, nm, rm = rgba_to_maps(cimg, 0.55)
+        al = al * leaf_tint
+        tile[k * 512:(k + 1) * 512, TILE // 2:] = al
+        ntile[k * 512:(k + 1) * 512, TILE // 2:] = nm
+        rtile[k * 512:(k + 1) * 512, TILE // 2:] = rm
+    m = Mesh()
+    trunk_top = height * 0.62
+    tp = [np.array([0.0, 0.0, 0.0])]
+    d = np.array([rng.normal(0, 0.08), 1.0, rng.normal(0, 0.08)])
+    for i in range(1, 9):
+        d = d + rng.normal(0, 0.06, 3)
+        d[1] = max(d[1], 0.7)
+        d /= np.linalg.norm(d)
+        tp.append(tp[-1] + d * trunk_top / 8)
+    r0 = 0.22 * height / 6.5
+    radii = [r0 * (1.35 if i == 0 else 1.0) * (1 - 0.55 * i / 8) for i in range(9)]
+    m.tube(tp, radii, 0.0, 0.5, 0.0, 1.0, segs=12, sway=[0.0] * 9)
+    crown_c = tp[-1] + np.array([0, crown * 0.55, 0])
+    tips = []
+    nb = int(rng.integers(6, 9))
+    for b in range(nb):
+        t = rng.uniform(0.45, 1.0)
+        i = int(t * 8)
+        st = tp[i]
+        ang = 2 * math.pi * b / nb + rng.uniform(-0.3, 0.3)
+        out = np.array([math.cos(ang), rng.uniform(0.55, 1.1), math.sin(ang)])
+        L = crown * rng.uniform(0.75, 1.05)
+        path = branch_path(st, out, L, 5, 0.25, rng)
+        rr = [radii[i] * 0.55 * (1 - 0.8 * k / 5) for k in range(6)]
+        m.tube(path, rr, 0.0, 0.5, 0.0, 0.35, segs=6, sway=[0.05 + 0.12 * k / 5 for k in range(6)])
+        for k in (2, 3, 4, 5):
+            tips.append(path[k])
+            if k in (3, 5):
+                sub = branch_path(path[k], out + rng.normal(0, 0.5, 3), L * 0.4, 3, 0.2, rng)
+                m.tube(sub, [rr[k] * 0.6 * (1 - j / 3) + 0.004 for j in range(4)], 0.0, 0.5, 0.0, 0.15, segs=4,
+                       sway=[0.2, 0.3, 0.4, 0.5])
+                tips += sub[1:]
+    tips.append(tp[-1])
+    for c in range(clusters):
+        if c % 3 == 0:
+            base = tips[int(rng.integers(0, len(tips)))] + rng.normal(0, crown * 0.18, 3)
+        else:
+            dvec = rng.normal(0, 1, 3)
+            dvec /= np.linalg.norm(dvec)
+            base = crown_c + dvec * crown * np.array([1.0, 0.75, 1.0]) * rng.uniform(0.55, 1.0) ** 0.5
+        rel = base - crown_c
+        rel[1] *= 0.8
+        if np.linalg.norm(rel) > crown * 1.1:
+            base = crown_c + rel / np.linalg.norm(rel) * crown * rng.uniform(0.6, 1.05)
+        nrm_s = base - crown_c + np.array([0, crown * 0.35, 0])
+        nrm_s /= np.linalg.norm(nrm_s)
+        k = int(rng.integers(0, 2))
+        rect = (0.5, k * 0.5, 1.0, (k + 1) * 0.5)
+        w = rng.uniform(1.3, 1.9) * crown / 2.6
+        for q in range(2):
+            ang = rng.uniform(0, math.pi) + q * math.pi / 2
+            right = np.array([math.cos(ang), 0, math.sin(ang)])
+            upv = nrm_s * 0.6 + np.array([0, 0.5, 0]) + rng.normal(0, 0.25, 3)
+            upv -= right * np.dot(upv, right)
+            upv /= np.linalg.norm(upv)
+            m.card(base - upv * w * 0.45, right, upv, w, w, rect, nrm_s, sway=1.0, bend=0.08)
+    save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
+    return m.save(name)
+
+
+def pine(name, seed, src, height=8.0, whorls=16):
+    rng = np.random.default_rng(seed)
+    tw = load_rgba(src, "pine_tree_01__twig_diff.jpg", "pine_tree_01__twig_alpha.png")
+    twigs = [s for s in sprites(tw, 4000, max_fill=0.5, max_frac=0.12) if s.size[1] > 80][:4]
+    tile = np.zeros((TILE, TILE, 3), np.float32)
+    ntile = np.zeros_like(tile)
+    ntile[..., :2] = 0.5
+    ntile[..., 2] = 1.0
+    rtile = np.zeros_like(tile)
+    bark_a = bark_strip(src / "pine_tree_01__bark_diff.jpg", TILE // 2, TILE, 3)
+    bark_n = bark_strip(src / "pine_tree_01__bark_nor_gl.jpg", TILE // 2, TILE, 3)
+    tile[:, :TILE // 2] = np.sqrt(bark_a ** 2.2)
+    ntile[:, :TILE // 2] = bark_n
+    rtile[:, :TILE // 2, 0] = 0.9
+    for k in range(4):
+        card = needle_card(twigs, 512, seed * 11 + k)
+        al, nm, rm = rgba_to_maps(card, 0.65)
+        al = al * np.array([0.82, 0.92, 0.78])
+        tile[k * 256:(k + 1) * 256, TILE // 2:] = al
+        ntile[k * 256:(k + 1) * 256, TILE // 2:] = nm
+        rtile[k * 256:(k + 1) * 256, TILE // 2:] = rm
+    m = Mesh()
+    tp = [np.array([0.0, y, 0.0]) + np.array([rng.normal(0, 0.03), 0, rng.normal(0, 0.03)]) * (y > 0) for y in
+          np.linspace(0, height, 10)]
+    m.tube(tp, [0.2 * (1 - 0.85 * i / 9) + 0.02 for i in range(10)], 0.0, 0.5, 0.0, 1.0, segs=10,
+           sway=[0.03 * i / 9 for i in range(10)])
+    for w in range(whorls):
+        t = (w + 1) / (whorls + 1)
+        y = height * (0.18 + 0.8 * t)
+        L = (1 - t) * height * 0.32 + 0.35
+        nb = int(rng.integers(7, 10))
+        for b in range(nb):
+            ang = 2 * math.pi * (b + rng.random() * 0.6) / nb + w * 0.7
+            d = np.array([math.cos(ang), 0.0, math.sin(ang)])
+            k = int(rng.integers(0, 4))
+            rect = (0.5, k * 0.25, 1.0, (k + 1) * 0.25)
+            st = np.array([0.0, y, 0.0])
+            upv = d * 0.95 + np.array([0, 0.12 - 0.3 * (1 - t), 0])
+            upv /= np.linalg.norm(upv)
+            side = np.array([-d[2], 0, d[0]])
+            vert = np.cross(side, upv)
+            if vert[1] < 0:
+                vert = -vert
+            nrm = np.array([d[0] * 0.6, 0.8, d[2] * 0.6])
+            for sgn in (-1, 1):
+                right = side * 0.7071 + vert * 0.7071 * sgn
+                m.card(st, right, upv, L * 0.62, L, rect, nrm, sway=0.6 + 0.4 * (1 - t), bend=0.22)
+    for q in range(3):
+        ang = q * math.pi / 3
+        right = np.array([math.cos(ang), 0, math.sin(ang)])
+        m.card(np.array([0, height * 0.9, 0]), right, np.array([0, 1.0, 0]), 0.6, height * 0.16,
+               (0.5, 0.0, 1.0, 0.25), np.array([0, 1.0, 0]), sway=1.0)
+    save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
+    return m.save(name)
+
+
+def clump(name, seed, src, diff, alpha, picks, size=0.9, cards=4, count=1, spread=0.0, rough=0.7, tint=(1, 1, 1),
+          region=None):
+    rng = np.random.default_rng(seed)
+    im = load_rgba(src, diff, alpha)
+    sp = sprites(im, 6000, region=region)
+    sp = sorted(sp, key=lambda s: -s.size[0] * s.size[1])
+    if picks:
+        sp = [s for s in sp if s.size[0] > s.size[1] * 0.6][:picks]
+    tile = np.zeros((TILE // 2, TILE // 2, 3), np.float32)
+    ntile = np.zeros_like(tile)
+    ntile[..., :2] = 0.5
+    ntile[..., 2] = 1.0
+    rtile = np.zeros_like(tile)
+    n = min(4, len(sp))
+    cw = TILE // 2 // 2
+    rects = []
+    for k in range(n):
+        s = sp[k]
+        sc = min(cw / s.size[0], cw / s.size[1])
+        r = s.resize((max(1, int(s.size[0] * sc)), max(1, int(s.size[1] * sc))), Image.LANCZOS)
+        cell = Image.new("RGBA", (cw, cw), (0, 0, 0, 0))
+        cell.alpha_composite(r, ((cw - r.size[0]) // 2, cw - r.size[1]))
+        al, nm, rm = rgba_to_maps(cell, rough)
+        x, y = (k % 2) * cw, (k // 2) * cw
+        tile[y:y + cw, x:x + cw] = al * np.array(tint)
+        ntile[y:y + cw, x:x + cw] = nm
+        rtile[y:y + cw, x:x + cw] = rm
+        rects.append((x / (TILE / 2), y / (TILE / 2), (x + cw) / (TILE / 2), (y + cw) / (TILE / 2)))
+    m = Mesh()
+    for c in range(count):
+        base = np.array([rng.normal(0, spread), 0.0, rng.normal(0, spread)]) if c else np.zeros(3)
+        for q in range(cards):
+            ang = q * math.pi / cards + rng.uniform(0, 0.4)
+            right = np.array([math.cos(ang), 0, math.sin(ang)])
+            s = size * rng.uniform(0.8, 1.15)
+            rect = rects[int(rng.integers(0, len(rects)))]
+            m.card(base, right, np.array([rng.normal(0, 0.1), 1.0, rng.normal(0, 0.1)]) / 1.01, s, s, rect,
+                   np.array([0, 1.0, 0]), sway=1.0)
+    save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
+    return m.save(name)
+
+
+def bush(name, seed, src, size=1.3, cards=12):
+    rng = np.random.default_rng(seed)
+    leaves = sprites(load_rgba(src, "island_tree_01__leaves_diff.jpg", "island_tree_01__leaves_alpha.png"))
+    T = TILE // 2
+    tile = np.zeros((T, T, 3), np.float32)
+    ntile = np.zeros_like(tile)
+    ntile[..., :2] = 0.5
+    ntile[..., 2] = 1.0
+    rtile = np.zeros_like(tile)
+    for k in range(2):
+        c = cluster_card(leaves, T, seed * 13 + k, n=70, spread=1.0, leaf_scale=0.2).resize((T // 2, T), Image.LANCZOS)
+        al, nm, rm = rgba_to_maps(c, 0.55)
+        tile[:, k * T // 2:(k + 1) * T // 2] = al * np.array([0.85, 0.95, 0.8])
+        ntile[:, k * T // 2:(k + 1) * T // 2] = nm
+        rtile[:, k * T // 2:(k + 1) * T // 2] = rm
+    m = Mesh()
+    ctr = np.array([0, size * 0.45, 0])
+    for q in range(cards):
+        th = rng.uniform(0, 2 * math.pi)
+        ph = rng.uniform(0.15, 1.2)
+        d = np.array([math.cos(th) * math.sin(ph), math.cos(ph), math.sin(th) * math.sin(ph)])
+        base = ctr + d * size * 0.25 - np.array([0, size * 0.35, 0])
+        right = np.array([-d[2], 0, d[0]])
+        if np.linalg.norm(right) < 1e-3:
+            right = np.array([1.0, 0, 0])
+        right /= np.linalg.norm(right)
+        upv = d * 0.7 + np.array([0, 0.6, 0])
+        upv -= right * np.dot(upv, right)
+        upv /= np.linalg.norm(upv)
+        k = int(rng.integers(0, 2))
+        w = size * rng.uniform(0.6, 0.9)
+        m.card(base, right, upv, w * 0.6, w, (k * 0.5, 0.0, (k + 1) * 0.5, 1.0), d + np.array([0, 0.4, 0]), sway=0.6)
+    save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
+    return m.save(name)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--src", required=True)
+    ap.add_argument("--ph", required=True)
+    a = ap.parse_args()
+    src = Path(a.src)
+    ph = Path(a.ph)
+    bark = {"diff": ph / "bark_brown_02" / "diff.jpg", "nor": ph / "bark_brown_02" / "nor_gl.jpg"}
+    print("oak", broadleaf("oak", 3, src, bark))
+    print("birch", broadleaf("birch", 9, src, bark, height=7.5, crown=2.1,
+                             clusters=340, tint=(1.5, 1.45, 1.35), leaf_tint=np.array([1.05, 1.08, 0.9])))
+    print("pine", pine("pine", 5, src))
+    print("bush", bush("bush", 2, src))
+    print("grass", clump("grass", 4, src, "grass_medium_01__Diffuse.jpg", "grass_medium_01__Alpha.png", 5, size=0.7,
+                         cards=3, count=3, spread=0.3, rough=0.75, tint=(0.95, 1.0, 0.85), region=(0.62, 1.0)))
+    print("fern", clump("fern", 6, src, "fern_02__Diffuse.jpg", "fern_02__Alpha.png", 0, size=1.0, cards=6, count=1,
+                        rough=0.6))
+
+
+if __name__ == "__main__":
+    main()

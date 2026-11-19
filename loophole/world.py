@@ -64,7 +64,7 @@ class Level:
         self.triggers = []
         self.vents = []
         self.spark_pts = []
-        self.procs = []
+        self.buildings = []
         self.start = (0.0, 0.0, 0.0, 0.0)
         self.start_pitch = 0.0
         self.default_mats = {"floor": "floor", "ceil": "ceil", "wall": "white"}
@@ -163,7 +163,8 @@ class Level:
 
     def building(self, x0, z0, x1, z1, height=3.0, y=0.0, walls="brick", inside="plaster", floor="wood",
                  ceiling="plaster", roof="roof", thickness=0.5, door=None, windows=(), door_size=(1.5, 2.5),
-                 window_size=(2.0, 1.5), sill=1.0, foundation=1.5):
+                 window_size=(2.0, 1.5), sill=1.0, foundation=1.5, roof_shape="gable", pitch=32.0, trim="wood",
+                 sill_material="concrete", plinth="stone"):
         def sn(v):
             return round(v * 2) / 2
         x0, x1 = sn(min(x0, x1)), sn(max(x0, x1))
@@ -188,11 +189,17 @@ class Level:
             else:
                 xx = x0 if side == "-x" else x1 - t
                 self.ops.append(("carve", (xx, y + bottom, at - w / 2, xx + t, y + bottom + h, at + w / 2)))
+        ops = []
         if door:
             side, at = door
             opening(side, at, door_size[0], door_size[1], 0.0)
+            ops.append((side, sn(at), door_size[0], door_size[1], 0.0, "door"))
         for (side, at) in windows:
             opening(side, at, window_size[0], window_size[1], sill)
+            ops.append((side, sn(at), window_size[0], window_size[1], sill, "window"))
+        self.buildings.append(dict(x0=x0, z0=z0, x1=x1, z1=z1, y=y, t=t, height=height, top=top, openings=ops,
+                                   walls=resolve(walls), roof=resolve(roof), roof_shape=roof_shape, pitch=pitch,
+                                   trim=resolve(trim), sill=resolve(sill_material), plinth=resolve(plinth)))
         return self
 
     def pool(self, material, x0, z0, x1, z1, y=0.0, depth=1.5):
@@ -250,24 +257,22 @@ class Level:
         return self
 
     def prop(self, kind, x, y, z, yaw=0.0, scale=1.0, solid=None, up=(0, 1, 0), seed=None, light=True):
-        from . import procprops
-        if kind in procprops.KINDS:
-            sd = seed if seed is not None else (len(self.procs) * 7919 + 13) % 997
-            self.procs.append((kind, (float(x), float(y), float(z)), float(yaw), scale, sd))
-            if solid if solid is not None else kind in procprops.SOLID:
-                lo, hi = procprops.collider(kind, (x, y, z), yaw, scale, sd)
-                self.solid_boxes = getattr(self, "solid_boxes", []) + [tuple(lo) + tuple(hi)]
-            if light and kind in procprops.LIGHTS:
-                off, col, pw = procprops.LIGHTS[kind]
-                a = math.radians(yaw)
-                o = (off[0] * math.cos(a) - off[2] * math.sin(a), off[1], off[0] * math.sin(a) + off[2] * math.cos(a))
-                s_ = scale if isinstance(scale, (int, float)) else scale[1]
-                self.light(x + o[0] * s_, y + o[1] * s_, z + o[2] * s_, color=col, power=pw, fixture=None, haze=0.6)
-            return self
+        from . import library
+        if light and kind in library.LIGHTS:
+            off, col, pw = library.LIGHTS[kind]
+            a = math.radians(yaw)
+            o = (off[0] * math.cos(a) - off[2] * math.sin(a), off[1], off[0] * math.sin(a) + off[2] * math.cos(a))
+            s_ = scale if isinstance(scale, (int, float)) else scale[1]
+            self.light(x + o[0] * s_, y + o[1] * s_, z + o[2] * s_, color=col, power=pw * s_ * s_, fixture=None, haze=0.6,
+                       dynamic=False)
+        if kind in library.TRUNK and (solid is None or solid):
+            r = library.TRUNK[kind] * (scale if isinstance(scale, (int, float)) else scale[0])
+            self.solid_boxes = getattr(self, "solid_boxes", []) + [(x - r, y, z - r, x + r, y + 6.0, z + r)]
+            solid = False
         sc = (scale, scale, scale) if isinstance(scale, (int, float)) else tuple(scale)
         f = (math.cos(math.radians(yaw)), 0.0, math.sin(math.radians(yaw)))
         self.deco(kind, (x, y, z), f, up, sc)
-        if solid if solid is not None else kind in FLOOR_PROPS:
+        if solid if solid is not None else kind in library.SOLID:
             self.solid_props = getattr(self, "solid_props", []) + [len(self.decor) - 1]
         return self
 
@@ -281,9 +286,9 @@ class Level:
         return self
 
     def deco(self, name, pos, fwd=(1, 0, 0), up=(0, 1, 0), scale=(1, 1, 1)):
-        from . import decor_place, procprops
+        from . import decor_place
         if name not in decor_place.KINDS:
-            raise ValueError(f"unknown prop '{name}'. Built-in props: {', '.join(decor_place.KINDS + sorted(procprops.KINDS))}")
+            raise ValueError(f"unknown prop '{name}'. Built-in props: {', '.join(decor_place.KINDS)}")
         self.decor.append((name, tuple(map(float, pos)), tuple(map(float, fwd)), tuple(map(float, up)),
                            tuple(map(float, scale))))
 
@@ -413,9 +418,15 @@ class Level:
         self.window_style = "sky"
         return self
 
-    def terrain(self, x0, z0, x1, z1, height=None, base=0.0, step=1.0, material="terrain", seed=1, hills=4.0):
+    def terrain(self, x0, z0, x1, z1, height=None, base=0.0, step=1.0, material="terrain", seed=1, hills=4.0, grass=1.0):
         self.terrain_def = dict(x0=x0, z0=z0, x1=x1, z1=z1, height=height, base=base, step=step, material=material,
-                                seed=seed, hills=hills, flats=[])
+                                seed=seed, hills=hills, flats=[], paths=[], grass=grass)
+        return self
+
+    def path(self, *points, width=2.0, material="gravel"):
+        if not self.terrain_def:
+            raise ValueError("call level.terrain(...) before level.path(...)")
+        self.terrain_def.setdefault("paths", []).append(([tuple(map(float, p)) for p in points], float(width), material))
         return self
 
     def flatten(self, x0, z0, x1, z1, height=0.0, falloff=6.0):

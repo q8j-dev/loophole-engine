@@ -356,6 +356,7 @@ def bake_level(c, seed=1, ao_rays=32, gi_rays=256):
               if L["kind"] == "panel" and abs(L["d"][1] + 1) < 1e-3 and L["fixture"]]
     from . import decor_place
     DP, DN, DM, DA, DS, dboxes = decor_place.build(c)
+    DFL = np.where(DM[:, 6] > 0.5, 0.0, DM[:, 7]) if len(DM) and DM.shape[1] > 7 else None
     grid.add_occluders(list(getattr(c, "occluders", [])) + dboxes)
     TER = getattr(c, "terrain", None)
     if TER is not None:
@@ -539,7 +540,10 @@ def bake_level(c, seed=1, ao_rays=32, gi_rays=256):
         first = np.zeros(len(uq), np.int64)
         first[inv[::-1]] = np.arange(len(DP))[::-1]
         UP, UN = DP[first], DN[first]
-        Ed, _ = direct(UP + UN * 0.03, UN, lights, grid, rng, ns=2)
+        off = np.full(len(UP), 0.03)
+        if DFL is not None:
+            off = np.where(DFL[first] > 4.5, 0.45, 0.03)
+        Ed, _ = direct(UP + UN * off[:, None], UN, lights, grid, rng, ns=2)
         Ei = amb_sample(amb, UP + UN * 0.1, UN)
         dirr = (Ed + Ei)[inv.ravel()]
         _log(f"  decor {len(DP) // 3} tris, {len(UP)} lit vertices")

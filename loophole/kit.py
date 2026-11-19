@@ -638,7 +638,7 @@ def build(c, meta, dirr=None):
         A = np.concatenate([A, DA])
         S = np.concatenate([S, DS])
         irr = np.concatenate([irr, di])
-        flag = np.concatenate([flag, np.where(proc, 3.0, np.where(DM[:, 5] < 0, 2.0, 1.0))])
+        flag = np.concatenate([flag, np.where(proc, 3.0, DM[:, 7])])
         tan = np.zeros((len(P), 3))
         tan[n0:] = DM[:, 2:5]
         return P, N, UV, Mt, A, S, irr, flag, tan

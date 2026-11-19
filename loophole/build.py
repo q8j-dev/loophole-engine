@@ -11,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import bake, decor_place, geo, kit, procprops, props, sbc, shaders
+from . import bake, decor_place, geo, kit, props, sbc, shaders
 from . import level as lvl
 from .materials import KILL, MATID, PORTAL, TABLE
 from .world import Game, color
@@ -179,8 +179,6 @@ def voxelize_outdoor(L, li):
         pts.append((td["x0"], float(H.min()) - 1.0, td["z0"], td["x1"], float(H.max()) + 2.0, td["z1"]))
     for d in L.decor:
         pts.append((d[1][0] - 1, d[1][1] - 1, d[1][2] - 1, d[1][0] + 1, d[1][1] + 3, d[1][2] + 1))
-    for p in L.procs:
-        pts.append((p[1][0] - 2, p[1][1] - 0.5, p[1][2] - 2, p[1][0] + 2, p[1][1] + 8, p[1][2] + 2))
     if not pts:
         raise SystemExit(f"level '{L.name}' is empty. Add terrain, solids or props.")
     allb = np.array(pts, float)
@@ -192,6 +190,7 @@ def voxelize_outdoor(L, li):
     size = np.ceil((hi + 1.0 - origin) * lvl.RES) / lvl.RES
     c = lvl.Level(L.name, tuple(size), tuple(origin))
     c.air[:] = True
+    c.air[0:2, 0:2, 0:2] = False
     for op, b in L.ops:
         a = c.g(b[:3])
         e = c.g(b[3:])
@@ -243,11 +242,15 @@ def finish_voxel(c, L, li):
     c.paint_ops = list(L.paint_ops)
     c.default_mats = dict(L.default_mats)
     c.decor = list(L.decor)
-    c.procs = list(L.procs)
+    from . import buildings as BD
+    c.extra = BD.geometry(L.buildings) if L.buildings else None
+    if c.extra is not None:
+        L.occluders = list(L.occluders)
+        c.extra_occ = list(c.extra[4])
     c.lights = [dict(l) for l in L.lights if not l.get("dynamic")]
     c.windows = list(L.windows)
     c.signs = list(L.signs)
-    c.occluders = list(L.occluders)
+    c.occluders = list(L.occluders) + list(getattr(c, "extra_occ", []))
     c.open_panels = list(L.open_panels)
     c.lit_windows = L.lit_windows
     c.window_style = L.window_style
@@ -298,7 +301,13 @@ def level_key(c, L):
     h = hashlib.sha1()
     h.update(f"{BAKE_VERSION}|{bake.LMW}|{bake.LMH}".encode())
     h.update(np.packbits(c.air).tobytes())
-    h.update(repr((c.procs, c.size, tuple(c.origin), [(m, tuple(a), tuple(b), f) for m, a, b, f in c.paint_ops],
+    for kind in sorted({d[0] for d in c.decor}):
+        f = decor_place.KIT / f"kit_{kind}.npz"
+        if f.exists():
+            h.update(hashlib.md5(f.read_bytes()).digest())
+    if getattr(c, "extra", None) is not None:
+        h.update(np.round(c.extra[0], 3).tobytes())
+    h.update(repr((c.size, tuple(c.origin), [(m, tuple(a), tuple(b), f) for m, a, b, f in c.paint_ops],
                    c.default_mats, sorted(c.open_faces), c.decor, c.lights, c.windows, c.occluders, c.main_box,
                    c.bake_gi_rays, c.bake_ao_rays, c.bake_dres, c.bake_ns, c.bake_amb_rays,
                    getattr(c, "sun", None), getattr(c, "sky_rad", None))).encode())
@@ -403,26 +412,15 @@ class Models:
         self.cache[name] = (gid, hs, ctr)
         return self.cache[name]
 
-    def proc(self, name):
-        key = "proc:" + name
-        if key in self.cache:
-            return self.cache[key]
-        from . import procprops
-        P, N, M, S = procprops.mesh(name, 1)
-        gid = self.reg(self.pk.add(P, N, np.zeros((len(P), 2)), M, None, S, irr=np.full((len(P), 3), 0.5),
-                                   flag=np.full(len(P), 3.0)))
-        hs, ctr = model_bounds(P)
-        self.cache[key] = (gid, hs, ctr)
-        return self.cache[key]
-
     def kit(self, name):
         key = "kit:" + name
         if key in self.cache:
             return self.cache[key]
         P, N, UV, T = decor_place.module(name)
-        flag = np.where(T[:, 3] < 0, 2.0, 1.0)
+        flag, sway = decor_place.vflags(name)
         irr = np.full((len(P), 3), 0.5)
-        gid = self.reg(self.pk.add(P, N, UV, np.full(len(P), 40.0), irr=irr, flag=flag, tan=T[:, :3]))
+        gid = self.reg(self.pk.add(P, N, UV, np.full(len(P), 40.0), np.where(flag > 4.5, sway, 1.0), irr=irr, flag=flag,
+                                   tan=T[:, :3]))
         hs, ctr = model_bounds(P)
         self.cache[key] = (gid, hs, ctr)
         return self.cache[key]
@@ -443,6 +441,17 @@ def build(world_path, out=None, log=print, cache=None):
     pkm = geo.Pack()
     models = Models(pkm, L)
     broadcasts = set(FIXED_BROADCASTS)
+    from . import decor_pack
+    tiles = set()
+    for Lv in game.levels:
+        tiles.update(d[0] for d in Lv.decor)
+        tiles.update(o.model for o in Lv.objects if o.model in decor_place.KINDS)
+    tiles.update(v for v in game.viewmodels if v in decor_place.KINDS)
+    if any(Lv.terrain_def for Lv in game.levels):
+        tiles.add("grass")
+    tiles = sorted(t for t in tiles if t in decor_pack.available())
+    dlay, dimgs = decor_pack.build(tiles)
+    decor_place.set_layout(dlay)
     used_ids = set()
     has_terrain = False
     for li, Lv in enumerate(game.levels, start=1):
@@ -484,10 +493,7 @@ def build(world_path, out=None, log=print, cache=None):
                 L["GH"][i] = 1.0 / h
                 L["GIB"][i] = ib
     gids = L.pop("_G")
-    for key in models.cache:
-        if key.startswith("proc:"):
-            used_ids.update(np.unique(procprops.mesh(key[5:], 1)[2]).astype(int).tolist())
-    proj = assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_ids, has_terrain, tlms)
+    proj = assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_ids, has_terrain, tlms, dimgs)
     return proj
 
 
@@ -496,6 +502,8 @@ def safe_name(s):
     return keep or "game"
 
 
+THM = {}
+TPM = {}
 LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "HV1", "HKILL", "HPORT", "LSX", "LSY",
               "LSZ", "LSYAW", "LSPIT", "LKILL", "LO0", "LON", "LT0", "LTN", "TNAME", "TKIND", "TARG", "TX0", "TY0",
               "TZ0", "TX1", "TY1", "TZ1", "LL0", "LLN", "LNM", "LTX", "LTY", "LTZ", "LTW", "LDDX", "LDDY", "LDDZ",
@@ -507,7 +515,7 @@ LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "
               "DPRY2", "DPRS2", "DPRT2", "DBX", "DBY", "DBZ", "DBCX", "DBCY", "DBCZ", "DSX", "DSY", "DSZ", "DKIND",
               "DPHYS", "DCARRY", "DUSE", "DSHAD", "DSOLID", "DVIS", "DX", "DY", "DZ", "DYAW", "DPITCH", "DROLL",
               "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
-              "DPSP", "DPLOOP", "DPFACE", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD"]
+              "DPSP", "DPLOOP", "DPFACE", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS"]
 
 
 def r4(v):
@@ -626,8 +634,43 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
     else:
         vals = [0.0] * 21
     L["SKY"].extend(vals + [0.0] * (24 - len(vals)))
-    for k in ("TLMX", "TLMZ", "TLMW", "TLMD"):
+    for k in ("TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH",
+              "LGRASS"):
         L[k].append(0)
+    if c.terrain is not None:
+        from . import terrain as T
+        f = c.field
+        res_ = 0.5
+        xs2 = np.arange(f.x0, f.x1 + 1e-6, res_)
+        zs2 = np.arange(f.z0, f.z1 + 1e-6, res_)
+        X2, Z2 = np.meshgrid(xs2, zs2)
+        H2 = f.inner(X2, Z2)
+        dens, pm = T.masks(Lv.terrain_def, xs2, zs2, H2, getattr(f, "holes", []), res_)
+        hmn, hmx = float(H2.min()) - 0.5, float(H2.max()) + 0.5
+        q = np.clip(np.round((H2 - hmn) / (hmx - hmn) * 65535), 0, 65535).astype(np.int64)
+        img = np.stack([(q >> 8) & 255, q & 255, np.round(dens * 255)], -1).astype(np.uint8)
+        from PIL import Image
+        b = io.BytesIO()
+        Image.fromarray(img, "RGB").save(b, "PNG")
+        THM[c.level_index] = (b.getvalue(), img.shape[1], img.shape[0])
+        pimg = np.repeat(np.round(pm * 255).astype(np.uint8)[..., None], 3, -1)
+        b2 = io.BytesIO()
+        Image.fromarray(pimg, "RGB").save(b2, "PNG")
+        TPM[c.level_index] = (b2.getvalue(), pimg.shape[1], pimg.shape[0])
+        L["THX"][-1] = r4(xs2[0])
+        L["THZ"][-1] = r4(zs2[0])
+        L["THW"][-1] = r4(1.0 / (xs2[-1] - xs2[0]))
+        L["THD"][-1] = r4(1.0 / (zs2[-1] - zs2[0]))
+        L["THMN"][-1] = r4(hmn)
+        L["THRG"][-1] = r4(hmx - hmn)
+        lay = decor_place.LAYOUT
+        if "grass" in lay["layout"] and Lv.terrain_def.get("grass", 1.0) > 0:
+            gx, gy, gs = lay["layout"]["grass"]
+            L["GRX"][-1] = r4(gx / lay["PW"])
+            L["GRY"][-1] = r4(gy / lay["PH"])
+            L["GRW"][-1] = r4(gs / lay["PW"])
+            L["GRH"][-1] = r4(gs / lay["PH"])
+            L["LGRASS"][-1] = 1
     if Lv.sky and c.field is not None:
         f = c.field
         for (lo, hi) in ((np.array([f.x0 - 1, -50, f.z0 - 1]), np.array([f.x0, 200, f.z1 + 1])),
@@ -696,10 +739,6 @@ def object_lists(L, o, names, models, Lv):
         gid, hs, ctr = models.kit(o.model)
         pr = (0, 0, 0, 0)
         glow = (1.0, 0.6, 0.3)
-    elif o.model in procprops.KINDS:
-        gid, hs, ctr = models.proc(o.model)
-        pr = (0, 0, 0, 0)
-        glow = (1.0, 0.75, 0.3)
     else:
         raise SystemExit(f"{Lv.name}: object '{o.name}' uses unknown model '{o.model}'. Built-in models: "
                          f"{', '.join(sorted(set(props.BUILTIN) - {'arms', 'device'}) + decor_place.KINDS)}")
@@ -830,7 +869,8 @@ def placeholder_jpg():
     return b.getvalue()
 
 
-def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_ids=(), has_terrain=False, tlms=None):
+def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_ids=(), has_terrain=False, tlms=None,
+             dimgs=None):
     A = Assets()
     proj = Project(global_names=list(API_VARS.values()), global_lists=list(API_LISTS.values()))
     for b in sorted(broadcasts):
@@ -854,7 +894,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     eng_lists = {}
     from . import mesh as M
     meshes = {"QUAD": M.quad_mesh(), "DUST": M.particles(320, 5), "IMPACT": M.particles(56, 21),
-              "VENTP": M.particles(140, 13)}
+              "VENTP": M.particles(140, 13), "GRASS": M.grass_cards(3000, 9)}
     for name, m in meshes.items():
         eng_lists[proj.uid("l")] = [name, m.items()]
     eng_lists[proj.uid("l")] = ["IC", geo.index_items(geo.CHUNK)]
@@ -876,12 +916,18 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
             costumes.append(A.bitmap(nm, (DATA / "atlas" / f"{f}.jpg").read_bytes(), "jpg", mj2["ATLAS_W"], mj2["ATLAS_H"]))
         else:
             costumes.append(A.bitmap(nm, placeholder_jpg(), "jpg", 8, 8))
-    dj = json.loads((DATA / "atlas" / "decor.json").read_text())
-    costumes.append(A.bitmap("dA", (DATA / "atlas" / "dA.jpg").read_bytes(), "jpg", dj["PW"], dj["PH"] * 3 // 2))
-    costumes.append(A.bitmap("dN", (DATA / "atlas" / "dN.jpg").read_bytes(), "jpg", dj["PW"], dj["PH"] * 3 // 2))
-    costumes.append(A.bitmap("dR", (DATA / "atlas" / "dR.jpg").read_bytes(), "jpg", dj["PW"] // 2, dj["PH"] * 3 // 4))
+    for nm in ("dA", "dN", "dR"):
+        data, w, h = dimgs[nm]
+        costumes.append(A.bitmap(nm, data, "jpg", w, h))
     for li, data in lms.items():
         costumes.append(A.bitmap(f"lm{li}", data, "png", bake.LMW, bake.LMH * 3))
+    for li in range(1, len(game.levels) + 1):
+        for pre, store in (("thm", THM), ("tpm", TPM)):
+            if li in store:
+                data, w, h = store[li]
+                costumes.append(A.bitmap(f"{pre}{li}", data, "png", w, h))
+            else:
+                costumes.append(A.bitmap(f"{pre}{li}", placeholder_jpg(), "jpg", 8, 8))
     for li, tl in (tlms or {}).items():
         if tl:
             costumes.append(A.bitmap(f"tlm{li}", tl["png"], "png", tl["W"], tl["H"]))
@@ -949,12 +995,6 @@ def viewmodel_lists(L, game, models):
             sc = 0.32 / max(hs.max() * 2, 1e-3)
             glow = b["glow"]
             off = (0.0, -0.02, 0.05)
-        elif name in procprops.KINDS:
-            g, hs, ctr = models.proc(name)
-            pr = (0, 0, 0, 0)
-            sc = 0.42 / max(hs.max() * 2, 1e-3)
-            off = (-ctr[0] * sc, 0.02 - ctr[1] * sc, 0.06 - ctr[2] * sc)
-            glow = (1.0, 0.7, 0.3)
         elif name in decor_place.KINDS:
             g, hs, ctr = models.kit(name)
             pr = (0, 0, 0, 0)

@@ -56,6 +56,31 @@ def heights(t):
     return xs, zs, H
 
 
+def masks(t, xs2, zs2, H2, holes, res):
+    X, Z = np.meshgrid(xs2, zs2)
+    gx = np.gradient(H2, res, axis=1)
+    gz = np.gradient(H2, res, axis=0)
+    ny = 1 / np.sqrt(1 + gx * gx + gz * gz)
+    dens = np.clip((ny - 0.82) / 0.1, 0, 1)
+    for (hx0, hz0, hx1, hz1) in holes:
+        dens[(X > hx0 - 0.5) & (X < hx1 + 0.5) & (Z > hz0 - 0.5) & (Z < hz1 + 0.5)] = 0
+    pm = np.zeros_like(H2)
+    for pts, w, mat in t.get("paths", []):
+        pts = np.array(pts, float)
+        for i in range(len(pts) - 1):
+            a, b = pts[i], pts[i + 1]
+            ab = b - a
+            L2 = max(float(ab @ ab), 1e-6)
+            tt = np.clip(((X - a[0]) * ab[0] + (Z - a[1]) * ab[1]) / L2, 0, 1)
+            dx = X - (a[0] + ab[0] * tt)
+            dz = Z - (a[1] + ab[1] * tt)
+            d = np.sqrt(dx * dx + dz * dz)
+            edge = fbm(X / 1.3, Z / 1.3, 77, 3) * 0.6
+            pm = np.maximum(pm, np.clip((w / 2 + edge - 0.2 - d) / 0.5, 0, 1))
+    dens *= (1 - pm) * float(t.get("grass", 1.0))
+    return np.clip(dens, 0, 1), pm
+
+
 def mesh(t, H, xs, zs, holes=()):
     nz, nx = H.shape
     X, Z = np.meshgrid(xs, zs)
@@ -168,6 +193,24 @@ def sun_dirs(sd, k, rng, n, spread=0.012):
     return out
 
 
+def crown_transmit(P, D):
+    from .decor_place import CROWNS
+    tr = np.ones(len(P))
+    for c, r in CROWNS:
+        c = np.asarray(c, float)
+        r = np.maximum(np.asarray(r, float), 0.2)
+        o = (P - c) / r
+        d = D / r
+        a = np.einsum("ij,ij->i", d, d)
+        b = np.einsum("ij,ij->i", o, d)
+        cc = np.einsum("ij,ij->i", o, o) - 1
+        h = b * b - a * cc
+        hit = (h > 0) & (-b + np.sqrt(np.maximum(h, 0)) > 0)
+        depth = np.where(hit, np.sqrt(np.maximum(h, 0)) / np.maximum(a, 1e-6), 0)
+        tr *= np.where(hit, np.exp(-depth * 1.6) * 0.75 + 0.05, 1.0)
+    return np.clip(tr, 0, 1)
+
+
 def light_points(P, N, field, grid, sun, sky_rad, lights, direct_fn, rng, k_sky=20):
     n = len(P)
     E = np.zeros((n, 3))
@@ -187,7 +230,8 @@ def light_points(P, N, field, grid, sun, sky_rad, lights, direct_fn, rng, k_sky=
                 if grid is not None:
                     occ |= grid.occluded(Po[idx], V[idx], np.full(len(idx), 60.0))
                 vis[idx[~occ]] = True
-            E += (cp * vis)[:, None] * col[None] / len(dirs)
+            tr = crown_transmit(Po, V)
+            E += (cp * vis * tr)[:, None] * col[None] / len(dirs)
     if sky_rad is not None:
         sr = np.array(sky_rad, float)
         u1 = rng.random((n, k_sky))

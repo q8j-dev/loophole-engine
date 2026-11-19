@@ -41,6 +41,7 @@ TABLE["paint"] = dict(id=72, alb=0.6, tint=(1.0, 1.0, 1.0))
 TABLE["fabric"] = dict(id=73, alb=0.35, tint=(1.0, 0.8, 0.7))
 TABLE["gold"] = dict(id=74, alb=0.6, tint=(1.3, 1.0, 0.45))
 TABLE["flame"] = dict(id=75, alb=0.1, tint=(1.0, 1.0, 1.0), emit=(2.4, 1.1, 0.3))
+TABLE["windowglass"] = dict(id=77, alb=0.05, tint=(1.0, 1.0, 1.0))
 
 ALIASES = {"panel": "white", "panels": "white", "ceiling": "ceil", "tile": "ceil", "tiles": "ceil",
            "steel": "metal", "dark metal": "dark", "slime": "goo", "toxic": "goo", "diamond": "plate",

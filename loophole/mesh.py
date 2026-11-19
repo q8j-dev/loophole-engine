@@ -100,3 +100,16 @@ def particles(n, seed):
         cs = [{"aSeed": s, "aCorner": c} for c in ([-1, -1], [1, -1], [1, 1], [-1, 1])]
         m.quad(*cs)
     return m
+
+
+def grass_cards(n, seed, cell=28.0):
+    rng = np.random.default_rng(seed)
+    m = Mesh({"aSeed": 4, "aCorner": 3})
+    g = int(math.ceil(math.sqrt(n)))
+    for i in range(n):
+        gx, gz = (i % g + rng.random()) / g, (i // g + rng.random()) / g
+        s = [gx, gz, float(rng.random()), float(rng.random())]
+        for q in range(2):
+            cs = [{"aSeed": s, "aCorner": [x, y, q]} for x, y in ((-1, 0), (1, 0), (1, 1), (-1, 1))]
+            m.quad(*cs)
+    return m

@@ -66,6 +66,8 @@ def init():
     set_tex("uDA", "world", "dA")
     set_tex("uDN", "world", "dN")
     set_tex("uDR", "world", "dR")
+    set_tex("uDA", "grass", "dA")
+    set_tex("uDR", "grass", "dR")
     set_vec2("uPAt", "world", PAW, PAH)
     set_tex("uEnv", "world", "atlas")
     set_tex("uEnvB", "world", "atlas")
@@ -338,8 +340,21 @@ def sky_load(lv):
     if TLMW[lv] > 0:
         set_tex("uTLM", "world", join("tlm", lv))
         set_vec4("uTLMP", "world", TLMX[lv], TLMZ[lv], TLMW[lv], TLMD[lv])
+        set_tex("uTLM", "grass", join("tlm", lv))
+        set_vec4("uTLMP", "grass", TLMX[lv], TLMZ[lv], TLMW[lv], TLMD[lv])
     else:
         set_tex("uTLM", "world", "atlas")
+    tex_filter(9728)
+    set_tex("uTHM", "grass", join("thm", lv))
+    tex_filter(9729)
+    set_tex("uTHM", "world", join("tpm", lv))
+    set_vec4("uTHP", "grass", THX[lv], THZ[lv], THW[lv], THD[lv])
+    set_vec4("uTHP", "world", THX[lv], THZ[lv], THW[lv], THD[lv])
+    set_vec4("uTHR", "grass", THMN[lv], THRG[lv], 0, 0)
+    set_vec4("uGR", "grass", GRX[lv], GRY[lv], GRW[lv], GRH[lv])
+    set_vec4("uGS", "grass", 26, 13, 1, 1)
+    set_vec4("uFog", "grass", SKY[sb + 17], SKY[sb + 18], SKY[sb + 19], SKY[sb + 20])
+    set_vec4("uFogS", "grass", SKY[sb + 21], SKY[sb + 22], 1, 0)
 
 
 @warp
@@ -1590,8 +1605,12 @@ def env_blur(dst, src, dx, dy):
 def frame_uniforms():
     PFY = 1 / tan((api_fov + fovk) / 2)
     PFX = PFY * 9 / 16
-    set_vec4("uO1", "world", px, py + 0.45, pz, 0.36)
-    set_vec4("uO2", "world", px, py + 1.15, pz, 0.34)
+    if api_cam == 0:
+        set_vec4("uO1", "world", 0, -999, 0, 0.01)
+        set_vec4("uO2", "world", 0, -999, 0, 0.01)
+    else:
+        set_vec4("uO1", "world", px, py + 0.45, pz, 0.36)
+        set_vec4("uO2", "world", px, py + 1.15, pz, 0.34)
     shadows_pick()
 
 
@@ -1683,6 +1702,9 @@ def draw_scene(vq):
     set_vec4("uMode", "world", 1, 1, 0, 0)
     if api_cam != 0:
         draw_player()
+    if gbm == 0 and LGRASS[level] == 1:
+        cam_u("grass")
+        draw_list("GRASS", "grass")
     if gbm == 0:
         if LSKY[level] == 0:
             set_vec4("uPM", "part", 0, LFY[level], LCY_[level], 0)
