@@ -64,6 +64,15 @@ step('friendly error messages', () => {
   return true;
 });
 
+const starter = path.join(shots, 'starter');
+step('first-minute checks: hint, prompts, crosshair, crypt walls', () => {
+  execFileSync(python, ['-m', 'loophole.cli', 'new', starter], {cwd: root, encoding: 'utf8', stdio: 'pipe'});
+  execFileSync(python, ['-m', 'loophole.cli', 'build', starter], {cwd: root, encoding: 'utf8', stdio: 'pipe'});
+  execFileSync(process.execPath, [path.join(__dirname, 'ux_test.js'), path.join(root, 'examples', 'crypt', 'Crypt Crawl.sb3'),
+    path.join(starter, 'Starter.sb3'), path.join(root, 'examples', 'racing', 'Kart Cup.sb3')], {encoding: 'utf8', stdio: 'pipe', timeout: 1200000});
+  return true;
+});
+
 const intros = EXAMPLES.filter(([dir]) => fs.readFileSync(path.join(root, 'examples', dir, 'world.py'), 'utf8').includes('play_at_start=True'))
   .map(([dir, title]) => path.join(root, 'examples', dir, title + '.sb3')).concat([helper]);
 step('autoplay intros leave the camera on the player', () => {

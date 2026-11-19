@@ -1751,7 +1751,7 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
     if old:
         po = old["project"]
         stage = next(t for t in po["targets"] if t["isStage"])
-        others = [t for t in po["targets"] if not t["isStage"] and t["name"] not in ("Engine", "Engine Audio") and
+        others = [t for t in po["targets"] if not t["isStage"] and t["name"] not in ("Engine", "Engine Audio", "Overlay") and
                   not (gsprite and t["name"] == "Game")]
         names_v = {v[0]: k for k, v in stage["variables"].items()}
         for vid, n in api_v.items():
@@ -1780,7 +1780,7 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
             stage["broadcasts"][bid] = n
         stage["comments"]["twconfig"] = {"blockId": None, "x": 0, "y": 0, "width": 350, "height": 170,
                                          "minimized": True, "text": cfg_text}
-        targets = [stage] + engine + ([gsprite] if gsprite else []) + others
+        targets = [stage] + engine + ([gsprite] if gsprite else []) + others + [t for t in overlay if t["name"] == "Overlay"]
         exts = list(dict.fromkeys(po.get("extensions", []) + ["pen", "penP", "pointerlock", "Gamepad", "localstorage", "tw"]))
         ext_urls = dict(po.get("extensionURLs", {}))
         ext_store = dict(po.get("extensionStorage", {}))
