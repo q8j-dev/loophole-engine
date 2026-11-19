@@ -42,6 +42,10 @@ Every image on this page is a real TurboWarp frame captured by the playtest harn
 | --- | --- |
 | ![](docs/img/rain.jpg) | ![](docs/img/night.jpg) |
 
+| Touch controls on a tablet | Crypt Crawl's intro cutscene |
+| --- | --- |
+| ![](docs/img/touch.jpg) | ![](docs/img/cutscene.jpg) |
+
 | Afterglow valley at dusk | Lab puzzle, first person | Orchard, third person | Crypt, top down |
 | --- | --- | --- | --- |
 | ![](docs/img/valley.jpg) | ![](docs/img/lab.jpg) | ![](docs/img/orchard.jpg) | ![](docs/img/crypt.jpg) |
@@ -56,7 +60,12 @@ Every image on this page is a real TurboWarp frame captured by the playtest harn
 - Lakes and rivers with reflections, ripples, shore foam and swimming. Biomes for meadow, forest, snow, tropical, swamp and dry country, any time of day with stars at night, and rain, snow or fog that Scratch can switch on and off.
 - Forests in one line: `level.forest(x0, z0, x1, z1)` plants oaks, maples, birches, willows, pines and spruces with bushes, ferns, logs and mossy rocks, lit with dappled shade and sunbeams, at 60 frames per second.
 - First person, third person, top-down and free cameras. Four animated player characters, or import your own rigged glTF.
-- Objects that you can pick up and carry, buttons and doors, pickups that spin and glow, enemies that walk paths, triggers and goals.
+- Objects that you can pick up and carry, buttons and doors, pickups that spin and glow, triggers and goals.
+- Physics: boxes stack and slide when you walk into them, objects have mass, friction and bounce, pressure plates need enough weight, doors swing on hinges and lamps sway on ropes.
+- Characters that think: they find their way around walls to follow you, wander, patrol or run away, and send `sees player` when they spot you. In Crypt Crawl the rats give chase.
+- Plays on tablets, touch Chromebooks and game controllers as well as keyboard and mouse: a joystick and buttons appear when you touch the screen, controllers rumble, and every control can be rebound.
+- Checkpoints, save slots that stay in the browser, and save codes made of digits that fit in a cloud variable.
+- Cutscenes written in `world.py`: camera paths, subtitles, fades and moving objects, skippable with jump.
 - On-screen text that you set from Scratch, letters on signs, OBJ and glTF model import.
 - 3D sound: birds in forests, water lapping at lakes, wind outdoors and crackling fires come for free, and `level.sound(...)` places your own. Sounds get louder as you walk closer and pan between your speakers as you turn.
 - Optional portals: `game.portals(True)` adds a portal gun. Portals are see-through (recursively, so facing portals make a tunnel) and walk-through, they keep your momentum, and they carry the cube you're holding.

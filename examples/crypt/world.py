@@ -79,8 +79,8 @@ c.object("chest", "treasure", 11, 0, -31, scale=1.6, solid=True, highlight=(0.5,
 c.goal(9.5, 0, -30, 12.5, 3, -28.5, paint=False)
 
 intro = c.cutscene("intro", play_at_start=True)
-intro.camera(0, (11, 4.5, -33), turn=180, tilt=-20)
-intro.camera(3.5, (11, 6, -18), turn=180, tilt=-35)
-intro.camera(7, (11, 7.5, 10), turn=0, tilt=-38)
+intro.camera(0, (11, 2.4, -25.5), turn=0, tilt=-12)
+intro.camera(3.5, (6, 3.6, -14), turn=120, tilt=-22)
+intro.camera(7, (11, 3.3, 9.2), turn=0, tilt=-32)
 intro.subtitle(0.4, "Deep under the old chapel lies a treasure vault", duration=3)
 intro.subtitle(3.8, "Find the 3 golden goblets. Watch out for the rats!", duration=3)
