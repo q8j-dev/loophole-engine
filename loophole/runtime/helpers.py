@@ -116,6 +116,23 @@ def play_sound(name):
     sound_queue.append(name)
 
 
+@block("play sound %s at x %s y %s z %s")
+def play_sound_at(name, x, y, z):
+    """Plays a sound from a spot in the level. It is louder close by and comes from the left or right."""
+    away_x = x - camera_x
+    away_z = z - camera_z
+    distance = sqrt(away_x * away_x + (y - camera_y) * (y - camera_y) + away_z * away_z)
+    loudness = 1 - distance / 25
+    if loudness < 0:
+        loudness = 0
+    set_volume(loudness * loudness * 100)
+    if distance > 0.1:
+        set_pan((away_x * cos(camera_yaw) + away_z * sin(camera_yaw)) / distance * 90)
+    else:
+        set_pan(0)
+    play(name)
+
+
 @block("show message %s")
 def show_message(text):
     """Big text near the bottom of the screen. Show an empty message to hide it."""

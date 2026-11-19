@@ -56,6 +56,7 @@ Every image on this page is a real TurboWarp frame captured by the playtest harn
 - First person, third person, top-down and free cameras. Four animated player characters, or import your own rigged glTF.
 - Objects that you can pick up and carry, buttons and doors, pickups that spin and glow, enemies that walk paths, triggers and goals.
 - On-screen text that you set from Scratch, letters on signs, OBJ and glTF model import.
+- 3D sound: birds in forests, water lapping at lakes, wind outdoors and crackling fires come for free, and `level.sound(...)` places your own. Sounds get louder as you walk closer and pan between your speakers as you turn.
 - Optional portals: `game.portals(True)` adds a portal gun. Portals are see-through (recursively, so facing portals make a tunnel) and walk-through, they keep your momentum, and they carry the cube you're holding.
 
 ## Make a game in five minutes

@@ -12,6 +12,7 @@ lab.strip(9, 5.95, 1, 9, 5.95, 13, power=26)
 lab.spot(6, 5.6, 3.6, target=(6, 1.4, 0), color="warm", power=55, cone=(18, 30))
 lab.window(12, 3.6, 4, 12, 5.4, 8, facing="-x")
 lab.sign("01", 9.6, 3.3, 0, facing="+z")
+lab.sound("hum", 6, 4, 7, radius=16, near=6, volume=0.4)
 
 lab.prop("crate", 1, 0, 12.5, yaw=10)
 lab.prop("crate", 1, 1, 12.6, yaw=-5)

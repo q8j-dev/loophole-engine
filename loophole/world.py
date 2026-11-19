@@ -290,6 +290,8 @@ class Level:
         self.deco(kind, (x, y, z), f, up, sc)
         if solid if solid is not None else kind in library.SOLID:
             self.solid_props = getattr(self, "solid_props", []) + [len(self.decor) - 1]
+        if kind == "firepit" and light:
+            self.sound("fire", x, y + 0.4, z, radius=9.0, near=0.8, volume=0.9, auto=True)
         return self
 
     def wall_prop(self, kind, x, y, z, facing="+x", scale=1.0):
@@ -483,6 +485,30 @@ class Level:
         self.beams = False
         self.stripe = False
         self.window_style = "sky"
+        self.ambient("wind", -1e4, -1e4, 1e4, 1e4, volume=0.3, auto=True)
+        return self
+
+    AMBIENT = ("birds", "water", "wind", "fire", "hum")
+
+    def _sound_name(self, name):
+        if name not in self.AMBIENT:
+            raise ValueError(f"unknown sound '{name}'. Looping sounds: {', '.join(self.AMBIENT)}")
+
+    def sound(self, name, x=0.0, y=0.0, z=0.0, radius=12.0, near=1.0, volume=1.0, object=None, auto=False):
+        self._sound_name(name)
+        self.sounds = getattr(self, "sounds", []) + [dict(kind=0, name=name, p=(float(x), float(y), float(z)),
+                                                         near=float(near), far=max(float(radius), float(near) + 0.5),
+                                                         vol=float(volume), obj=object or "", auto=auto)]
+        return self
+
+    def ambient(self, name, x0, z0, x1, z1, volume=0.6, fade=10.0, auto=False):
+        self._sound_name(name)
+        self.sounds = getattr(self, "sounds", []) + [dict(kind=1, name=name, box=(min(x0, x1), min(z0, z1), max(x0, x1), max(z0, z1)),
+                                                         fade=float(fade), vol=float(volume), auto=auto)]
+        return self
+
+    def ambience(self, on=True):
+        self.ambience_on = bool(on)
         return self
 
     GRASS_STYLES = {"lawn": (0.75, 1.15, 0.0, 0.02, 0.0, 0.0), "meadow": (1.45, 1.0, 0.1, 0.12, 0.0, 0.0),
@@ -596,6 +622,10 @@ class Level:
                 rocks.append(("mossrock", 1))
             self.scatter(rocks, x0, z0, x1, z1, spacing=9.0, scale=(0.35, 0.8),
                          seed=seed + 2, clearance=0.6, fill=0.5, taken=taken)
+        if kind == "snowy":
+            self.ambient("wind", x0, z0, x1, z1, volume=0.55, auto=True)
+        else:
+            self.ambient("birds", x0, z0, x1, z1, volume=0.45 if kind == "swamp" else 0.7, auto=True)
         return self
 
     def _kinds(self):
@@ -620,6 +650,7 @@ class Level:
             a = rng.uniform(0, 6.2832)
             rr = radius * math.sqrt(rng.uniform(0.15, 0.6))
             self.lilies.append((x + math.cos(a) * rr, z + math.sin(a) * rr, rng.uniform(0, 360), rng.uniform(0.7, 1.3)))
+        self.sound("water", x, 0, z, radius=radius + 14, near=radius, volume=0.8, auto=True)
         return self
 
     def river(self, *points, width=4.0, depth=1.4, level=None, reeds=True, seed=5):
@@ -639,6 +670,10 @@ class Level:
                     side = rng.choice((-1, 1)) * width * rng.uniform(0.5, 0.65)
                     self.prop("reeds", a[0] + (b[0] - a[0]) * t + nx * side, 0, a[1] + (b[1] - a[1]) * t + nz * side,
                               yaw=rng.uniform(0, 360), scale=rng.uniform(0.8, 1.2))
+        for a, b in list(zip(pts, pts[1:]))[:4]:
+            L = math.hypot(b[0] - a[0], b[1] - a[1])
+            self.sound("water", (a[0] + b[0]) / 2, 0, (a[1] + b[1]) / 2, radius=L / 2 + width + 10, near=L / 2,
+                       volume=0.6, auto=True)
         return self
 
     def flatten(self, x0, z0, x1, z1, height=0.0, falloff=6.0):

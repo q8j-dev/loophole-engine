@@ -10,7 +10,7 @@ import numpy as np
 from . import decor_place, lod
 from . import world as W
 
-LISTS = ("ops", "decor", "lights", "objects", "triggers", "signs", "windows")
+LISTS = ("ops", "decor", "lights", "objects", "triggers", "signs", "windows", "sounds")
 GROUNDED = {"prop", "wall_prop", "light", "spot", "strip", "ceiling_light", "object", "cube", "door", "button",
             "pickup", "trigger", "goal", "hazard", "spawn"}
 
@@ -224,6 +224,10 @@ def describe(path):
         lv["objects"] = objs
         lv["triggers"] = [dict(name=t["name"], kind=t["kind"], b=_jsonable(t["box"]), call=own["triggers"][k])
                           for k, t in enumerate(L.triggers)]
+        lv["sounds"] = [dict(name=s["name"], kind=s["kind"], p=_jsonable(s.get("p")), box=_jsonable(s.get("box")),
+                             far=_jsonable(s.get("far")), near=_jsonable(s.get("near")), call=own["sounds"][k])
+                        for k, s in enumerate(getattr(L, "sounds", [])) if not s["auto"] and k < len(own["sounds"])]
+        lv["sound_names"] = list(W.Level.AMBIENT)
         sx, sy, sz, syaw = L.start
         lv["spawn"] = dict(p=_jsonable((sx, sy, sz)), yaw=_jsonable(syaw),
                            call=next((c["id"] for c in calls if c["method"] == "spawn" and records[c["id"]]["level"] is L), -1))

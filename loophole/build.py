@@ -282,6 +282,68 @@ def ground_relative(L):
         L.solid_boxes = [box(b) for b in L.solid_boxes]
     sx, sy, sz, yaw = L.start
     L.start = (sx, sy + h(sx, sz), sz, yaw)
+    for s in getattr(L, "sounds", []):
+        if s["kind"] == 0:
+            s["p"] = (s["p"][0], s["p"][1] + h(s["p"][0], s["p"][2]), s["p"][2])
+
+
+AUDIO_LISTS = ("AL0", "ALN", "ASN", "AK", "AX", "AY", "AZ", "AX1", "AZ1", "ANR", "AFR", "AV", "AOB")
+
+
+def audio_lists(L, Lv):
+    on = getattr(Lv, "ambience_on", True)
+    merged, boxes = [], {}
+    for s in getattr(Lv, "sounds", []):
+        if s["auto"] and not on:
+            continue
+        if s["kind"] == 1:
+            key = (s["name"], s["auto"])
+            if key in boxes:
+                b = boxes[key]
+                bb, sb = b["box"], s["box"]
+                b["box"] = (min(bb[0], sb[0]), min(bb[1], sb[1]), max(bb[2], sb[2]), max(bb[3], sb[3]))
+                b["vol"] = max(b["vol"], s["vol"])
+                continue
+            s = dict(s)
+            boxes[key] = s
+        merged.append(s)
+    merged = sorted(merged, key=lambda s: (s["auto"], -s["vol"]))[:12]
+    L["AL0"].append(len(L["ASN"]) + 1)
+    L["ALN"].append(len(merged))
+    for s in merged:
+        L["ASN"].append(s["name"])
+        L["AK"].append(s["kind"])
+        L["AV"].append(r4(s["vol"]))
+        if s["kind"] == 0:
+            vals = (s["p"][0], s["p"][1], s["p"][2], 0, 0, s["near"], s["far"], s["obj"])
+        else:
+            b = s["box"]
+            vals = (b[0], 0, b[1], b[2], b[3], 0, s["fade"], "")
+        for k, v in zip(("AX", "AY", "AZ", "AX1", "AZ1", "ANR", "AFR", "AOB"), vals):
+            L[k].append(v if isinstance(v, str) else r4(v))
+    return {s["name"] for s in merged}
+
+
+def audio_sprite(A, proj, L, types):
+    if not types:
+        return None
+    src = (HERE / "runtime" / "audio.py").read_text(encoding="utf-8")
+    c = Compiler(proj, src, list(API_LISTS.values()), aliases=dict(USER_ALIASES))
+    blocks = c.compile()
+    L["ATYPES"] = sorted(types)
+    man = json.loads((DATA / "sfx" / "manifest.json").read_text(encoding="utf-8"))
+    snds = []
+    for t in sorted(types):
+        rate, cnt = man[f"amb_{t}"]
+        data = (DATA / "sfx" / f"amb_{t}.mp3").read_bytes()
+        snds.append(A.sound(f"amb_{t}", data, "mp3", rate, cnt))
+        snds.append(A.sound(f"amb_{t}_b", data, "mp3", rate, cnt))
+    return {"isStage": False, "name": "Engine Audio", "variables": {vid: [n, 0] for n, vid in c.new_vars.items()},
+            "lists": {lid: [n, L.get(n, [])] for n, lid in c.new_lists.items()}, "broadcasts": {}, "blocks": blocks,
+            "comments": {}, "currentCostume": 0,
+            "costumes": [A.svg("blank", '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"></svg>', 1, 1)],
+            "sounds": snds, "volume": 100, "layerOrder": 5, "visible": False, "x": 0, "y": 0, "size": 100,
+            "direction": 90, "draggable": False, "rotationStyle": "don't rotate"}
 
 
 def voxelize(L, li):
@@ -548,7 +610,8 @@ def build(world_path, out=None, log=print, cache=None):
     log(f"loophole {ENGINE_VERSION}: building '{game.title}' ({len(game.levels)} level{'s' * (len(game.levels) != 1)})")
     L = {k: [] for k in LIST_NAMES}
     for k in ["GTEX", "GB", "GC", "GH", "GIB", "GNC", "GOX", "GOY", "GOZ", "GR", "GIDW", "GCH0", "CHX", "CHY", "CHZ",
-              "CHR", "CHS", "CHO", "CHN", "CHF", "LDET", "LWAT", "LWB0", "LWBN", "WBX0", "WBZ0", "WBX1", "WBZ1", "WBY", "SHX", "SHZ", "SHR", "SHY"]:
+              "CHR", "CHS", "CHO", "CHN", "CHF", "LDET", "LWAT", "LWB0", "LWBN", "WBX0", "WBZ0", "WBX1", "WBZ1", "WBY", "SHX", "SHZ", "SHR", "SHY",
+              *AUDIO_LISTS]:
         L[k] = []
     groups = []
     lms = {}
@@ -646,6 +709,7 @@ def build(world_path, out=None, log=print, cache=None):
                         L[k_].append(int(v_))
             groups.append((f"g{li}{part}", pk))
         level_lists(L, Lv, c, meta, li, models, broadcasts)
+        L["ATYPES"] = sorted(set(L.get("ATYPES", [])) | audio_lists(L, Lv))
     for name in ("device", "arms", "player"):
         gid, _, _ = models.builtin(name)
         L.setdefault("_G", {})[name] = gid
@@ -1206,7 +1270,7 @@ def helpers_sprite(A, proj, extra=""):
             "lists": {lid: [n, []] for n, lid in c.new_lists.items()}, "broadcasts": {}, "blocks": blocks,
             "comments": c.comments, "currentCostume": 0,
             "costumes": [A.svg("blank", '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"></svg>', 1, 1)],
-            "sounds": [], "volume": 100, "layerOrder": 4, "visible": False, "x": 0, "y": 0, "size": 100,
+            "sounds": sounds(A), "volume": 100, "layerOrder": 4, "visible": False, "x": 0, "y": 0, "size": 100,
             "direction": 90, "draggable": False, "rotationStyle": "don't rotate"}
 
 
@@ -1344,7 +1408,8 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
                 STAGE_W // 2, STAGE_H // 2)
     old = read_sb3(out) if out.exists() else None
     fresh = [overlay_sprite(A, proj)] + ([] if old else [helpers_sprite(A, proj)])
-    pj = merge_project(old, engine, gsprite, fresh, proj, api_values, shader_store, cfg_text, bg, A,
+    audio = audio_sprite(A, proj, L, set(L.get("ATYPES", [])))
+    pj = merge_project(old, [engine] + ([audio] if audio else []), gsprite, fresh, proj, api_values, shader_store, cfg_text, bg, A,
                        game, draw_lists)
     js = json.dumps(pj, separators=(",", ":"))
     files = dict(old["files"]) if old else {}
@@ -1450,7 +1515,7 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
     if old:
         po = old["project"]
         stage = next(t for t in po["targets"] if t["isStage"])
-        others = [t for t in po["targets"] if not t["isStage"] and t["name"] != "Engine" and
+        others = [t for t in po["targets"] if not t["isStage"] and t["name"] not in ("Engine", "Engine Audio") and
                   not (gsprite and t["name"] == "Game")]
         names_v = {v[0]: k for k, v in stage["variables"].items()}
         for vid, n in api_v.items():
@@ -1479,7 +1544,7 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
             stage["broadcasts"][bid] = n
         stage["comments"]["twconfig"] = {"blockId": None, "x": 0, "y": 0, "width": 350, "height": 170,
                                          "minimized": True, "text": cfg_text}
-        targets = [stage, engine] + ([gsprite] if gsprite else []) + others
+        targets = [stage] + engine + ([gsprite] if gsprite else []) + others
         exts = list(dict.fromkeys(po.get("extensions", []) + ["pen", "penP", "pointerlock", "tw"]))
         ext_urls = dict(po.get("extensionURLs", {}))
         ext_store = dict(po.get("extensionStorage", {}))
@@ -1493,7 +1558,7 @@ def merge_project(old, engine, gsprite, overlay, proj, api_values, shader_store,
                                            "minimized": True, "text": cfg_text}},
                  "currentCostume": 0, "costumes": [bg], "sounds": [], "volume": 100, "layerOrder": 0, "tempo": 60,
                  "videoTransparency": 50, "videoState": "on", "textToSpeechLanguage": None}
-        targets = [stage, engine] + ([gsprite] if gsprite else []) + overlay
+        targets = [stage] + engine + ([gsprite] if gsprite else []) + overlay
         exts = ["pen", "penP", "pointerlock", "tw"]
         ext_urls = {}
         ext_store = {}

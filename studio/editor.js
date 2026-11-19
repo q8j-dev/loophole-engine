@@ -8,17 +8,18 @@ const view = $('lview');
 const note = $('lnote');
 const panel = $('props');
 
-const POINT = new Set(['prop', 'wall_prop', 'light', 'spot', 'object', 'cube', 'door', 'button', 'pickup', 'spawn', 'sign', 'ceiling_light', 'sparks']);
+const POINT = new Set(['prop', 'wall_prop', 'light', 'spot', 'object', 'cube', 'door', 'button', 'pickup', 'spawn', 'sign', 'ceiling_light', 'sparks', 'sound']);
 const BOX = new Set(['room', 'solid', 'hole', 'trigger', 'goal', 'hazard']);
-const AREA = new Set(['forest', 'scatter', 'terrain', 'flatten', 'platform', 'building', 'pool', 'vent']);
+const AREA = new Set(['forest', 'scatter', 'terrain', 'flatten', 'platform', 'building', 'pool', 'vent', 'ambient']);
 const ROTATE = new Set(['prop', 'object', 'cube', 'pickup', 'spawn']);
-const SCALE = new Set(['prop', 'object', 'cube', 'pickup', 'lake', ...BOX, ...AREA]);
+const SCALE = new Set(['prop', 'object', 'cube', 'pickup', 'lake', 'sound', ...BOX, ...AREA]);
 const LABEL = {
   prop: 'Prop', wall_prop: 'Wall prop', light: 'Light', spot: 'Spotlight', strip: 'Strip light', ceiling_light: 'Ceiling light',
   object: 'Object', cube: 'Cube', door: 'Door', button: 'Button', pickup: 'Collectible', spawn: 'Player start', room: 'Room',
   solid: 'Solid block', hole: 'Hole', trigger: 'Trigger zone', goal: 'Goal', hazard: 'Hazard', forest: 'Forest', scatter: 'Scatter',
   terrain: 'Terrain', lake: 'Lake', river: 'River', path: 'Path', building: 'Building', platform: 'Platform', stairs: 'Stairs',
   sign: 'Sign', window: 'Window', flatten: 'Flat ground', pool: 'Pool', vent: 'Vent', catwalk: 'Catwalk', column: 'Column',
+  sound: 'Sound', ambient: 'Sound zone',
 };
 const GROUPS = [
   ['Trees', ['oak', 'birch', 'maple', 'willow', 'pine', 'spruce', 'palm', 'snag']],
@@ -305,6 +306,24 @@ function rebuild() {
     const m = box(t.b, ghost(tcol[t.kind] || 0x3b82f6, 0.2));
     g.add(m, edges(m, tcol[t.kind] || 0x3b82f6));
   }
+  for (const s of (lv.sounds || [])) {
+    const g = groupFor(s.call);
+    if (s.kind === 0) {
+      const p = new THREE.Vector3().fromArray(s.p);
+      const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.32), mat(0x8b5cf6));
+      m.position.copy(p);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(Math.max(0.05, s.far - 0.08), s.far, 64), ghost(0x8b5cf6, 0.45));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.copy(p).setY(p.y - 0.3);
+      g.add(m, ring);
+      g.userData.pivot = p.clone();
+    } else {
+      const b = s.box;
+      const y = lv.terrain ? groundAt((b[0] + b[2]) / 2, (b[1] + b[3]) / 2) + 0.4 : 0.05;
+      const m = box([b[0], y, b[1], b[2], y + 0.05, b[3]], ghost(0x8b5cf6, 0.12));
+      g.add(m, edges(m, 0x8b5cf6));
+    }
+  }
   if (lv.waters) {
     const wc = desc.calls.filter(c => c.level === level && (c.method === 'lake' || c.method === 'river'));
     lv.waters.forEach((w, i) => {
@@ -481,7 +500,9 @@ function commit(g) {
       y = ((y % 360) + 540) % 360 - 180;
       e.yaw = Math.round(y);
     }
-    if (Math.abs(sc.x - 1) > 1e-3 && SCALE.has(m)) {
+    if (Math.abs(sc.x - 1) > 1e-3 && m === 'sound') {
+      e.radius = val(c, 'radius', 12) * (sc.x + sc.z) / 2;
+    } else if (Math.abs(sc.x - 1) > 1e-3 && SCALE.has(m)) {
       const s0 = val(c, 'scale', 1);
       e.scale = (typeof s0 === 'number' ? s0 : 1) * (sc.x + sc.y + sc.z) / 3;
     }
@@ -550,9 +571,11 @@ function showProps(c) {
     t.textContent = name;
     let input;
     const v = p.value;
-    if (name === 'kind' && c.method === 'prop' && typeof v === 'string') {
+    const choices = name === 'kind' && c.method === 'prop' ? (desc.catalog || []) :
+      name === 'name' && (c.method === 'sound' || c.method === 'ambient') ? (desc.levels[level].sound_names || []) : null;
+    if (choices && typeof v === 'string') {
       input = document.createElement('select');
-      for (const k of (desc.catalog || [])) {
+      for (const k of choices) {
         const o = document.createElement('option');
         o.value = k; o.textContent = k;
         input.append(o);
@@ -632,6 +655,7 @@ function place(hit) {
     case 'goal': line = `${v}.goal(${n(x - 1)}, ${n(y)}, ${n(z - 1)}, ${n(x + 1)}, ${n(y + 3)}, ${n(z + 1)})`; method = 'goal'; break;
     case 'lake': line = `${v}.lake(${n(x)}, ${n(z)}, 6)`; method = 'lake'; break;
     case 'forest': line = `${v}.forest(${n(x - 10)}, ${n(z - 10)}, ${n(x + 10)}, ${n(z + 10)}, kind="mixed")`; method = 'forest'; break;
+    case 'sound': line = `${v}.sound("birds", ${n(x)}, ${n(y + 1)}, ${n(z)}, radius=12)`; method = 'sound'; break;
   }
   if (!line) return;
   const d = S.doc('world.py');

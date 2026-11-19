@@ -189,6 +189,24 @@ v.object("rat1", "rat", -20, 0, 1, scale=6, solid=False, path=[(-20, 0, 1), (20,
 
 Options for any object: `yaw`, `pitch`, `roll`, `scale`, `visible`, `solid`, `physics`, `carry`, `use` (E sends `used object`), `shadow`, `glow`, `glow_color`, `collect`, `spin` (degrees per second), `bob` (metres), `highlight` (rim glow colour), `path` (list of points to walk), `speed`, `loop`, `face_path`, `slide` and `open_speed` (for doors; any object with `kind=1` slides by `slide` metres when opened, and negative values sink it).
 
+## Sounds
+
+Looping sounds play in 3D: they get louder as the player comes closer and come from the left or right speaker depending on where the player is facing. The loops are `birds`, `water`, `wind`, `fire` and `hum`.
+
+```python
+lab.sound("hum", 6, 4, 7, radius=16, near=6, volume=0.4)
+v.sound("fire", object="campfire")
+v.ambient("birds", -40, -40, 0, 40)
+```
+
+| Method | What it does |
+| --- | --- |
+| `sound(name, x, y, z, radius=12, near=1, volume=1, object=None)` | A sound at a spot. Full volume within `near` metres, silent beyond `radius`. With `object="name"` it follows that object. |
+| `ambient(name, x0, z0, x1, z1, volume=0.6, fade=10)` | A sound that fills an area and fades out over `fade` metres outside it. |
+| `ambience(False)` | Turns off the automatic sounds below for this level. |
+
+Some sounds come for free: outdoor levels have a soft wind, forests have birds (snowy forests have wind), lakes and rivers lap at the shore, and a `firepit` crackles. A level plays up to 12 sounds.
+
 ## Zones
 
 | Method | What it does |

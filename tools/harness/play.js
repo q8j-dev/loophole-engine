@@ -48,6 +48,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     else if (cmd === 'rec') { for (let i = 0; i < +a; i++) { await page.screenshot({path: path.join(out, `${b}_${String(i).padStart(3, '0')}.png`)}); await sleep(+(c || 60)); } }
     else if (cmd === 'click') { await page.evaluate(bt => S.vm.postIOData('mouse', {isDown: true, button: +bt, x: 240, y: 180, canvasWidth: 480, canvasHeight: 360}), a); await sleep(150); await page.evaluate(bt => S.vm.postIOData('mouse', {isDown: false, button: +bt, x: 240, y: 180, canvasWidth: 480, canvasHeight: 360}), a); }
     else if (cmd === 'throttle') { const cdp = await page.createCDPSession(); await cdp.send('Emulation.setCPUThrottlingRate', {rate: +a}); }
+    else if (cmd === 'audio') console.log('AUDIO', a || '', JSON.stringify(await page.evaluate(() => S.vm.runtime.targets
+      .filter(t => !t.isOriginal && t.sprite.name === (window.audioSprite || 'Engine Audio'))
+      .map(t => {
+        const v = Object.values(t.variables).find(x => x.name === 'my_sound');
+        const st = t.getCustomState('Scratch.sound') || {};
+        const bank = t.sprite.soundBank;
+        const playing = t.sprite.sounds.filter(s => bank.soundPlayers[s.soundId] && bank.soundPlayers[s.soundId].isPlaying).map(s => s.name);
+        return {sound: v && v.value, volume: Math.round(t.volume), pan: st.effects ? Math.round(st.effects.pan) : null, playing};
+      }))));
     else if (cmd === 'prof') console.log('PROF', await page.evaluate(async ms => {
       const gl = S.renderer.gl;
       const st = {};

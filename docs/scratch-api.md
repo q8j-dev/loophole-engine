@@ -17,6 +17,7 @@ A new project comes with a sprite called Helpers. Its My Blocks section has read
 | `show object [name]`, `hide object [name]` | Shows or hides an object. |
 | `open [name]`, `close [name]` | Opens or closes a door or anything else that slides. |
 | `play sound [name]` | Plays one of the sounds listed under `sound queue`. |
+| `play sound [name] at x () y () z ()` | Plays a sound from a spot in the level, louder close by and from the left or right. |
 | `show message [text]`, `show message [text] for () seconds` | Big text near the bottom of the screen. |
 | `set status [text]` | Small text in the top left corner. |
 | `teleport player to x () y () z ()` | Moves the player. |
