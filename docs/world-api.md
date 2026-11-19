@@ -90,13 +90,28 @@ v.building(-2, -10, 9, -2, door=("+z", 3.5), windows=[("+z", 7.0)])
 | Method | What it does |
 | --- | --- |
 | `outdoor(sky="day", sun=(0.4, 0.75, 0.3), sun_color=None, fog=0.0035, clouds=0.45, shafts=0.6)` | Opens the level to the sky. Skies: `day`, `sunset`, `dusk`, `night`, `overcast`. `sun` points toward the sun. `shafts` sets how strongly sunbeams show through gaps in trees when you look toward the sun. |
-| `terrain(x0, z0, x1, z1, hills=4.0, seed=1, height=None, grass=1.0, grass_style="lawn", material="terrain")` | Rolling ground with grass, dirt and rock on slopes. The hills continue to the horizon. `grass_style` is `"lawn"` (short, green), `"meadow"` (tall, with wildflowers), `"dry"` (golden) or `"forest"` (sparse, with leaf litter and moss under trees). `grass` scales the density. Pass a 2D `height` array to sculpt the ground yourself. |
+| `sky(time=None, preset=None, weather="clear", clouds=None, fog=None)` | Sets the time of day and weather. `time` is hours from 0 to 24: it places the sun (or the moon at night) and picks matching sky, light and fog colours, with stars at night. `weather` is `"clear"`, `"rain"`, `"snow"` or `"fog"`. Time of day is baked into the lighting, so set it here. Weather can change while the game runs. |
+| `terrain(x0, z0, x1, z1, hills=4.0, seed=1, height=None, grass=1.0, grass_style="lawn", material="terrain")` | Rolling ground with grass, dirt and rock on slopes. The hills continue to the horizon. `grass_style` picks the biome (see below). `grass` scales the density. Pass a 2D `height` array to sculpt the ground yourself. |
 | `lake(x, z, radius, depth=2.5, level=None, reeds=True, lilies=10)` | Digs a lake into the terrain and fills it with water. The water level is set from the ground around it unless you pass `level`. Reeds grow around the shore and lily pads float on top. |
 | `river(*points, width=4.0, depth=1.4, level=None, reeds=True)` | Digs a river channel along the points and fills it with water. |
 | `wind(direction=(1, 0.35), strength=1.0)` | Wind for the level. Gusts roll across grass in waves and sway trees, bushes and clumps of leaves together. `strength=0` stops it. |
 | `flatten(x0, z0, x1, z1, height=0, falloff=6)` | Levels an area, blending back into the hills over `falloff` metres. |
 | `path(*points, width=2.0, material="gravel")` | A smooth path through the points. Use `"dirt"` or `"gravel"`. |
 | `building(x0, z0, x1, z1, height=3, walls="brick", inside="plaster", floor="wood", roof="roof", roof_shape="gable", door=None, windows=(), ...)` | A house with a foundation, a gabled or flat roof, framed glass windows, a door frame and trim. `door` and each window are `(side, position along the wall)`. The ground under it is flattened. |
+
+## Biomes
+
+`grass_style` on `terrain` and `kind` on `forest` set the biome. Combine them with `sky` for a one-line look:
+
+| Biome | Terrain | Forest | Notes |
+| --- | --- | --- | --- |
+| Meadow | `grass_style="meadow"` | `kind="broadleaf"` | Tall grass and wildflowers. |
+| Forest | `grass_style="forest"` | `kind="mixed"` or `"autumn"` | Leaf litter and moss under trees. |
+| Lawn | `grass_style="lawn"` | any | Short green grass. |
+| Dry | `grass_style="dry"` | `kind="birch"` | Golden grass and ground. |
+| Snow | `grass_style="snow"` | `kind="snowy"` | Snow on the ground and on top of branches, rocks and roofs. Add `sky(weather="snow")` for falling snow. |
+| Tropical | `grass_style="tropical"` | `kind="tropical"` | Palms and big-leaf plants. Add a `lake` for a lagoon. |
+| Swamp | `grass_style="swamp"` | `kind="swamp"` | Willows, dead snags, reeds and fallen logs. Add `sky(weather="fog")`. |
 
 ## Forests in one line
 
@@ -108,7 +123,7 @@ v.scatter(["boulder", "rock"], -30, -30, 30, 30, spacing=8)
 
 | Method | What it does |
 | --- | --- |
-| `forest(x0, z0, x1, z1, kind="mixed", density=1.0, undergrowth=True, seed=1)` | Fills the area with trees spaced like a real forest, plus bushes, ferns, grass, fallen logs and rocks underneath. Kinds: `"mixed"`, `"broadleaf"`, `"pine"`, `"birch"`, `"autumn"`. Paths, buildings, objects and the spawn point stay clear. |
+| `forest(x0, z0, x1, z1, kind="mixed", density=1.0, undergrowth=True, seed=1)` | Fills the area with trees spaced like a real forest, plus bushes, ferns, grass, fallen logs and rocks underneath. Kinds: `"mixed"`, `"broadleaf"`, `"pine"`, `"birch"`, `"autumn"`, `"snowy"`, `"tropical"`, `"swamp"`. Paths, buildings, objects and the spawn point stay clear. |
 | `scatter(kinds, x0, z0, x1, z1, spacing=3.0, scale=(0.8, 1.2), seed=0)` | Places props randomly with at least `spacing` metres between them, with random size and rotation. `kinds` is a prop name, a list of names, or a list of `(name, weight)` pairs. |
 
 Big forests stay fast: leaves far from the camera are thinned out and replaced by fewer, larger clusters, and parts of the level behind the camera are skipped.
@@ -142,8 +157,8 @@ v.wall_prop("sconce", 8.3, 1.8, -4.5, facing="-x")
 
 | Group | Props |
 | --- | --- |
-| Trees | `oak`, `birch`, `maple` (autumn colours), `willow`, `pine`, `spruce` |
-| Nature | `bush`, `grass`, `fern`, `reeds`, `lilypad`, `log`, `boulder`, `rock`, `mossrock`, `stump` |
+| Trees | `oak`, `birch`, `maple` (autumn colours), `willow`, `pine`, `spruce`, `palm`, `snag` (dead tree) |
+| Nature | `bush`, `grass`, `fern`, `bigleaf`, `reeds`, `lilypad`, `log`, `deadlog`, `boulder`, `rock`, `mossrock`, `stump` |
 | House | `table`, `chair`, `armchair`, `sofa`, `bed`, `bookshelf`, `cabinet`, `nightstand`, `picture`, `chandelier`, `sconce`, `lantern`, `candlestick`, `oillamp` |
 | Village | `woodbarrel`, `winebarrel`, `woodcrate`, `bench`, `firepit`, `streetlamp`, `walllamp`, `toolcart`, `bucket` |
 | Treasure | `apple`, `goblet`, `treasure`, `statue`, `catstatue`, `rat` |
