@@ -200,7 +200,7 @@ void main() {
     } else if (t5.z > 5.5) {
       lodk = mix(1.0, 0.35, fd);
     } else {
-      float kp = clamp(1.0 - (ld - uLOD.x * 1.5) / (uLOD.y * 1.6), 0.4, 1.0);
+      float kp = clamp(1.0 - (ld - uLOD.x * 1.5) / (uLOD.y * 1.6), 0.6, 1.0);
       if (hh > kp) {
         gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
         return;

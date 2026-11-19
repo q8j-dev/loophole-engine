@@ -518,16 +518,19 @@ def leaf_sprite(w, h, seed, kind):
     if kind == "frond":
         cx = W / 2
         dr.line([(cx, H), (cx, H * 0.02)], fill=(96, 92, 50, 255), width=max(3, W // 60))
-        n = 34
+        n = 46
         for i in range(n):
             t = (i + 0.5) / n
             y = H * (1 - t * 0.97)
-            L = W * 0.48 * math.sin(math.pi * min(1.0, t * 1.15)) ** 0.7
+            L = W * 0.5 * math.sin(math.pi * min(1.0, t * 1.1)) ** 0.6
             for sd in (-1, 1):
-                tip = (cx + sd * L, y - H * 0.06 * (0.5 + t))
-                wd = H * 0.012
-                col = (int(rng.uniform(40, 62)), int(rng.uniform(96, 124)), int(rng.uniform(30, 46)), 255)
-                dr.polygon([(cx, y - wd), (cx, y + wd), tip], fill=col)
+                tip = (cx + sd * L, y - H * 0.05 * (0.5 + t) + rng.normal(0, H * 0.004))
+                wd = H * 0.016
+                g = rng.uniform(0.8, 1.1)
+                col = (int(56 * g + 18 * t), int(98 * g), int(34 * g), 255)
+                if rng.random() < 0.08:
+                    col = (120, 112, 52, 255)
+                dr.polygon([(cx, y - wd), (cx + sd * L * 0.15, y - wd * 1.3), tip, (cx, y + wd)], fill=col)
     else:
         cx = W / 2
         pts = []
@@ -536,15 +539,17 @@ def leaf_sprite(w, h, seed, kind):
             r = math.sin(math.pi * t) ** 0.8 * W * 0.46
             pts.append((cx + r, H * (1 - t)))
         pts += [(2 * cx - x, y) for x, y in pts[::-1]]
-        base = (int(rng.uniform(34, 50)), int(rng.uniform(86, 110)), int(rng.uniform(28, 40)), 255)
+        base = (int(rng.uniform(30, 40)), int(rng.uniform(64, 80)), int(rng.uniform(26, 34)), 255)
         dr.polygon(pts, fill=base)
-        dr.line([(cx, H), (cx, 0)], fill=(120, 140, 70, 255), width=max(3, W // 70))
+        inner = [(cx + (x - cx) * 0.7, y) for x, y in pts]
+        dr.polygon(inner, fill=(base[0] + 10, base[1] + 16, base[2] + 6, 255))
+        dr.line([(cx, H), (cx, 0)], fill=(96, 118, 60, 255), width=max(3, W // 70))
         for i in range(1, 12):
             t = i / 12
             y = H * (1 - t)
             for sd in (-1, 1):
                 dr.line([(cx, y), (cx + sd * W * 0.42 * math.sin(math.pi * t) ** 0.8, y - H * 0.08)],
-                        fill=(70, 110, 46, 255), width=max(2, W // 160))
+                        fill=(52, 84, 38, 255), width=max(2, W // 160))
         for i in range(5):
             y = H * rng.uniform(0.2, 0.8)
             sd = rng.choice((-1, 1))
@@ -553,7 +558,7 @@ def leaf_sprite(w, h, seed, kind):
     return im.resize((w, h), Image.LANCZOS)
 
 
-def palm(name, seed, src, bark, height=7.5, fronds=14):
+def palm(name, seed, src, bark, height=7.0, fronds=20):
     rng = np.random.default_rng(seed)
     tile = np.zeros((TILE, TILE, 3), np.float32)
     ntile = np.zeros_like(tile)
@@ -571,22 +576,22 @@ def palm(name, seed, src, bark, height=7.5, fronds=14):
         rtile[:, TILE // 2 + k * 256:TILE // 2 + (k + 1) * 256] = rm
     m = Mesh()
     bend = np.array([rng.normal(0, 1), 0, rng.normal(0, 1)])
-    bend = bend / np.linalg.norm(bend) * height * 0.22
+    bend = bend / np.linalg.norm(bend) * height * 0.1
     tp = [np.array([0.0, height * t, 0.0]) + bend * t * t for t in np.linspace(0, 1, 10)]
-    m.tube(tp, [0.22 - 0.07 * t for t in np.linspace(0, 1, 10)], 0.0, 0.5, 0.0, 1.0, segs=7,
+    m.tube(tp, [0.28 - 0.1 * t for t in np.linspace(0, 1, 10)], 0.0, 0.5, 0.0, 1.0, segs=7,
            sway=[0.15 * t * t for t in np.linspace(0, 1, 10)])
     top = tp[-1]
     for f in range(fronds):
         ang = 2 * math.pi * f / fronds + rng.uniform(-0.2, 0.2)
         out = np.array([math.cos(ang), 0, math.sin(ang)])
-        rise = rng.uniform(-0.15, 0.55)
-        L = rng.uniform(2.4, 3.2)
+        rise = rng.uniform(0.35, 0.9) if f % 2 else rng.uniform(-0.45, 0.05)
+        L = rng.uniform(2.6, 3.4)
         k = int(rng.integers(0, 2))
         rect = (0.5 + k * 0.25, 0.0, 0.75 + k * 0.25, 1.0)
         upv = out * 0.85 + np.array([0, rise, 0])
         upv /= np.linalg.norm(upv)
         right = np.array([-out[2], 0, out[0]])
-        m.card(top, right, upv, L * 0.42, L, rect, np.array([0, 1.0, 0]) + out * 0.3, sway=1.0, bend=0.35, rows=4)
+        m.card(top, right, upv, L * 0.55, L, rect, np.array([0, 1.0, 0]) + out * 0.3, sway=1.0, bend=0.45, rows=4)
     save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
     return m.save(name)
 
@@ -601,7 +606,7 @@ def bigleaf(name, seed, size=1.5, leaves=9):
     rtile = np.zeros_like(tile)
     for k in range(2):
         al, nm, rm = rgba_to_maps(leaf_sprite(T // 2, T, seed * 3 + k, "big"), 0.4)
-        tile[:, k * T // 2:(k + 1) * T // 2] = al
+        tile[:, k * T // 2:(k + 1) * T // 2] = al * np.array([0.78, 0.74, 0.62])
         ntile[:, k * T // 2:(k + 1) * T // 2] = nm
         rtile[:, k * T // 2:(k + 1) * T // 2] = rm
     m = Mesh()
