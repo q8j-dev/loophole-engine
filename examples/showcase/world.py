@@ -49,7 +49,8 @@ lab.goal(7, 0, -7.5, 9, 3, -5.5)
 
 v = game.level("Valley")
 v.outdoor(sky="dusk", sun=(-0.75, 0.18, -0.5), fog=0.0045)
-v.terrain(-48, -48, 48, 48, hills=9.0, seed=7)
+v.terrain(-48, -48, 48, 48, hills=9.0, seed=7, grass_style="meadow")
+v.wind((0.8, -0.6), strength=0.7)
 v.flatten(-18, -14, 18, 16, height=0.0, falloff=12)
 v.building(-3, -11, 8, -3, door=("+z", 2.5), windows=[("+z", 6.0), ("+x", -7), ("-x", -7)])
 v.prop("table", 2.5, 0, -7)
@@ -75,11 +76,6 @@ def clear(x, z):
     return not (-4.5 < x < 9.5 and -12.5 < z < -1.5) and abs(x - 2.75) + abs(z - 1) > 2.5
 
 
-for i in range(16):
-    a = rng.uniform(0, 6.28)
-    r = rng.uniform(20, 38)
-    v.prop(rng.choice(["oak", "pine", "pine", "birch"]), math.cos(a) * r, 0, math.sin(a) * r,
-           yaw=rng.uniform(0, 360), scale=rng.uniform(0.85, 1.25))
 for (x, z, k) in ((13, -8, "oak"), (-12, -3, "birch"), (-7, 4, "birch"), (19, 10, "oak"), (-16, 18, "pine")):
     v.prop(k, x, 0, z, yaw=x * 13)
 for i in range(18):
@@ -103,3 +99,8 @@ v.prop("streetlamp", -8, 0, 10.5)
 v.pickup("lantern1", "lantern", -23, 0.9, 14, scale=1.5, glow=2.0)
 v.pickup("lantern2", "lantern", 27, 0.9, -6.5, scale=1.5, glow=2.0)
 v.pickup("lantern3", "lantern", -15, 0.9, 3, scale=1.5, glow=2.0)
+
+v.forest(-46, -46, 46, -24, kind="mixed", density=0.8, undergrowth=False, seed=3)
+v.forest(-46, -24, -27, 46, kind="mixed", density=0.7, undergrowth=False, seed=4)
+v.forest(31, -24, 46, 46, kind="pine", density=0.8, undergrowth=False, seed=6)
+v.forest(-27, 30, 31, 46, kind="broadleaf", density=0.6, undergrowth=False, seed=7)
