@@ -8,8 +8,8 @@ const view = $('lview');
 const note = $('lnote');
 const panel = $('props');
 
-const POINT = new Set(['prop', 'wall_prop', 'light', 'spot', 'object', 'cube', 'door', 'button', 'pickup', 'spawn', 'sign', 'ceiling_light', 'sparks', 'sound']);
-const BOX = new Set(['room', 'solid', 'hole', 'trigger', 'goal', 'hazard']);
+const POINT = new Set(['prop', 'wall_prop', 'light', 'spot', 'object', 'cube', 'door', 'button', 'pickup', 'spawn', 'sign', 'ceiling_light', 'sparks', 'sound', 'hinge_door', 'swing']);
+const BOX = new Set(['room', 'solid', 'hole', 'trigger', 'goal', 'hazard', 'checkpoint']);
 const AREA = new Set(['forest', 'scatter', 'terrain', 'flatten', 'platform', 'building', 'pool', 'vent', 'ambient']);
 const ROTATE = new Set(['prop', 'object', 'cube', 'pickup', 'spawn']);
 const SCALE = new Set(['prop', 'object', 'cube', 'pickup', 'lake', 'sound', ...BOX, ...AREA]);
@@ -19,8 +19,9 @@ const LABEL = {
   solid: 'Solid block', hole: 'Hole', trigger: 'Trigger zone', goal: 'Goal', hazard: 'Hazard', forest: 'Forest', scatter: 'Scatter',
   terrain: 'Terrain', lake: 'Lake', river: 'River', path: 'Path', building: 'Building', platform: 'Platform', stairs: 'Stairs',
   sign: 'Sign', window: 'Window', flatten: 'Flat ground', pool: 'Pool', vent: 'Vent', catwalk: 'Catwalk', column: 'Column',
-  sound: 'Sound', ambient: 'Sound zone',
+  sound: 'Sound', ambient: 'Sound zone', checkpoint: 'Checkpoint', hinge_door: 'Hinged door', swing: 'Swinging prop',
 };
+const MODES = ['', 'follow', 'wander', 'patrol', 'flee', 'stop'];
 const GROUPS = [
   ['Trees', ['oak', 'birch', 'maple', 'willow', 'pine', 'spruce', 'palm', 'snag']],
   ['Nature', ['bush', 'grass', 'fern', 'bigleaf', 'reeds', 'log', 'deadlog', 'boulder', 'rock', 'mossrock', 'stump']],
@@ -298,9 +299,15 @@ function rebuild() {
       m.position.copy(p).add(new THREE.Vector3(0, 0.4, 0));
       g.add(m);
     }
+    if (o.mode && o.sight) {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(Math.max(0.05, o.sight - 0.06), o.sight, 72), ghost(0xf59e0b, 0.5));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.copy(p).setY(p.y + 0.05);
+      g.add(ring);
+    }
     g.userData.pivot = p.clone();
   }
-  const tcol = {0: 0x3b82f6, 1: 0xe5484d, 2: 0x2fbf71};
+  const tcol = {0: 0x3b82f6, 1: 0xe5484d, 2: 0x2fbf71, 3: 0xf59e0b};
   for (const t of lv.triggers) {
     const g = groupFor(t.call);
     const m = box(t.b, ghost(tcol[t.kind] || 0x3b82f6, 0.2));
@@ -563,10 +570,12 @@ function showProps(c) {
   }
   const form = document.createElement('div');
   form.className = 'pfields';
-  const names = c.order.filter(n => n in c.params);
-  for (const n of Object.keys(c.params)) if (!names.includes(n)) names.push(n);
+  const params = Object.assign({}, c.params);
+  if (['object', 'cube', 'pickup'].includes(c.method) && !params.mode) params.mode = {value: ''};
+  const names = c.order.filter(n => n in params);
+  for (const n of Object.keys(params)) if (!names.includes(n)) names.push(n);
   for (const name of names) {
-    const p = c.params[name];
+    const p = params[name];
     if (p.value === undefined) continue;
     const row = document.createElement('label');
     row.className = 'prow';
@@ -575,12 +584,13 @@ function showProps(c) {
     let input;
     const v = p.value;
     const choices = name === 'kind' && c.method === 'prop' ? (desc.catalog || []) :
-      name === 'name' && (c.method === 'sound' || c.method === 'ambient') ? (desc.levels[level].sound_names || []) : null;
+      name === 'name' && (c.method === 'sound' || c.method === 'ambient') ? (desc.levels[level].sound_names || []) :
+      name === 'mode' ? MODES : null;
     if (choices && typeof v === 'string') {
       input = document.createElement('select');
       for (const k of choices) {
         const o = document.createElement('option');
-        o.value = k; o.textContent = k;
+        o.value = k; o.textContent = k || 'none';
         input.append(o);
       }
       input.value = v;
@@ -659,6 +669,9 @@ function place(hit) {
     case 'lake': line = `${v}.lake(${n(x)}, ${n(z)}, 6)`; method = 'lake'; break;
     case 'forest': line = `${v}.forest(${n(x - 10)}, ${n(z - 10)}, ${n(x + 10)}, ${n(z + 10)}, kind="mixed")`; method = 'forest'; break;
     case 'sound': line = `${v}.sound("birds", ${n(x)}, ${n(y + 1)}, ${n(z)}, radius=12)`; method = 'sound'; break;
+    case 'enemy': line = `${v}.object(${py(uniqueName('rat'))}, "rat", ${n(x)}, ${n(y)}, ${n(z)}, scale=6, solid=False, mode="follow", sight=8, speed=2.5)`; method = 'object'; break;
+    case 'checkpoint': line = `${v}.checkpoint(${n(x - 1.5)}, ${n(y)}, ${n(z - 1.5)}, ${n(x + 1.5)}, ${n(y + 2.5)}, ${n(z + 1.5)})`; method = 'checkpoint'; break;
+    case 'hazard': line = `${v}.hazard(${n(x - 1.5)}, ${n(y)}, ${n(z - 1.5)}, ${n(x + 1.5)}, ${n(y + 0.5)}, ${n(z + 1.5)})`; method = 'hazard'; break;
   }
   if (!line) return;
   const d = S.doc('world.py');

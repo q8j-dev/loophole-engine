@@ -220,7 +220,8 @@ def describe(path):
             if o.model in decor_place.KINDS:
                 used.add(o.model)
             objs.append(dict(name=o.name, model=o.model, p=_jsonable(o.pos), yaw=_jsonable(o.yaw),
-                             scale=_jsonable(o.scale), size=_jsonable(o.size), call=own["objects"][k]))
+                             scale=_jsonable(o.scale), size=_jsonable(o.size), call=own["objects"][k],
+                             mode=getattr(o, "mode", None) or "", sight=_jsonable(getattr(o, "sight", 12.0))))
         lv["objects"] = objs
         lv["triggers"] = [dict(name=t["name"], kind=t["kind"], b=_jsonable(t["box"]), call=own["triggers"][k])
                           for k, t in enumerate(L.triggers)]

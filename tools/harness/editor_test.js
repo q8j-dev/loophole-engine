@@ -69,6 +69,28 @@ const path = require('path');
   await waitFor(() => window.levelEditor.desc.levels[0].decor.filter(d => d[0] === 'barrel').length === 2, 20000, 'code edit reaching the viewport');
   console.log('code edit reached the viewport');
 
+  await page.click('#palette [data-place="enemy"]');
+  const [ex, ey] = await page.evaluate(() => window.levelEditor.project([3, 0, 9]));
+  await page.mouse.click(ex, ey);
+  await waitFor(() => /\.object\("rat1", "rat", [\d.]+, 0, [\d.]+, scale=6, solid=False, mode="follow", sight=8, speed=2.5\)$/.test(window.studio.doc('world.py').getValue().trim()), 20000, 'enemy line');
+  await waitFor(() => window.levelEditor.selected !== null && window.levelEditor.desc.calls[window.levelEditor.selected].method === 'object', 20000, 'enemy selected');
+  await sleep(300);
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll('#props .prow')].find(r => r.querySelector('span').textContent === 'mode');
+    const sel = row.querySelector('select');
+    sel.value = 'wander';
+    sel.dispatchEvent(new Event('change'));
+  });
+  await waitFor(() => /mode="wander"/.test(window.studio.doc('world.py').getValue()), 20000, 'mode change from the panel');
+  console.log('enemy:', await lastLine());
+  await page.click('#palette [data-place="checkpoint"]');
+  const [kx, ky] = await page.evaluate(() => window.levelEditor.project([9, 0, 11]));
+  await page.mouse.click(kx, ky);
+  await waitFor(() => /\.checkpoint\(/.test(window.studio.doc('world.py').getValue()), 20000, 'checkpoint line');
+  console.log('checkpoint:', await lastLine());
+  await sleep(500);
+  await page.screenshot({path: path.join(outDir, 'enemy.png')});
+
   await page.click('#build');
   await waitFor(() => !!window.studio.bytes || document.querySelector('.status').classList.contains('bad'), 600000, 'build');
   console.log('status:', await page.$eval('#status', e => e.textContent));
