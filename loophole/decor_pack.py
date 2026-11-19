@@ -65,16 +65,39 @@ def down2(a):
     return (a[0::2, 0::2] + a[1::2, 0::2] + a[0::2, 1::2] + a[1::2, 1::2]) * 0.25
 
 
-def with_mips(page, normal=False):
+def keep_coverage(cur, regions, target):
+    for (x, y, s), t in zip(regions, target):
+        if t <= 0.002 or s < 2:
+            continue
+        a = cur[y:y + s, x:x + s, 2]
+        lo, hi = 1.0, 8.0
+        for _ in range(14):
+            mid = (lo + hi) / 2
+            if (a * mid > 0.5).mean() < t:
+                lo = mid
+            else:
+                hi = mid
+        cur[y:y + s, x:x + s, 2] = np.minimum(a * (lo + hi) / 2, 1.0)
+
+
+def with_mips(page, normal=False, regions=None):
     H, W = page.shape[:2]
     out = np.zeros((H + H // 2, W, 3), np.float32)
     out[:H] = page
     cur = page
     x = 0
+    target = None
+    if regions:
+        target = [float((page[y:y + s, x_:x_ + s, 2] > 0.5).mean()) if (page[y:y + s, x_:x_ + s, 2] < 0.99).any() else 0.0
+                  for (x_, y, s) in regions]
+    lvl = 0
     for _ in range(1, NMIP):
         if cur.shape[0] < 2 or cur.shape[1] < 2:
             break
         cur = down2(cur)
+        lvl += 1
+        if target is not None:
+            keep_coverage(cur, [(x_ >> lvl, y >> lvl, s >> lvl) for (x_, y, s) in regions], target)
         if normal:
             v = cur * 2 - 1
             v = v / np.maximum(np.linalg.norm(v, axis=-1, keepdims=True), 1e-6)
@@ -116,5 +139,6 @@ def build(names, cap=1024, keep=()):
         N[y // 2:y // 2 + s // 2, x // 2:x // 2 + s // 2] = load(n, "n", s // 2)
         R[y // 2:y // 2 + s // 2, x // 2:x // 2 + s // 2] = load(n, "r", s // 2)
     imgs = {"dA": (jpg(with_mips(A), 86, 2), W, H * 3 // 2), "dN": (jpg(with_mips(N, True), 88), W // 2, H * 3 // 4),
-            "dR": (jpg(with_mips(R), 84), W // 2, H * 3 // 4)}
+            "dR": (jpg(with_mips(R, regions=[(x // 2, y // 2, s // 2) for (x, y, s) in lay.values()]), 84), W // 2,
+                   H * 3 // 4)}
     return dict(layout=lay, PW=W, PH=H), imgs

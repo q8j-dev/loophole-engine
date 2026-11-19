@@ -32,6 +32,19 @@ def load_rgba(src, diff, alpha):
     return im
 
 
+def isolate(im, seed):
+    al = np.asarray(im)[..., 3]
+    m = Image.fromarray(((al > 40) * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(5))
+    sx, sy = seed
+    if m.getpixel((sx, sy)) == 0:
+        return im
+    ImageDraw.floodfill(m, (sx, sy), 128)
+    keep = np.asarray(m) == 128
+    arr = np.asarray(im).copy()
+    arr[..., 3] = np.where(keep, arr[..., 3], 0)
+    return Image.fromarray(arr, "RGBA")
+
+
 def sprites(rgba, min_area=900, region=None, max_fill=0.62, max_frac=0.2):
     a = np.asarray(rgba)[..., 3] > 128
     H, W = a.shape
@@ -62,7 +75,7 @@ def sprites(rgba, min_area=900, region=None, max_fill=0.62, max_frac=0.2):
                         continue
                     if region is not None and not (region[0] <= cy <= region[1]):
                         continue
-                    out.append(rgba.crop(box))
+                    out.append(isolate(rgba.crop(box), (x - box[0], y - box[1])))
     return out
 
 
@@ -91,6 +104,35 @@ def cluster_card(leaves, size, seed, twig=(70, 52, 34), n=90, spread=0.9, leaf_s
         w_ = spread * 0.5 * math.sin(math.pi * min(t * 1.1, 1.0)) + 0.05
         off = np.array([side * rng.uniform(0.0, w_) * size, rng.uniform(-0.05, 0.05) * size])
         q = p + off - np.array(im.size) / 2
+        canvas.alpha_composite(im, (int(q[0]), int(q[1])))
+    return canvas
+
+
+def round_cluster(leaves, size, seed, n=55, leaf_scale=0.2, twig=(64, 48, 32)):
+    rng = np.random.default_rng(seed)
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    dr = ImageDraw.Draw(canvas)
+    c = np.array([size / 2, size / 2])
+    for k in range(7):
+        a = rng.uniform(0, 2 * math.pi)
+        e = c + np.array([math.cos(a), math.sin(a)]) * size * rng.uniform(0.25, 0.4)
+        dr.line([tuple(c + rng.normal(0, size * 0.03, 2)), tuple(e)], fill=twig + (255,), width=max(2, size // 160))
+    order = sorted(range(n), key=lambda i: rng.random())
+    for k in order:
+        r = (rng.uniform(0.0, 1.0) ** 0.55) * size * 0.4
+        a = rng.uniform(0, 2 * math.pi)
+        p = c + np.array([math.cos(a), math.sin(a)]) * r
+        lf = leaves[int(rng.integers(0, len(leaves)))]
+        sc = leaf_scale * size / max(lf.size) * rng.uniform(0.8, 1.2)
+        im = lf.resize((max(4, int(lf.size[0] * sc)), max(4, int(lf.size[1] * sc))), Image.LANCZOS)
+        ang = -math.degrees(a) - 90 + rng.uniform(-35, 35)
+        im = im.rotate(ang, expand=True, resample=Image.BICUBIC)
+        arr = np.asarray(im).astype(np.float32)
+        depth = 0.78 + 0.22 * min(1.0, r / (size * 0.4))
+        tint = np.array([rng.uniform(0.85, 1.12), rng.uniform(0.9, 1.08), rng.uniform(0.75, 1.0)]) * rng.uniform(0.8, 1.15)
+        arr[..., :3] = np.clip(arr[..., :3] * tint * depth, 0, 255)
+        im = Image.fromarray(arr.astype(np.uint8), "RGBA")
+        q = p - np.array(im.size) / 2
         canvas.alpha_composite(im, (int(q[0]), int(q[1])))
     return canvas
 
@@ -207,7 +249,7 @@ class Mesh:
                 self.tri([a[0], b[0], c[0]], [a[1], b[1], c[1]], [a[2], b[2], c[2]], flag, [sw[i], sw[i], sw[i + 1]])
                 self.tri([a[0], c[0], d[0]], [a[1], c[1], d[1]], [a[2], c[2], d[2]], flag, [sw[i], sw[i + 1], sw[i + 1]])
 
-    def card(self, center, right, up, w, h, uv_rect, normal, sway=1.0, bend=0.0):
+    def card(self, center, right, up, w, h, uv_rect, normal, sway=1.0, bend=0.0, billboard=False):
         r = np.asarray(right, float) * w / 2
         u = np.asarray(up, float) * h
         c = np.asarray(center, float)
@@ -225,6 +267,23 @@ class Mesh:
                 p = c + r * (i * 2 - 1) + u * t + np.array([0, -bend * t * t * h, 0])
                 row.append((p, (x0 + (x1 - x0) * i, y1 + (y0 - y1) * t), sway * (0.4 + 0.6 * t)))
             grid.append(row)
+        if billboard:
+            mid = c + u * 0.5
+            hw = w / 2
+            corners = [(mid, (x0, y1), sway * 0.7, np.array([-hw, -h / 2, 0]) / 2.5),
+                       (mid, (x1, y1), sway * 0.7, np.array([hw, -h / 2, 0]) / 2.5),
+                       (mid, (x1, y0), sway, np.array([hw, h / 2, 0]) / 2.5),
+                       (mid, (x0, y0), sway, np.array([-hw, h / 2, 0]) / 2.5)]
+            a, b, cc, d = corners
+            for tri in ((a, b, cc), (a, cc, d)):
+                for p_, uv_, s_, o_ in tri:
+                    self.P.append(p_)
+                    self.N.append(nrm)
+                    self.UV.append(uv_)
+                    self.F.append(6.0)
+                    self.S.append(s_)
+                    self.CN.append(o_)
+            return
         for j in range(rows):
             a, b, cc, d = grid[j][0], grid[j][1], grid[j + 1][1], grid[j + 1][0]
             self.tri([a[0], b[0], cc[0]], [nrm] * 3, [a[1], b[1], cc[1]], 5.0, [a[2], b[2], cc[2]], cn)
@@ -276,10 +335,10 @@ def branch_path(start, direction, length, steps, droop, rng, curl=0.15):
     return out
 
 
-def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=560, tint=(1, 1, 1), leaf_tint=1.0):
+def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=440, tint=(1, 1, 1), leaf_tint=1.0):
     rng = np.random.default_rng(seed)
     leaves = sprites(load_rgba(src, "island_tree_01__leaves_diff.jpg", "island_tree_01__leaves_alpha.png"))
-    cards = [cluster_card(leaves, 512, seed * 7 + k, n=170, leaf_scale=0.12, spread=1.0) for k in range(2)]
+    cards = [round_cluster(leaves, 512, seed * 7 + k, n=80, leaf_scale=0.15) for k in range(2)]
     tile = np.zeros((TILE, TILE, 3), np.float32)
     ntile = np.zeros_like(tile)
     ntile[..., :2] = 0.5
@@ -345,27 +404,31 @@ def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=560, tint=(
         dvec = rng.normal(0, 1, 3)
         dvec /= np.linalg.norm(dvec)
         base = cc + dvec * cr * rng.uniform(0.35, 1.0) ** 0.5
-        nrm_s = (base - cc) / cr * 0.75 + (base - crown_c) / crown * 0.45 + np.array([0, 0.15, 0])
+        sn = (base - crown_c) / (crown * np.array([1.0, 0.8, 1.0]))
+        nrm_s = sn / max(np.linalg.norm(sn), 1e-6) + np.array([0, 0.12, 0])
         nrm_s /= np.linalg.norm(nrm_s)
+        fn = (base - cc) / cr * 0.6 + nrm_s * 0.6
+        fn /= np.linalg.norm(fn)
         k = int(rng.integers(0, 2))
         rect = (0.5, k * 0.5, 1.0, (k + 1) * 0.5)
-        w = rng.uniform(0.75, 1.05) * crown / 2.6
-        tr, tu = tangent_frame(nrm_s, rng)
-        for q, tilt in enumerate((0.0, 0.7, -0.7)):
+        w = rng.uniform(1.3, 1.8) * crown / 2.6
+        tr, tu = tangent_frame(fn, rng)
+        for q, tilt in enumerate((0.0, rng.choice([0.9, -0.9]))):
             ca = rng.uniform(0, 2 * math.pi)
             r0 = tr * math.cos(ca) + tu * math.sin(ca)
-            u0 = np.cross(nrm_s, r0)
-            upv = u0 * math.cos(tilt) + nrm_s * math.sin(tilt)
+            u0 = np.cross(fn, r0)
+            upv = u0 * math.cos(tilt) + fn * math.sin(tilt)
             upv /= np.linalg.norm(upv)
-            m.card(base - upv * w * 0.5, r0, upv, w, w, rect, nrm_s, sway=1.0, bend=0.0)
+            m.card(base - upv * w * 0.5, r0, upv, w, w, rect, nrm_s, sway=1.0, bend=0.0, billboard=True)
     save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
     return m.save(name)
 
 
-def pine(name, seed, src, height=8.0, whorls=16):
+def pine(name, seed, src, height=8.0, whorls=22):
     rng = np.random.default_rng(seed)
     tw = load_rgba(src, "pine_tree_01__twig_diff.jpg", "pine_tree_01__twig_alpha.png")
-    twigs = [s for s in sprites(tw, 4000, max_fill=0.5, max_frac=0.12) if s.size[1] > 80][:4]
+    twigs = sorted(sprites(tw, 4000, max_fill=0.5, max_frac=0.12), key=lambda s: -s.size[0] * s.size[1])[:2]
+    twigs = [t if t.size[1] >= t.size[0] else t.rotate(90, expand=True) for t in twigs]
     tile = np.zeros((TILE, TILE, 3), np.float32)
     ntile = np.zeros_like(tile)
     ntile[..., :2] = 0.5
@@ -379,7 +442,7 @@ def pine(name, seed, src, height=8.0, whorls=16):
     for k in range(4):
         card = needle_card(twigs, 512, seed * 11 + k)
         al, nm, rm = rgba_to_maps(card, 0.65)
-        al = al * np.array([0.82, 0.92, 0.78])
+        al = al * np.array([0.44, 0.6, 0.5])
         tile[k * 256:(k + 1) * 256, TILE // 2:] = al
         ntile[k * 256:(k + 1) * 256, TILE // 2:] = nm
         rtile[k * 256:(k + 1) * 256, TILE // 2:] = rm
@@ -392,7 +455,7 @@ def pine(name, seed, src, height=8.0, whorls=16):
         t = (w + 1) / (whorls + 1)
         y = height * (0.18 + 0.8 * t)
         L = (1 - t) * height * 0.32 + 0.35
-        nb = int(rng.integers(7, 10))
+        nb = int(rng.integers(9, 13))
         for b in range(nb):
             ang = 2 * math.pi * (b + rng.random() * 0.6) / nb + w * 0.7
             d = np.array([math.cos(ang), 0.0, math.sin(ang)])
@@ -405,10 +468,18 @@ def pine(name, seed, src, height=8.0, whorls=16):
             vert = np.cross(side, upv)
             if vert[1] < 0:
                 vert = -vert
-            nrm = np.array([d[0] * 0.6, 0.8, d[2] * 0.6])
-            for sgn in (-1, 1):
-                right = side * 0.7071 + vert * 0.7071 * sgn
-                m.card(st, right, upv, L * 0.62, L, rect, nrm, sway=0.6 + 0.4 * (1 - t), bend=0.22)
+            nrm = np.array([d[0] * 0.85, 0.5, d[2] * 0.85])
+            for sgn in (-1, 0, 1):
+                right = side * math.cos(sgn * 0.9) + vert * math.sin(sgn * 0.9)
+                m.card(st, right, upv, L * 0.7, L, rect, nrm, sway=0.6 + 0.4 * (1 - t), bend=0.22)
+        for f in range(3):
+            ang = rng.uniform(0, 2 * math.pi)
+            d = np.array([math.cos(ang), 0.0, math.sin(ang)])
+            k = int(rng.integers(0, 4))
+            fl = L * 0.55
+            m.card(np.array([0.0, y - fl * 0.2, 0.0]), np.array([-d[2], 0, d[0]]), d * 0.6 + np.array([0, 0.8, 0]),
+                   fl * 0.8, fl, (0.5, k * 0.25, 1.0, (k + 1) * 0.25), np.array([d[0] * 0.5, 0.85, d[2] * 0.5]),
+                   sway=0.3)
     for q in range(3):
         ang = q * math.pi / 3
         right = np.array([math.cos(ang), 0, math.sin(ang)])
@@ -460,7 +531,7 @@ def clump(name, seed, src, diff, alpha, picks, size=0.9, cards=4, count=1, sprea
     return m.save(name)
 
 
-def bush(name, seed, src, size=1.3, cards=12):
+def bush(name, seed, src, size=1.3, cards=22):
     rng = np.random.default_rng(seed)
     leaves = sprites(load_rgba(src, "island_tree_01__leaves_diff.jpg", "island_tree_01__leaves_alpha.png"))
     T = TILE // 2
@@ -470,7 +541,7 @@ def bush(name, seed, src, size=1.3, cards=12):
     ntile[..., 2] = 1.0
     rtile = np.zeros_like(tile)
     for k in range(2):
-        c = cluster_card(leaves, T, seed * 13 + k, n=70, spread=1.0, leaf_scale=0.2).resize((T // 2, T), Image.LANCZOS)
+        c = round_cluster(leaves, T, seed * 13 + k, n=70, leaf_scale=0.17).resize((T // 2, T), Image.LANCZOS)
         al, nm, rm = rgba_to_maps(c, 0.55)
         tile[:, k * T // 2:(k + 1) * T // 2] = al * np.array([0.85, 0.95, 0.8])
         ntile[:, k * T // 2:(k + 1) * T // 2] = nm
@@ -491,7 +562,8 @@ def bush(name, seed, src, size=1.3, cards=12):
         base = base - upv * size * 0.3
         k = int(rng.integers(0, 2))
         w = size * rng.uniform(0.6, 0.9)
-        m.card(base, right, upv, w * 0.6, w, (k * 0.5, 0.0, (k + 1) * 0.5, 1.0), d + np.array([0, 0.4, 0]), sway=0.6)
+        m.card(base, right, upv, w, w, (k * 0.5, 0.0, (k + 1) * 0.5, 1.0), d + np.array([0, 0.3, 0]), sway=0.6,
+               billboard=True)
     save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
     return m.save(name)
 
@@ -506,7 +578,7 @@ def main():
     bark = {"diff": ph / "bark_brown_02" / "diff.jpg", "nor": ph / "bark_brown_02" / "nor_gl.jpg"}
     print("oak", broadleaf("oak", 3, src, bark))
     print("birch", broadleaf("birch", 9, src, bark, height=7.5, crown=2.1,
-                             clusters=250, tint=(1.5, 1.45, 1.35), leaf_tint=np.array([1.05, 1.08, 0.9])))
+                             clusters=330, tint=(1.5, 1.45, 1.35), leaf_tint=np.array([1.05, 1.08, 0.9])))
     print("pine", pine("pine", 5, src))
     print("bush", bush("bush", 2, src))
     print("grass", clump("grass", 4, src, "grass_medium_01__Diffuse.jpg", "grass_medium_01__Alpha.png", 5, size=0.7,

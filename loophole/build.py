@@ -374,6 +374,8 @@ def sky_preset(L):
 def level_key(c, L):
     h = hashlib.sha1()
     h.update(f"{BAKE_VERSION}|{bake.LMW}|{bake.LMH}".encode())
+    for src in ("bake.py", "terrain.py", "kit.py", "decor_place.py"):
+        h.update(hashlib.md5((HERE / src).read_bytes()).digest())
     h.update(np.packbits(c.air).tobytes())
     for kind in sorted({d[0] for d in c.decor}):
         f = decor_place.mesh_path(kind)

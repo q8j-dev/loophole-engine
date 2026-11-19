@@ -207,7 +207,14 @@ void main() {
   }
   vBA = ba;
   vec3 w = uMP + uMX * aPos.x + uMY * aPos.y + uMZ * aPos.z;
-  if (t5.z > 4.5 && t5.z < 5.5) {
+  if (t5.z > 5.5 && t5.z < 6.5) {
+    vec3 off = vTan * 2.5;
+    float ra = fract(sin(dot(floor(w * 7.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453) * 6.2831;
+    vec2 ro = vec2(off.x * cos(ra) - off.y * sin(ra), off.x * sin(ra) + off.y * cos(ra));
+    w += uCR * ro.x + uCU * ro.y;
+    vTan = -uCF;
+  }
+  if (t5.z > 4.5 && t5.z < 6.5) {
     float sw = vAO;
     vAO = 1.0;
     float ph = w.x * 0.35 + w.z * 0.22;
@@ -254,6 +261,7 @@ uniform vec4 uFog;
 uniform vec4 uFogS;
 uniform vec3 uFogSun;
 uniform vec3 uSkyA;
+uniform vec4 uSunC;
 uniform vec4 uO1;
 uniform vec4 uO2;
 uniform vec4 uSC[4];
@@ -521,7 +529,7 @@ void main() {
       return;
     }
   }
-  bool leaf = vIrr.w > 4.5 && vIrr.w < 5.5;
+  bool leaf = vIrr.w > 4.5 && vIrr.w < 6.5;
   if (vMat > 76.5 && vMat < 77.5) {
     vec2 bp = mod(floor(gl_FragCoord.xy), 4.0);
     float bay = mod(bp.x * 4.0 + bp.y * 13.0 + floor(u_timer * 60.0) * 5.0, 16.0) / 16.0;
@@ -529,10 +537,10 @@ void main() {
   }
   if (leaf) {
     float dl = length(uCP - vW);
-    float alod = clamp(log2(max(dl * 0.6, 1.0)), 0.0, 4.0);
+    float alod = floor(clamp(log2(max(dl * 0.6, 1.0)), 0.0, 4.0) + 0.5);
     float al = texture2D(uDR, dmip(vLM, alod)).b;
     float face = abs(dot(normalize(vTan), (uCP - vW) / dl));
-    float thr = mix(0.45, 1.01, 1.0 - smoothstep(0.16, 0.42, face)) * (1.0 - 0.09 * alod);
+    float thr = mix(0.5, 1.01, 1.0 - smoothstep(0.05, 0.22, face));
     if (al < thr) discard;
     vec2 fp = mod(floor(gl_FragCoord.xy), 4.0);
     float fb = (mod(fp.x * 4.0 + fp.y * 13.0, 16.0) + 0.5) / 16.0;
@@ -1071,7 +1079,8 @@ void main() {
     float wrap = max(dot(N, sunL) * 0.5 + 0.5, 0.0);
     float back = pow(max(dot(-V, sunL), 0.0), 3.0);
     vec3 skyA = uSkyA;
-    E = E * (0.6 + 0.4 * wrap) + skyA * 1.7 + E * back * 0.75;
+    vec3 sunT = uSunC.rgb * uSunC.w * (0.05 + 0.1 * wrap);
+    E = E * (0.8 + 0.3 * wrap) + skyA * 1.3 + E * back * 0.6 + sunT;
     emis += alb * E * back * 0.25;
     ao = mix(ao, 1.0, 0.6);
     spec *= 0.12;

@@ -544,8 +544,34 @@ def bake_level(c, seed=1, ao_rays=32, gi_rays=256):
         if DFL is not None:
             off = np.where(DFL[first] > 4.5, 0.45, 0.03)
         Ed, _ = direct(UP + UN * off[:, None], UN, lights, grid, rng, ns=2)
+        if DFL is not None:
+            lfu = DFL[first] > 4.5
+            if lfu.any():
+                Eb, _ = direct(UP[lfu] + UN[lfu] * 0.45, -UN[lfu], lights, grid, rng, ns=2)
+                Ed = Ed.copy()
+                Ed[lfu] = Ed[lfu] * 0.7 + Eb * 0.35
         Ei = amb_sample(amb, UP + UN * 0.1, UN)
         dirr = (Ed + Ei)[inv.ravel()]
+        if DFL is not None:
+            from .decor_place import CROWNS
+            lf = DFL > 4.5
+            if lf.any() and CROWNS:
+                cc = np.array([c_[0] for c_ in CROWNS])
+                hs = np.maximum(np.array([c_[1] for c_ in CROWNS]), 0.2)
+                LP = DP[lf]
+                fac = np.ones(len(LP))
+                for k0 in range(0, len(LP), 4096):
+                    q = LP[k0:k0 + 4096]
+                    rel = (q[:, None, :] - cc[None]) / hs[None]
+                    r = np.linalg.norm(rel, axis=2)
+                    j = np.argmin(r, 1)
+                    rr = r[np.arange(len(q)), j]
+                    ry = rel[np.arange(len(q)), j, 1]
+                    f = 0.5 + 0.5 * np.clip((rr - 0.15) / 0.85, 0, 1) ** 1.3
+                    f *= 0.8 + 0.2 * np.clip(ry * 0.5 + 0.5, 0, 1)
+                    fac[k0:k0 + 4096] = np.where(rr < 1.6, f, 1.0)
+                dirr = dirr.copy()
+                dirr[lf] *= fac[:, None]
         _log(f"  decor {len(DP) // 3} tris, {len(UP)} lit vertices")
     tlm = None
     rirr = np.zeros((0, 3))

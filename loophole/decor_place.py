@@ -103,6 +103,7 @@ def build(c):
         P, N, UV, T, sg = instance(name, pos, fwd, up, scale)
         fl, sw = vflags(name)
         T = np.where((fl > 4.5)[:, None], instance.raw, T)
+        T = np.where((fl > 5.5)[:, None], raw(name)["tan"][:, :3] * float(np.mean(scale)), T)
         Ps.append(P)
         Ns.append(N)
         Ms.append(np.concatenate([UV, T, sg[:, None]], 1))
