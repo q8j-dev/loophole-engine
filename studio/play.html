@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loophole Player</title>
+<style>
+  :root { --bg: #0d1424; --fg: #e8edf8; --muted: #9aa6c2; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 400 16px/1.5 system-ui, sans-serif; }
+  #stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #stage > div { width: 100%; max-height: 100%; aspect-ratio: 16 / 9; }
+  #wait { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 16px; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="p"></div></div>
+<div id="wait">Build a game and it will play here.</div>
+<script src="https://cdn.jsdelivr.net/npm/@turbowarp/scaffolding@0.4.0/dist/scaffolding-min.js"></script>
+<script>
+let S = null;
+const base = new URL('ext/', location.href).href;
+
+async function play(buf) {
+  if (S) { try { S.vm.stopAll(); S.vm.quit && S.vm.quit(); } catch (e) {} document.getElementById('p').innerHTML = ''; }
+  document.getElementById('wait').textContent = 'Loading the game';
+  const s = new Scaffolding.Scaffolding();
+  s.width = 640; s.height = 360; s.resizeMode = 'preserve-ratio';
+  s.setup();
+  s.appendTo(document.getElementById('p'));
+  s.vm.setFramerate(60);
+  s.vm.setCompilerOptions({enabled: true, warpTimer: false});
+  s.vm.setRuntimeOptions({fencing: false, miscLimits: false, maxClones: 300});
+  if (s.renderer.setUseHighQualityRender) s.renderer.setUseHighQualityRender(true);
+  const sm = s.vm.securityManager;
+  sm.getSandboxMode = () => Promise.resolve('unsandboxed');
+  sm.canLoadExtensionFromProject = () => Promise.resolve(true);
+  sm.rewriteExtensionURL = u => Promise.resolve(u.indexOf('penPlus') >= 0 ? base + 'penPlus.js' : (u.indexOf('pointerlock') >= 0 ? base + 'pointerlock.js' : u));
+  await s.loadProject(buf);
+  S = s;
+  window.S = s;
+  document.getElementById('wait').textContent = '';
+  s.start();
+  s.relayout();
+}
+
+new ResizeObserver(() => { if (S) S.relayout(); }).observe(document.getElementById('p'));
+
+window.addEventListener('message', e => {
+  if (e.origin !== location.origin || !e.data || e.data.type !== 'play') return;
+  play(e.data.bytes).catch(err => { document.getElementById('wait').textContent = 'This game could not start: ' + err.message; });
+});
+
+const q = new URLSearchParams(location.search).get('game');
+if (q && /^games\/[\w.-]+\.sb3$/.test(q)) {
+  fetch(q).then(r => r.arrayBuffer()).then(play);
+}
+</script>
+</body>
+</html>

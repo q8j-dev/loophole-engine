@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loophole Studio</title>
+<meta name="description" content="Build 3D games for Scratch and TurboWarp in your browser. Edit world.py, press Build game, and play.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="https://github.com/q8j-dev/loophole-engine" aria-label="Loophole Engine on GitHub">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4a12 12 0 1 1-10.4 6" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="16" cy="16" r="3.6" fill="currentColor"/></svg>
+    <span>Loophole Studio</span>
+  </a>
+  <label class="tpl">
+    <span class="sr">Template</span>
+    <select id="template"></select>
+  </label>
+  <div class="actions">
+    <button id="build" class="primary" type="button">Build game</button>
+    <button id="download" type="button" disabled>Download .sb3</button>
+    <a id="turbowarp" class="button" href="https://turbowarp.org/editor" target="_blank" rel="noopener">Open TurboWarp</a>
+  </div>
+</header>
+<main class="work">
+  <section class="code" aria-label="Code">
+    <div class="tabs" role="tablist">
+      <button role="tab" class="ftab" data-file="world.py" aria-selected="true">world.py</button>
+      <button role="tab" class="ftab" data-file="game.py" aria-selected="false">game.py</button>
+      <button id="reset" class="quiet" type="button">Reset template</button>
+    </div>
+    <div id="editor"></div>
+    <div class="status" aria-live="polite">
+      <div class="meter"><div id="meter"></div></div>
+      <p id="status">Ready. Press Build game, or Ctrl+Enter.</p>
+      <details id="logwrap"><summary>Build log</summary><pre id="log"></pre></details>
+    </div>
+  </section>
+  <section class="side" aria-label="Play and guide">
+    <div class="tabs" role="tablist">
+      <button role="tab" class="ptab" data-pane="play" aria-selected="true">Play</button>
+      <button role="tab" class="ptab" data-pane="world" aria-selected="false">World guide</button>
+      <button role="tab" class="ptab" data-pane="scratch" aria-selected="false">Scratch blocks</button>
+    </div>
+    <div class="pane" id="pane-play">
+      <iframe id="player" src="play.html" title="Game player" allow="fullscreen; pointer-lock"></iframe>
+      <p class="hint">Click the game to look around. WASD moves, space jumps, E picks things up. To add Scratch blocks, download the .sb3 and open it in TurboWarp with File, Load from your computer.</p>
+    </div>
+    <article class="pane doc" id="pane-world" hidden></article>
+    <article class="pane doc" id="pane-scratch" hidden></article>
+  </section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="studio.js"></script>
+</body>
+</html>
