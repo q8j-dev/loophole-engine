@@ -212,6 +212,16 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       if (dist >= reach) console.log('DRIVETO missed', tx, tz, Math.round(dist));
     }
     else if (cmd === 'autofight') global.autofight = a !== '0';
+    else if (cmd === 'fightclear') {
+      const t0 = Date.now(), r = +(b || 4);
+      while (Date.now() - t0 < +(a || 8000)) {
+        const near = await page.evaluate(r => { const hp = Lst('obj health').value, ox = Lst('obj x').value, oz = Lst('obj z').value, vis = Lst('obj visible').value; const px = getv('player x'), pz = getv('player z'); for (let i = 0; i < hp.length; i++) if (+hp[i] > 0 && +vis[i] === 1 && Math.hypot(ox[i] - px, oz[i] - pz) < r) return true; return false; }, r);
+        if (!near) break;
+        await page.evaluate(() => window.swingNear());
+        await sleep(30);
+      }
+      await page.evaluate(() => key('f', false));
+    }
     else if (cmd === 'fight') {
       const t0 = Date.now();
       while (Date.now() - t0 < +(a || 3000)) { await page.evaluate(() => window.swingNear()); await sleep(30); }

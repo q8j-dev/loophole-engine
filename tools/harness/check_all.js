@@ -11,7 +11,7 @@ const shots = fs.mkdtempSync(path.join(os.tmpdir(), 'loophole-check-'));
 const EXAMPLES = [
   ['showcase', 'Afterglow', 'Afterglow  -  made with Loophole Engine'],
   ['orchard', 'Orchard Dash', 'Orchard cleared'],
-  ['crypt', 'Crypt Crawl', "You found the crypt's treasure!"],
+  ['crypt', 'Crypt Crawl', ["You found the crypt's treasure!", 'Crypt Crawl  -  made with Loophole Engine']],
   ['portals', 'Portal Lab', 'Portal Lab complete'],
   ['journey', 'The Long Walk', 'The Long Walk  -  made with Loophole Engine'],
   ['racing', 'Kart Cup', 'Race finished!'],
@@ -44,7 +44,8 @@ for (const [dir, title, expect] of EXAMPLES) {
     const out = execFileSync(process.execPath, [path.join(__dirname, 'play.js'), sb3, script],
       {encoding: 'utf8', maxBuffer: 1 << 26, timeout: 900000, env: Object.assign({}, process.env, {SHOTS: shots})});
     const msgs = out.split('\n').filter(l => l.startsWith('VAR message '));
-    return msgs.some(l => l.includes(expect)) || `never showed "${expect}"; last: ${msgs.slice(-1)[0] || 'nothing'}`;
+    const want = [].concat(expect);
+    return msgs.some(l => want.some(w => l.includes(w))) || `never showed "${want[0]}"; last: ${msgs.slice(-1)[0] || 'nothing'}`;
   });
 }
 

@@ -77,7 +77,7 @@ c.object("skeleton3", "skeleton", 2, 0, -15, path=[(2, 0, -15), (2, 0, -20), (20
 
 c.object("gate", "statue", 11, 0, -23, scale=1.35, kind=1, slide=-3.6, open_speed=0.5, solid=True, yaw=180)
 c.object("chest", "treasure", 11, 0, -31, scale=1.6, solid=True, highlight=(0.5, 0.36, 0.1))
-c.goal(9.5, 0, -30, 12.5, 3, -28.5, paint=False)
+c.goal(8.5, 0, -30.2, 13.5, 3, -27.8, paint=False)
 
 intro = c.cutscene("intro", play_at_start=True)
 intro.camera(0, (11, 2.4, -25.5), turn=0, tilt=-12)
