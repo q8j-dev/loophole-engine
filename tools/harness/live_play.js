@@ -4,7 +4,7 @@ const path = require('path');
 
 const [site, game, outDir] = [process.argv[2], process.argv[3] || 'crypt', process.argv[4] || '.'];
 const asset = {crypt: 'Crypt-Crawl.sb3', orchard: 'Orchard-Dash.sb3', showcase: 'Afterglow.sb3', portals: 'Portal-Lab.sb3',
-  woods: 'Autumn-Woods.sb3', journey: 'The-Long-Walk.sb3', starter: 'Starter.sb3'}[game];
+  woods: 'Autumn-Woods.sb3', journey: 'The-Long-Walk.sb3', racing: 'Kart-Cup.sb3', starter: 'Starter.sb3'}[game];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function readCamera(frame) {
