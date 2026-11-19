@@ -13,11 +13,11 @@ track = t.road((0, 34), (30, 32), (48, 14), (43, -15), (21, -27), (3, -14), (-14
 track.checkpoints(3)
 track.cones()
 
-t.spawn(-3, 0, 40, yaw=90)
-t.vehicle("kart", "kart", 2, 0, 36, yaw=90)
-t.vehicle("kart2", "kart_pink", -3, 0, 31, yaw=90)
-t.vehicle("kart3", "kart_yellow", -8, 0, 34, yaw=90)
-t.vehicle("kart4", "kart_green", -13, 0, 31, yaw=90)
+t.spawn(-9, 0, 39, yaw=100)
+t.vehicle("kart", "kart", -9.7, 0, 34.3, yaw=100)
+t.vehicle("kart2", "kart_pink", -13.2, 0, 29.9, yaw=100)
+t.vehicle("kart3", "kart_yellow", -18.4, 0, 32.4, yaw=103)
+t.vehicle("kart4", "kart_green", -21.8, 0, 27.6, yaw=103)
 
 t.prop("bench", -4, 0, 44, yaw=180)
 t.prop("bench", 2, 0, 44, yaw=180)

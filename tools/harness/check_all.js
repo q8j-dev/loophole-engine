@@ -14,6 +14,7 @@ const EXAMPLES = [
   ['crypt', 'Crypt Crawl', "You found the crypt's treasure!"],
   ['portals', 'Portal Lab', 'Portal Lab complete'],
   ['journey', 'The Long Walk', 'The Long Walk  -  made with Loophole Engine'],
+  ['racing', 'Kart Cup', 'Race finished!'],
 ];
 
 const results = [];

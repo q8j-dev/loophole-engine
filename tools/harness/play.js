@@ -193,6 +193,24 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       if (cmd === 'pclick') { await page.mouse.move(r[0], r[1]); global.mpos = r; await page.mouse.down(); await sleep(80); await page.mouse.up(); }
       else { const n = +(c || 10); for (let k = 0; k < n; k++) { global.mpos = [global.mpos[0] + +a / n, global.mpos[1] + +b / n]; await page.mouse.move(global.mpos[0], global.mpos[1]); await sleep(16); } }
     }
+    else if (cmd === 'driveto') {
+      const tx = +a, tz = +b, reach = +(c || 6), t0 = Date.now();
+      await page.evaluate(() => key('w', true));
+      let dist = 1e9;
+      while (Date.now() - t0 < 20000) {
+        dist = await page.evaluate((tx, tz) => {
+          const dx = tx - getv('player x'), dz = tz - getv('player z');
+          const want = Math.atan2(dx, -dz) * 180 / Math.PI;
+          const err = ((want - getv('player yaw')) % 360 + 540) % 360 - 180;
+          key('d', err > 4); key('a', err < -4);
+          return Math.hypot(dx, dz);
+        }, tx, tz);
+        if (dist < reach) break;
+        await sleep(30);
+      }
+      await page.evaluate(() => { key('a', false); key('d', false); });
+      if (dist >= reach) console.log('DRIVETO missed', tx, tz, Math.round(dist));
+    }
     else if (cmd === 'autofight') global.autofight = a !== '0';
     else if (cmd === 'fight') {
       const t0 = Date.now();
