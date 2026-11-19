@@ -391,7 +391,7 @@ def use_save_text():
     else:
         save_found = 1
         if level != save_fields[2]:
-            go_to_level = save_fields[2]
+            go_to_level = 0 - save_fields[2]
             while level != save_fields[2]:
                 wait(0)
             wait(1)

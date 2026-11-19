@@ -26,6 +26,7 @@ def init():
     quality = QUALITY
     ixl = "engine IX5"
     csi = 0
+    csnoauto = 0
     api_cs = ""
     hovered = 0
     tdown = 0
@@ -398,6 +399,9 @@ def flow():
     if quality != lastq:
         make_rts()
         fog_q()
+    if api_goto < 0:
+        api_goto = 0 - api_goto
+        csnoauto = 1
     if api_goto > 0:
         gq_ = api_goto
         api_goto = 0
@@ -560,9 +564,11 @@ def load_level(lv):
         api_ctl = csprevctl
         csi = 0
         api_cs = ""
-    for csk in rep(len(CSNAME)):
-        if CSLV[csk] == lv and CSAUTO[csk] == 1:
-            api_cs = CSNAME[csk]
+    if csnoauto == 0:
+        for csk in rep(len(CSNAME)):
+            if CSLV[csk] == lv and CSAUTO[csk] == 1:
+                api_cs = CSNAME[csk]
+    csnoauto = 0
     set_tex("uLM", "world", join("lm", lv))
     envdirty = 1
     taareset = 1

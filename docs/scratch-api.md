@@ -111,7 +111,7 @@ These combine the keyboard, a game controller and the touch controls, so one scr
 | `level` | read | Current level number, starting at 1. |
 | `level name` | read | Name given in `game.level("...")`. |
 | `level time` | read | Seconds since the level started. |
-| `go to level` | set | Set it to a level number to load that level. The engine sets it back to 0. |
+| `go to level` | set | Set it to a level number to load that level. A negative number, like -2, loads level 2 without playing its opening cutscene. The engine sets it back to 0. |
 | `paused` | read, set | 1 while paused. Set it to 1 to pause, 0 to resume. |
 | `mouse locked` | read | 1 while the mouse is captured for looking around. |
 | `fps` | read | Frames per second. |
