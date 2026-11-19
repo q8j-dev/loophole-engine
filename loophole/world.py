@@ -462,6 +462,95 @@ class Level:
         self.terrain_def.setdefault("paths", []).append(([tuple(map(float, p)) for p in points], float(width), material))
         return self
 
+    def _blocked(self, x, z, margin):
+        for b in self.buildings:
+            if b["x0"] - margin < x < b["x1"] + margin and b["z0"] - margin < z < b["z1"] + margin:
+                return True
+        sx, _, sz, _ = self.start
+        if (x - sx) ** 2 + (z - sz) ** 2 < (margin + 2.0) ** 2:
+            return True
+        for pts, w, _ in (self.terrain_def or {}).get("paths", []):
+            for a, b in zip(pts, pts[1:]):
+                ax, az, bx, bz = a[0], a[1], b[0], b[1]
+                dx, dz = bx - ax, bz - az
+                L2 = dx * dx + dz * dz or 1e-9
+                t = max(0.0, min(1.0, ((x - ax) * dx + (z - az) * dz) / L2))
+                if (x - ax - dx * t) ** 2 + (z - az - dz * t) ** 2 < (w / 2 + margin) ** 2:
+                    return True
+        for o in self.objects:
+            if (x - o.pos[0]) ** 2 + (z - o.pos[2]) ** 2 < (margin + 0.8) ** 2:
+                return True
+        return False
+
+    def scatter(self, kinds, x0, z0, x1, z1, spacing=3.0, scale=(0.8, 1.2), seed=0, clearance=0.8, fill=1.0,
+                taken=None):
+        import random
+        rng = random.Random(seed)
+        kinds = [kinds] if isinstance(kinds, str) else list(kinds)
+        weights = None
+        if kinds and isinstance(kinds[0], (tuple, list)):
+            weights = [w for _, w in kinds]
+            kinds = [k for k, _ in kinds]
+        x0, x1 = min(x0, x1), max(x0, x1)
+        z0, z1 = min(z0, z1), max(z0, z1)
+        cell = spacing / 1.4142
+        grid = {}
+        pts = list(taken or [])
+        for (px, pz, r) in pts:
+            for ix in range(int(px // cell) - 1, int(px // cell) + 2):
+                for iz in range(int(pz // cell) - 1, int(pz // cell) + 2):
+                    grid.setdefault((ix, iz), [])
+            grid.setdefault((int(px // cell), int(pz // cell)), []).append((px, pz, r))
+        tries = int((x1 - x0) * (z1 - z0) / (spacing * spacing) * 4 * fill) + 8
+        placed = []
+        for _ in range(tries):
+            x, z = rng.uniform(x0, x1), rng.uniform(z0, z1)
+            if self._blocked(x, z, clearance):
+                continue
+            gx, gz = int(x // cell), int(z // cell)
+            ok = True
+            for ix in range(gx - 2, gx + 3):
+                for iz in range(gz - 2, gz + 3):
+                    for (qx, qz, r) in grid.get((ix, iz), []):
+                        lim = spacing if r is None else r
+                        if (x - qx) ** 2 + (z - qz) ** 2 < lim * lim:
+                            ok = False
+            if not ok:
+                continue
+            grid.setdefault((gx, gz), []).append((x, z, None))
+            kind = rng.choices(kinds, weights)[0] if weights else rng.choice(kinds)
+            self.prop(kind, x, 0, z, yaw=rng.uniform(0, 360), scale=rng.uniform(*scale))
+            placed.append((x, z, spacing))
+        return placed
+
+    FORESTS = {
+        "mixed": [("oak", 3), ("birch", 2), ("pine", 2), ("spruce", 2)],
+        "broadleaf": [("oak", 3), ("birch", 2)],
+        "pine": [("pine", 3), ("spruce", 2)],
+        "birch": [("birch", 4), ("oak", 1)],
+    }
+
+    def forest(self, x0, z0, x1, z1, kind="mixed", density=1.0, undergrowth=True, seed=1):
+        if kind not in self.FORESTS:
+            raise ValueError(f"forest kind must be one of {', '.join(self.FORESTS)}")
+        d = max(0.2, float(density))
+        trees = self.scatter(self.FORESTS[kind], x0, z0, x1, z1, spacing=3.8 / d ** 0.5, scale=(0.8, 1.25),
+                             seed=seed, clearance=1.2)
+        if undergrowth:
+            taken = [(x, z, 1.4) for x, z, _ in trees]
+            under = [("bush", 3), ("fern", 4), ("grass", 3)]
+            if "log" in self._kinds():
+                under.append(("log", 1))
+            self.scatter(under, x0, z0, x1, z1, spacing=2.2 / d ** 0.5, scale=(0.7, 1.2), seed=seed + 1,
+                         clearance=0.4, taken=taken)
+            self.scatter([("boulder", 1), ("rock", 2), ("stump", 1)], x0, z0, x1, z1, spacing=9.0, scale=(0.5, 1.1),
+                         seed=seed + 2, clearance=0.6, fill=0.5, taken=taken)
+        return self
+
+    def _kinds(self):
+        from . import decor_place
+        return set(decor_place.KINDS)
+
     def flatten(self, x0, z0, x1, z1, height=0.0, falloff=6.0):
         if not self.terrain_def:
             raise ValueError("call level.terrain(...) before level.flatten(...)")

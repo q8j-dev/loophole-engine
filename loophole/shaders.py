@@ -151,6 +151,7 @@ varying float vBA;
 varying vec4 vIrr;
 varying vec3 vTan;
 uniform vec4 uSkin;
+uniform vec4 uLOD;
 uniform vec4 uBM[96];
 uniform vec4 uSk0;
 uniform vec4 uSk1;
@@ -179,15 +180,28 @@ void main() {
   gvid = ixv.r * 65536.0 + ixv.g * 256.0 + ixv.b;
   vec3 ta = gt(0.0);
   vec3 tb = gt(1.0);
+  vec3 t5 = gt(5.0);
+  vec3 aPos = (ta * 256.0 + tb) / 65535.0 * uGeoP.w + uGeoP.xyz;
+  vTan = gt(7.0) / 255.0 * 2.0 - 1.0;
+  float lodk = 1.0;
+  if (t5.z > 4.5 && t5.z < 6.5 && uLOD.x > 0.0) {
+    vec3 lw = uMP + uMX * aPos.x + uMY * aPos.y + uMZ * aPos.z;
+    float ld = length(lw - uCP);
+    bool bb = t5.z > 5.5;
+    vec3 hk = bb ? aPos : aPos * 0.0 + vTan * 13.0 + floor(aPos * 0.7);
+    float hh = fract(sin(dot(floor(hk * 61.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    lodk = bb ? clamp(1.0 - (ld - uLOD.x) / uLOD.y, 0.2, 1.0) : clamp(1.0 - (ld - uLOD.x * 1.5) / (uLOD.y * 1.6), 0.4, 1.0);
+    if (hh > lodk) {
+      gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+      return;
+    }
+  }
   vec3 tn = gt(2.0);
   vec3 tc = gt(3.0);
   vec3 td = gt(4.0);
-  vec3 t5 = gt(5.0);
   vSeed = t5.x;
   vec3 t6 = gt(6.0) / 255.0;
   vIrr = vec4(t6 * t6 * 4.0, t5.z);
-  vTan = gt(7.0) / 255.0 * 2.0 - 1.0;
-  vec3 aPos = (ta * 256.0 + tb) / 65535.0 * uGeoP.w + uGeoP.xyz;
   vec3 aNrm = tn / 255.0 * 2.0 - 1.0;
   vLM = vec2(tc.x * 256.0 + tc.y, tc.z * 256.0 + td.x) / 65535.0;
   vMat = td.y;
@@ -229,7 +243,7 @@ void main() {
   vBA = ba;
   vec3 w = uMP + uMX * aPos.x + uMY * aPos.y + uMZ * aPos.z;
   if (t5.z > 5.5 && t5.z < 6.5) {
-    vec3 off = vTan * 2.5;
+    vec3 off = vTan * 2.5 * inversesqrt(lodk);
     float ra = fract(sin(dot(floor(w * 7.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453) * 6.2831;
     vec2 ro = vec2(off.x * cos(ra) - off.y * sin(ra), off.x * sin(ra) + off.y * cos(ra));
     w += uCR * ro.x + uCU * ro.y;
@@ -573,6 +587,47 @@ void main() {
   if (uGB.x > 0.5) {
     gbOut(vW);
     if (leaf && uGB.y < 0.5) gl_FragColor.b = 0.4;
+    return;
+  }
+  if (leaf && uMode.w < 0.5) {
+    vec3 lV = uCP - vW;
+    float ldist = length(lV);
+    lV /= ldist;
+    float lfocal = uProj.y * u_res.y * 0.5;
+    float llod = clamp(log2(max(ldist / lfocal * 1400.0, 1e-4)), 0.0, 7.0);
+    vec3 la = texture2D(uDA, dmip(vLM, floor(llod + 0.5))).rgb;
+    vec3 lalb = la * la;
+    vec3 cq = floor(vMP * 1.3 + vSeed * 0.37);
+    float h1 = fract(sin(dot(cq, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    float h2 = fract(sin(dot(cq, vec3(39.346, 11.135, 83.155))) * 24634.6345);
+    float lg = dot(lalb, vec3(0.3, 0.55, 0.15));
+    lalb = mix(vec3(lg), lalb, 0.72);
+    lalb *= mix(vec3(1.08, 1.0, 0.62), vec3(0.78, 0.92, 1.05), h1) * (0.7 + 0.5 * h2);
+    vec3 LN = normalize(vN);
+    vec3 sunL = normalize(uFogSun + vec3(0.0, 0.001, 0.0));
+    float wrap = max(dot(LN, sunL) * 0.5 + 0.5, 0.0);
+    float back = pow(max(dot(-lV, sunL), 0.0), 3.0);
+    vec3 E0 = vIrr.rgb;
+    vec3 sunT = uSunC.rgb * uSunC.w * (0.05 + 0.1 * wrap);
+    vec3 LE = E0 * (0.8 + 0.3 * wrap) + uSkyA * 1.3 + E0 * back * 0.6 + sunT;
+    vec3 lcol = lalb * LE + lalb * LE * back * 0.25;
+    for (int i = 0; i < 24; i++) {
+      if (float(i) >= uLtN) break;
+      if (uLf[i].x < 0.5) continue;
+      vec3 lv = uLt[i].xyz - vW;
+      float d2 = dot(lv, lv);
+      vec3 L = lv * inversesqrt(d2);
+      float pr = lprof(L, uLd[i], uLc[i]);
+      if (pr > 0.0) lcol += lalb * uLc[i].rgb * pr / (d2 + 0.05) * (0.5 + 0.5 * abs(dot(LN, L)));
+    }
+    lcol *= mix(1.0, exp(-ldist * uHaze.x * 0.35), 0.7);
+    if (uFog.w > 0.0) {
+      float fh = exp(-max(vW.y - uFogS.x, 0.0) * uFogS.y);
+      float fa = (1.0 - exp(-ldist * uFog.w * fh)) * uFogS.z;
+      float fs = pow(max(dot(-lV, uFogSun), 0.0), 8.0);
+      lcol = mix(lcol, uFog.rgb * (1.0 + fs * 0.9), fa);
+    }
+    gl_FragColor = enc(lcol * uMode.y, 1.0);
     return;
   }
   float mat = floor(vMat + 0.5);
@@ -1023,7 +1078,7 @@ void main() {
   }
   float o = occ(vW, N, uO1) + occ(vW, N, uO2);
   for (int i = 0; i < 4; i++) {
-    if (float(i) >= uShN || uMode.x > 0.5) break;
+    if (float(i) >= uShN || uMode.x > 0.5 || leaf) break;
     vec3 ax = uSX[i].xyz;
     vec3 ay = uSY[i].xyz;
     vec3 az = cross(ax, ay);
@@ -1051,6 +1106,7 @@ void main() {
   bool props = uMode.x > 0.5;
   for (int i = 0; i < 24; i++) {
     if (float(i) >= uLtN) break;
+    if (leaf && uLf[i].x < 0.5) continue;
     vec4 L4 = uLt[i];
     vec4 D4 = uLd[i];
     vec4 C4 = uLc[i];
@@ -1061,7 +1117,7 @@ void main() {
     if (pr <= 0.0) continue;
     vec3 Ei = C4.rgb * pr / (d2 + 0.05);
     float vis = 1.0;
-    if (uMode.z < 0.5) {
+    if (uMode.z < 0.5 && !leaf) {
       float lr = max(L4.w, 0.18);
       vec3 j1 = (vec3(jit, jit2, fract(jit + jit2 * 1.7)) - 0.5) * 2.0 * lr;
       vec3 j2 = (vec3(fract(jit + 0.5), fract(jit2 + 0.37), fract(jit * 3.1 + 0.2)) - 0.5) * 2.0 * lr;
@@ -1081,7 +1137,7 @@ void main() {
     else dloss += Ei * max(dot(Ng, L), 0.0) * (1.0 - vis);
   }
   vec3 envs = vec3(0.0);
-  if (uEnvP.w > 0.5) {
+  if (uEnvP.w > 0.5 && !leaf) {
     vec3 R = reflect(-V, N);
     vec3 pr = vW;
     if (all(greaterThan(pr, uBox0)) && all(lessThan(pr, uBox1))) {

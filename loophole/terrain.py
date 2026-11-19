@@ -193,7 +193,8 @@ def sun_dirs(sd, k, rng, n, spread=0.012):
     return out
 
 
-def crown_transmit(P, D):
+def crown_transmit(P, D, dapple=True):
+    from .bake import vnoise3
     from .decor_place import CROWNS
     tr = np.ones(len(P))
     for c, r in CROWNS:
@@ -206,8 +207,18 @@ def crown_transmit(P, D):
         cc = np.einsum("ij,ij->i", o, o) - 1
         h = b * b - a * cc
         hit = (h > 0) & (-b + np.sqrt(np.maximum(h, 0)) > 0)
-        depth = np.where(hit, np.sqrt(np.maximum(h, 0)) / np.maximum(a, 1e-6), 0)
-        tr *= np.where(hit, np.exp(-depth * 1.6) * 0.75 + 0.05, 1.0)
+        if not hit.any():
+            continue
+        idx = np.nonzero(hit)[0]
+        sq = np.sqrt(h[idx])
+        depth = sq / np.maximum(a[idx], 1e-6)
+        t = np.exp(-depth * 2.2) * 0.6 + 0.03
+        if dapple:
+            te = np.maximum((-b[idx] - sq) / np.maximum(a[idx], 1e-6), 0)
+            ent = P[idx] + D[idx] * te[:, None]
+            nz = vnoise3(ent, 1.1, 7) * 0.65 + vnoise3(ent, 2.7, 9) * 0.35
+            t = np.where(nz > 0.66, np.maximum(t, 0.7 * np.clip((nz - 0.66) * 8, 0, 1)), t)
+        tr[idx] *= t
     return np.clip(tr, 0, 1)
 
 
@@ -248,11 +259,11 @@ def light_points(P, N, field, grid, sun, sky_rad, lights, direct_fn, rng, k_sky=
             occ = field.occluded(Po, D, tmax=60.0, t0=0.2)
             if grid is not None:
                 occ |= grid.occluded(Po, D, np.full(n, 18.0))
-            vis += ~occ
+            vis += (~occ) * crown_transmit(Po, D, dapple=False)
         vis /= k_sky
         E += sr[None] * (vis * (0.75 + 0.25 * N[:, 1]))[:, None]
         if sun is not None:
-            E += (1 - vis)[:, None] * np.array(sun["col"])[None] * 0.06 + sr[None] * 0.08
+            E += (1 - vis)[:, None] * np.array(sun["col"])[None] * 0.04 + sr[None] * 0.05
     others = [L for L in lights if L["kind"] != "sun"]
     if others and grid is not None:
         Ed, _ = direct_fn(Po, N, others, grid, rng, ns=2)

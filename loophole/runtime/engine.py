@@ -31,6 +31,7 @@ def init():
     lmb = 1
     api_ctl = 1
     api_cam = CAM0
+    cullon = 1
     mklist(QON, 2)
     mklist(QCX, 2)
     mklist(QCY, 2)
@@ -400,6 +401,7 @@ def sky_load(lv):
     set_vec3("uFogSun", "world", SKY[sb], SKY[sb + 1], SKY[sb + 2])
     set_vec4("uSunC", "world", SKY[sb + 3], SKY[sb + 4], SKY[sb + 5], LSUN[level])
     set_vec4("uWind", "world", LWX[level], LWZ[level], LWS[level], 0)
+    set_vec4("uLOD", "world", 12, 26, 0, 0)
     set_vec4("uWind", "grass", LWX[level], LWZ[level], LWS[level], 0)
     set_vec3("uSkyA", "world", SKY[sb + 6] * 0.35 + SKY[sb + 10] * 0.12, SKY[sb + 7] * 0.35 + SKY[sb + 11] * 0.12, SKY[sb + 8] * 0.35 + SKY[sb + 12] * 0.12)
     set_vec4("uFog", "sky", SKY[sb + 17], SKY[sb + 18], SKY[sb + 19], SKY[sb + 20])
@@ -1673,6 +1675,7 @@ def prev_u(sh):
 
 @warp
 def probe_all():
+    cullon = 0
     envdirty = 0
     target_rt("env")
     clear_rt("env")
@@ -1757,6 +1760,7 @@ def probe_all():
     wy0 = -1
     wx1 = 1
     wy1 = 1
+    cullon = 1
 
 
 @warp
@@ -2054,9 +2058,25 @@ def draw_geo(gi):
         draw_list("ICS", "world")
     else:
         gco = 0
+        gch = GCH0[gi]
         for gk in rep(GNC[gi]):
-            set_vec4("uGeoI", "world", GB[gi] + gco, min(49152, GC[gi] - gco), GH[gi], GIB[gi])
-            draw_list("IC", "world")
+            gvis = 1
+            if gch > 0 and cullon == 1:
+                gcx = CHX[gch] - ccx
+                gcy = CHY[gch] - ccy
+                gcz = CHZ[gch] - ccz
+                gr_ = CHR[gch]
+                gz_ = gcx * cfx + gcy * cfy + gcz * cfz
+                if gz_ < 0 - gr_:
+                    gvis = 0
+                elif abs(gcx * crx + gcy * cry + gcz * crz) * PFX - gr_ * (1 + PFX) > gz_:
+                    gvis = 0
+                elif abs(gcx * cux + gcy * cuy + gcz * cuz) * PFY - gr_ * (1 + PFY) > gz_:
+                    gvis = 0
+                gch += 1
+            if gvis == 1:
+                set_vec4("uGeoI", "world", GB[gi] + gco, min(49152, GC[gi] - gco), GH[gi], GIB[gi])
+                draw_list("IC", "world")
             gco += 49152
 
 

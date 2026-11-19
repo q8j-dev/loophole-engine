@@ -142,7 +142,7 @@ def needle_card(twigs, size, seed):
     h = size // 2
     canvas = Image.new("RGBA", (size, h), (0, 0, 0, 0))
     dr = ImageDraw.Draw(canvas)
-    dr.line([(2, h // 2), (size - 4, h // 2)], fill=(58, 44, 30, 255), width=max(2, h // 40))
+    dr.line([(2, h // 2), (int(size * 0.7), h // 2)], fill=(58, 44, 30, 255), width=max(2, h // 60))
     for k in range(18):
         tw = twigs[int(rng.integers(0, len(twigs)))]
         x = rng.uniform(0.02, 0.9) * size
@@ -249,7 +249,7 @@ class Mesh:
                 self.tri([a[0], b[0], c[0]], [a[1], b[1], c[1]], [a[2], b[2], c[2]], flag, [sw[i], sw[i], sw[i + 1]])
                 self.tri([a[0], c[0], d[0]], [a[1], c[1], d[1]], [a[2], c[2], d[2]], flag, [sw[i], sw[i + 1], sw[i + 1]])
 
-    def card(self, center, right, up, w, h, uv_rect, normal, sway=1.0, bend=0.0, billboard=False):
+    def card(self, center, right, up, w, h, uv_rect, normal, sway=1.0, bend=0.0, billboard=False, rows=3):
         r = np.asarray(right, float) * w / 2
         u = np.asarray(up, float) * h
         c = np.asarray(center, float)
@@ -258,7 +258,6 @@ class Mesh:
         cn = np.cross(np.asarray(right, float), np.asarray(up, float))
         cn = cn / max(np.linalg.norm(cn), 1e-9)
         x0, y0, x1, y1 = uv_rect
-        rows = 3
         grid = []
         for j in range(rows + 1):
             t = j / rows
@@ -335,7 +334,7 @@ def branch_path(start, direction, length, steps, droop, rng, curl=0.15):
     return out
 
 
-def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=440, tint=(1, 1, 1), leaf_tint=1.0):
+def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=330, tint=(1, 1, 1), leaf_tint=1.0):
     rng = np.random.default_rng(seed)
     leaves = sprites(load_rgba(src, "island_tree_01__leaves_diff.jpg", "island_tree_01__leaves_alpha.png"))
     cards = [round_cluster(leaves, 512, seed * 7 + k, n=80, leaf_scale=0.15) for k in range(2)]
@@ -366,7 +365,7 @@ def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=440, tint=(
         tp.append(tp[-1] + d * trunk_top / 8)
     r0 = 0.22 * height / 6.5
     radii = [r0 * (1.35 if i == 0 else 1.0) * (1 - 0.55 * i / 8) for i in range(9)]
-    m.tube(tp, radii, 0.0, 0.5, 0.0, 1.0, segs=12, sway=[0.0] * 9)
+    m.tube(tp, radii, 0.0, 0.5, 0.0, 1.0, segs=8, sway=[0.0] * 9)
     crown_c = tp[-1] + np.array([0, crown * 0.55, 0])
     tips = []
     nb = int(rng.integers(6, 9))
@@ -379,12 +378,12 @@ def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=440, tint=(
         L = crown * rng.uniform(0.75, 1.05)
         path = branch_path(st, out, L, 5, 0.25, rng)
         rr = [radii[i] * 0.55 * (1 - 0.8 * k / 5) for k in range(6)]
-        m.tube(path, rr, 0.0, 0.5, 0.0, 0.35, segs=6, sway=[0.05 + 0.12 * k / 5 for k in range(6)])
+        m.tube(path, rr, 0.0, 0.5, 0.0, 0.35, segs=5, sway=[0.05 + 0.12 * k / 5 for k in range(6)])
         for k in (2, 3, 4, 5):
             tips.append(path[k])
             if k in (3, 5):
                 sub = branch_path(path[k], out + rng.normal(0, 0.5, 3), L * 0.4, 3, 0.2, rng)
-                m.tube(sub, [rr[k] * 0.6 * (1 - j / 3) + 0.004 for j in range(4)], 0.0, 0.5, 0.0, 0.15, segs=4,
+                m.tube(sub, [rr[k] * 0.6 * (1 - j / 3) + 0.004 for j in range(4)], 0.0, 0.5, 0.0, 0.15, segs=3,
                        sway=[0.2, 0.3, 0.4, 0.5])
                 tips += sub[1:]
     tips.append(tp[-1])
@@ -411,7 +410,7 @@ def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=440, tint=(
         fn /= np.linalg.norm(fn)
         k = int(rng.integers(0, 2))
         rect = (0.5, k * 0.5, 1.0, (k + 1) * 0.5)
-        w = rng.uniform(1.3, 1.8) * crown / 2.6
+        w = rng.uniform(1.45, 1.95) * crown / 2.6
         tr, tu = tangent_frame(fn, rng)
         for q, tilt in enumerate((0.0, rng.choice([0.9, -0.9]))):
             ca = rng.uniform(0, 2 * math.pi)
@@ -452,7 +451,7 @@ def pine(name, seed, src, height=8.0, whorls=14, bare=0.18, width=0.3, shape=1.0
         f = y / height
         return np.array([0.0, y, 0.0]) + lean * f * f
     tp = [axis(y) + np.array([rng.normal(0, 0.03), 0, rng.normal(0, 0.03)]) * (y > 0) for y in np.linspace(0, height, 10)]
-    m.tube(tp, [0.22 * (1 - 0.85 * i / 9) + 0.02 for i in range(10)], 0.0, 0.5, 0.0, 1.0, segs=10,
+    m.tube(tp, [0.22 * (1 - 0.85 * i / 9) + 0.02 for i in range(10)], 0.0, 0.5, 0.0, 1.0, segs=7,
            sway=[0.03 * i / 9 for i in range(10)])
     ys = []
     y = height * bare
@@ -476,15 +475,15 @@ def pine(name, seed, src, height=8.0, whorls=14, bare=0.18, width=0.3, shape=1.0
             side = np.cross(np.array([0.0, 1.0, 0.0]), d)
             side /= np.linalg.norm(side)
             vert = np.cross(d, side)
-            m.tube([st, st + d * L * 0.85], [0.035 * (1 - t * 0.6), 0.01], 0.0, 0.5, 0.0, 0.2, segs=3,
+            m.tube([st, st + d * L * 0.55], [0.035 * (1 - t * 0.6), 0.01], 0.0, 0.5, 0.0, 0.2, segs=3,
                    sway=[0.05, 0.5])
             k = int(rng.integers(0, 4))
             rect = (0.5, k * 0.25, 1.0, (k + 1) * 0.25)
             h = L * 0.62
             nrm = d * 0.6 + np.array([0, 0.7, 0])
-            for upv in (side * 0.94 + vert * 0.34, vert * 0.9 + side * 0.3):
+            for upv in (side * 0.94 + vert * 0.34, vert * 0.9 + side * 0.3, side * 0.7 - vert * 0.7):
                 upv = upv / np.linalg.norm(upv)
-                m.card(st + d * L * 0.5 - upv * h * 0.5, d, upv, L, h, rect, nrm, sway=0.6 + 0.4 * (1 - t))
+                m.card(st + d * L * 0.5 - upv * h * 0.5, d, upv, L, h, rect, nrm, sway=0.6 + 0.4 * (1 - t), rows=1)
     top = axis(height * 0.97)
     for q in range(3):
         ang = q * math.pi / 3
@@ -606,7 +605,7 @@ def main():
     bark = {"diff": ph / "bark_brown_02" / "diff.jpg", "nor": ph / "bark_brown_02" / "nor_gl.jpg"}
     print("oak", broadleaf("oak", 3, src, bark))
     print("birch", broadleaf("birch", 9, src, bark, height=7.5, crown=2.1,
-                             clusters=330, tint=(1.5, 1.45, 1.35), leaf_tint=np.array([1.05, 1.08, 0.9])))
+                             clusters=250, tint=(1.5, 1.45, 1.35), leaf_tint=np.array([1.05, 1.08, 0.9])))
     print("pine", pine("pine", 5, src, height=9.0, whorls=11, bare=0.4, width=0.26, shape=0.6, droop=0.1, gap=0.3,
                        tint=(0.5, 0.6, 0.4)))
     print("spruce", pine("spruce", 8, src, height=10.0, whorls=17, bare=0.1, width=0.26, shape=1.1, droop=0.42,

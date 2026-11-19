@@ -476,6 +476,7 @@ class Models:
         L["GOZ"].append(round(info["oz"], 5))
         L["GR"].append(round(info["r"], 5))
         L["GH"].append(0)
+        L["GCH0"].append(0)
         return len(L["GTEX"])
 
     def builtin(self, name):
@@ -517,7 +518,8 @@ def build(world_path, out=None, log=print, cache=None):
     cache = Path(cache) if cache else world_path.parent / ".loophole" / "cache"
     log(f"loophole {ENGINE_VERSION}: building '{game.title}' ({len(game.levels)} level{'s' * (len(game.levels) != 1)})")
     L = {k: [] for k in LIST_NAMES}
-    for k in ["GTEX", "GB", "GC", "GH", "GIB", "GNC", "GOX", "GOY", "GOZ", "GR", "GIDW"]:
+    for k in ["GTEX", "GB", "GC", "GH", "GIB", "GNC", "GOX", "GOY", "GOZ", "GR", "GIDW", "GCH0", "CHX", "CHY", "CHZ",
+              "CHR"]:
         L[k] = []
     groups = []
     lms = {}
@@ -560,9 +562,18 @@ def build(world_path, out=None, log=print, cache=None):
                 T_ = np.concatenate([T_, np.zeros((n, 3))])
             has_terrain = True
         used_ids.update(np.unique(M_).astype(int).tolist())
+        order, spheres = spatial_order(P_)
+        cols = [P_, N_, UV_, M_, A_, S_, I_, F_, T_]
+        P_, N_, UV_, M_, A_, S_, I_, F_, T_ = [x.reshape(-1, 3, *x.shape[1:])[order].reshape(x.shape) for x in cols]
         pk = geo.Pack()
         info = pk.add(P_, N_, UV_, M_, A_, S_, irr=I_, flag=F_, tan=T_)
-        L["GIDW"].append(models.reg(info, f"g{li}"))
+        gid_ = models.reg(info, f"g{li}")
+        L["GIDW"].append(gid_)
+        if info["count"] > geo.SCHUNK * 3:
+            L["GCH0"][gid_ - 1] = len(L["CHX"]) + 1
+            for (cx, cy, cz, cr) in spheres:
+                for k_, v_ in zip(("CHX", "CHY", "CHZ", "CHR"), (cx, cy, cz, cr)):
+                    L[k_].append(r4(v_))
         groups.append((f"g{li}", pk))
         level_lists(L, Lv, c, meta, li, models, broadcasts)
     for name in ("device", "arms", "player"):
@@ -647,6 +658,34 @@ def portal_blockers(L, Lv, c, rects, h0):
 
 from .world import Level as _Lv
 Level_styles = _Lv.GRASS_STYLES
+
+
+def spatial_order(P, cell=14.0):
+    T = P.reshape(-1, 3, 3)
+    C = T.mean(1)
+    big = np.ptp(T, axis=1).max(1) > cell * 1.5
+    gx = np.floor(C[:, 0] / cell).astype(np.int64)
+    gz = np.floor(C[:, 2] / cell).astype(np.int64)
+    gx -= gx.min()
+    gz -= gz.min()
+
+    def part(v):
+        v = v & 0xFFFF
+        v = (v | (v << 8)) & 0x00FF00FF
+        v = (v | (v << 4)) & 0x0F0F0F0F
+        v = (v | (v << 2)) & 0x33333333
+        return (v | (v << 1)) & 0x55555555
+    key = np.where(big, -1, part(gx) | (part(gz) << 1))
+    order = np.argsort(key, kind="stable")
+    n = geo.CHUNK
+    spheres = []
+    Cs = T[order]
+    for k in range(0, len(order), n):
+        pts = Cs[k:k + n].reshape(-1, 3)
+        lo, hi = pts.min(0), pts.max(0)
+        c = (lo + hi) / 2
+        spheres.append((c[0], c[1], c[2], float(np.linalg.norm(hi - lo) / 2)))
+    return order, spheres
 
 
 def r4(v):
