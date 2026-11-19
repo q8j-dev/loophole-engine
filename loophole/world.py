@@ -444,6 +444,11 @@ class Level:
             n = math.sqrt(sum(v * v for v in self.sun_dir))
             self.sun_dir = tuple(v / n for v in self.sun_dir)
             self.sky_kind = dict(time=h, elevation=el)
+            if el < -4:
+                self.auto_exposure = 0.12
+                self.exposure = 0.75
+            elif el < 8:
+                self.auto_exposure = 0.3
         if weather in ("rain", "fog") and preset is None and time is None:
             self.sky_kind = "overcast"
         return self

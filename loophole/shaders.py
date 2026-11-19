@@ -1753,11 +1753,18 @@ void main() {
     vec2 cp = dir.xz / (y + 0.08) * 0.6 + vec2(u_timer * 0.006, u_timer * 0.002);
     float n = fbm(cp);
     float cov = smoothstep(1.0 - uSkyZ.w, 1.0 - uSkyZ.w + 0.35, n) * smoothstep(0.0, 0.18, y);
-    vec3 cc = mix(uSkyH.rgb * 1.1, vec3(1.0, 0.98, 0.95) * (0.9 + uSunC.rgb * 0.15), 0.6 + 0.4 * sd);
+    vec3 cc = mix(uSkyH.rgb * 1.1, uSkyH.rgb * 0.6 + uSunC.rgb * 0.25, 0.6 + 0.4 * sd);
     cc *= 0.75 + 0.35 * fbm(cp * 2.0 + 3.0);
     col = mix(col, cc, cov * 0.85);
   }
   col += uSunC.rgb * smoothstep(uSkyH.w, uSkyH.w + 0.0006, sd) * 40.0 * smoothstep(-0.02, 0.02, y);
+  float night = 1.0 - smoothstep(0.03, 0.12, dot(uSkyZ.rgb, vec3(0.3, 0.5, 0.2)));
+  if (night > 0.0 && y > 0.0) {
+    vec3 sd3 = floor(dir * 260.0);
+    float st = fract(sin(dot(sd3, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    float tw = 0.6 + 0.4 * sin(u_timer * 3.0 + st * 40.0);
+    col += vec3(0.9, 0.95, 1.0) * step(0.9965, st) * night * tw * smoothstep(0.0, 0.25, y) * 1.5 * (1.0 - uWet.w);
+  }
   if (y < 0.0) col = mix(col, uSkyG.rgb, smoothstep(0.0, 0.12, -y));
   float grey = dot(col, vec3(0.3, 0.5, 0.2));
   col = mix(col, vec3(grey) * vec3(0.92, 0.96, 1.02) * 0.75, uWet.w * 0.8);
