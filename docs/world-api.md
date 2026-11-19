@@ -59,7 +59,7 @@ Game(title="My Game", viewmodel="none", viewmodels=None, hand_color="cyan", qual
 
 ### Controls
 
-Keyboard and mouse, game controllers and touch screens all work at once.
+Keyboard and mouse, game controllers and touch screens all work at once. When the player can drive, pick up, drop or use something, a small prompt such as `E  Pick up` appears in the middle of the screen, with the right key for the keyboard, controller or touch screen.
 
 - **Keyboard:** WASD to move, mouse to look, space to jump, E to use, shift to crouch, P to pause, R to restart. Arrow keys also look. With `game.combat()`, F swings and G throws.
 - **Game controller:** left stick moves, right stick looks, A jumps, X uses, B crouches, Start pauses, Y swings, RB throws. The controller rumbles when the player dies or collects something.
