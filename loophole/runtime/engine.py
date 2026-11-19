@@ -423,6 +423,10 @@ def sky_load(lv):
     for shi in rep(8):
         shk_ = (level - 1) * 8 + shi
         set_arr4(shi, "uSH", "world", SHX[shk_], SHZ[shk_], SHR[shk_], SHY[shk_])
+        set_arr4(shi, "uRoof", "world", RFX0[shk_], RFZ0[shk_], RFX1[shk_], RFZ1[shk_])
+        set_arr4(shi, "uRoof", "precip", RFX0[shk_], RFZ0[shk_], RFX1[shk_], RFZ1[shk_])
+        set_arr4(shi, "uRoofY", "world", RFY[shk_] - 3.3, 0, 0, 0)
+        set_arr4(shi, "uRoofY", "precip", RFY[shk_], 0, 0, 0)
     set_vec4("uLOD", "world", 20, 12, 0, 0)
     set_vec4("uRay", "haze", LRAY[level], 0, 0, 0)
     set_vec4("uWind", "grass", LWX[level], LWZ[level], LWS[level], 0)
@@ -1637,6 +1641,7 @@ def gbuffer():
     clear_rt(join("gb", tp))
     tex_filter(9728)
     set_tex("uPGB", "world", join("gb", 1 - tp))
+    set_tex("uGBn", "world", join("gb", 1 - tp))
     tex_filter(9729)
     set_tex("uHist", "world", join("hh", 1 - tp))
     set_vec4("uGB", "world", 1, 0, 0, 0)

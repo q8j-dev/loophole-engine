@@ -282,6 +282,16 @@ void main() {
 
 WORLD_FS = HEAD + """
 uniform vec4 uWet;
+uniform vec4 uRoof[8];
+uniform vec4 uRoofY[8];
+float covered(vec3 p) {
+  for (int i = 0; i < 8; i++) {
+    vec4 r = uRoof[i];
+    if (p.x > r.x && p.x < r.z && p.y < uRoofY[i].x && p.z > r.y && p.z < r.w) return 1.0;
+  }
+  return 0.0;
+}
+
 uniform vec4 uTerr;
 uniform vec4 uWind2;
 uniform sampler2D uGBn;
@@ -1227,12 +1237,13 @@ void main() {
   float px = dist / focal;
   float ao = (1.0 - clamp(o, 0.0, 0.85)) * mix(vAO, 0.8 + vAO * 0.2, clamp(px / 0.012 - 0.6, 0.0, 1.0));
   float puddle = 0.0;
-  if (uTerr.w > 0.0 && !leaf && !(vIrr.w > 3.5 && vIrr.w < 4.5)) {
+  if (uTerr.w > 0.0 && !leaf && !(vIrr.w > 3.5 && vIrr.w < 4.5) && covered(vW) < 0.5) {
     float sup = uTerr.w * smoothstep(0.55, 0.85, Ng.y + (vnoise(vW.xz * 2.0) - 0.5) * 0.3);
     alb = mix(alb, vec3(0.6, 0.62, 0.66), sup);
   }
-  if (uWet.x > 0.01 && Ng.y > 0.3 && !leaf) {
-    float exw = uWet.x * smoothstep(0.3, 0.8, Ng.y);
+  float wetA = uWet.x * (1.0 - covered(vW));
+  if (wetA > 0.01 && Ng.y > 0.3 && !leaf) {
+    float exw = wetA * smoothstep(0.3, 0.8, Ng.y);
     alb *= 1.0 - 0.4 * exw;
     if (vIrr.w > 3.5 && vIrr.w < 4.5) {
       float pn = vnoise(vW.xz * 0.35) * 0.65 + vnoise(vW.xz * 1.1 + 3.0) * 0.35;
@@ -1245,7 +1256,7 @@ void main() {
   vec3 diff = alb * (1.0 - metal * 0.85);
   float rough = mix(0.85, 0.12, clamp(gloss * gscale, 0.0, 1.0));
   if (prough >= 0.0) rough = clamp(prough, 0.08, 1.0);
-  if (uWet.x > 0.01 && Ng.y > 0.3) rough = mix(rough, mix(0.22, 0.03, puddle), uWet.x * smoothstep(0.3, 0.8, Ng.y));
+  if (wetA > 0.01 && Ng.y > 0.3) rough = mix(rough, mix(0.22, 0.03, puddle), wetA * smoothstep(0.3, 0.8, Ng.y));
   float a = rough * rough;
   vec3 spec = vec3(0.0);
   vec3 ddir = vec3(0.0);
@@ -2020,6 +2031,15 @@ void main() {
 
 
 PRECIP_VS = HEAD + CAM_U + PROJECT + """
+uniform vec4 uRoof[8];
+uniform vec4 uRoofY[8];
+float covered(vec3 p) {
+  for (int i = 0; i < 8; i++) {
+    vec4 r = uRoof[i];
+    if (p.x > r.x && p.x < r.z && p.y < uRoofY[i].x && p.z > r.y && p.z < r.w) return 1.0;
+  }
+  return 0.0;
+}
 attribute vec4 aSeed;
 attribute vec2 aCorner;
 uniform float u_timer;
@@ -2047,7 +2067,7 @@ void main() {
   vec3 up2 = snow > 0.5 ? normalize(cross(toC, side)) : vel;
   float sz = snow > 0.5 ? 0.035 : 0.006;
   float len = snow > 0.5 ? 0.035 : 0.38;
-  float show = step(aSeed.w, uPrec.x);
+  float show = step(aSeed.w, uPrec.x) * (1.0 - covered(p));
   vec3 w = p + (side * aCorner.x * sz + up2 * aCorner.y * len) * show;
   vC = aCorner;
   vA = show * (1.0 - smoothstep(6.0, 11.0, length(p - uCP)));

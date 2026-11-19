@@ -652,7 +652,7 @@ TPM = {}
 LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "HV1", "HKILL", "HPORT", "LSX", "LSY",
               "LSZ", "LSYAW", "LSPIT", "LKILL", "LO0", "LON", "LT0", "LTN", "TNAME", "TKIND", "TARG", "TX0", "TY0",
               "TZ0", "TX1", "TY1", "TZ1", "LL0", "LLN", "LNM", "LTX", "LTY", "LTZ", "LTW", "LDDX", "LDDY", "LDDZ",
-              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LFLK", "LCUT", "LWX", "LWZ", "LWS", "LRAY", "LWEA", "LSNO", "LK0", "LKN", "KH", "KU0", "KU1", "KV0", "KV1", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
+              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LFLK", "LCUT", "LWX", "LWZ", "LWS", "LRAY", "LWEA", "LSNO", "RFX0", "RFZ0", "RFX1", "RFZ1", "RFY", "LK0", "LKN", "KH", "KU0", "KU1", "KV0", "KV1", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
               "AMB0", "AMBNX", "AMBNY", "AMBNZ", "AMBST", "AMBOX", "AMBOY", "AMBOZ", "AMB", "LPX", "LPY", "LPZ",
               "LB0X", "LB0Y", "LB0Z", "LB1X", "LB1Y", "LB1Z", "LFY", "LCY_", "LV0", "LVNN", "VX0", "VZ0", "VX1",
               "VZ1", "VY0", "VY1", "VPW", "LSP0", "LSPN", "SPX", "SPY", "SPZ", "LSKY", "LSUN", "LTER", "TOX", "TOZ",
@@ -864,6 +864,11 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
     L["LWEA"].append(Lv.WEATHERS.index(getattr(Lv, "weather", "clear")) + 1)
     gsn = Level_styles.get((Lv.terrain_def or {}).get("grass_style", "lawn"), (0,) * 6)
     L["LSNO"].append(r4(gsn[5]))
+    rfs = [(b["x0"] - 0.6, b["z0"] - 0.6, b["x1"] + 0.6, b["z1"] + 0.6, b["top"] + 3.0) for b in Lv.buildings][:8]
+    for i in range(8):
+        v = rfs[i] if i < len(rfs) else (0.0, 0.0, -1.0, -1.0, -999.0)
+        for k_, x_ in zip(("RFX0", "RFZ0", "RFX1", "RFZ1", "RFY"), v):
+            L[k_].append(r4(x_))
     L["LHA"].append(Lv.haze_amb)
     L["LEXP"].append(Lv.exposure)
     L["LAE"].append(Lv.auto_exposure)
