@@ -16,8 +16,9 @@ RUBBER = 21
 FIXTURE = 11
 LIGHT = 10
 SKIRT = {"white": (21, 0.11, 0.013), "metal": (21, 0.11, 0.013), "dark": (21, 0.11, 0.013),
-         "plaster": (55, 0.14, 0.018), "paint": (55, 0.14, 0.018), "tiles": (58, 0.1, 0.012)}
-LIP = {"white", "metal", "dark", "floor", "ceil", "concrete", "plate", "boost"}
+         "plaster": (55, 0.14, 0.018), "paint": (55, 0.14, 0.018), "tiles": (58, 0.1, 0.012),
+         "stone": (51, 0.34, 0.05), "brick": (51, 0.3, 0.04)}
+LIP = {"white", "metal", "dark", "floor", "ceil", "concrete", "plate", "boost", "stone", "marble"}
 
 
 

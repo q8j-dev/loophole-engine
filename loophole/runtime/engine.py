@@ -453,6 +453,8 @@ def lights_step():
     lk = LL0[level]
     for li in rep(LLN[level]):
         lpw = light_power[li]
+        if LFLK[lk] > 0:
+            lpw = lpw * (1 + LFLK[lk] * (sin(TT * 700 + li * 91) * 0.45 + sin(TT * 1130 + li * 37) * 0.35 + sin(TT * 2300 + li * 13) * 0.2))
         if lpw != LPWL[li]:
             LPWL[li] = lpw
             set_arr4(li, "uLc", "world", LCR[lk] * lpw, LCG[lk] * lpw, LCB[lk] * lpw, LCW[lk])
@@ -1330,7 +1332,9 @@ def cam_orbit():
     obz = cos(cyaw) * ocp
     if api_cam == 3:
         oby = 0 - oby
-    ray_world(otx, oty, otz, obx, oby, obz)
+    rwt = 999
+    if api_cam != 3 or LCUT[level] <= 0:
+        ray_world(otx, oty, otz, obx, oby, obz)
     odist = min(api_cdist, rwt - 0.3)
     odist = max(0.4, odist)
     ccx = otx + obx * odist
@@ -1621,6 +1625,12 @@ def env_blur(dst, src, dx, dy):
 def frame_uniforms():
     PFY = 1 / tan((api_fov + fovk) / 2)
     PFX = PFY * 9 / 16
+    if api_cam == 3 and LCUT[level] > 0:
+        set_vec2("uCut", "world", 1, py + LCUT[level])
+        set_vec2("uCut", "haze", 1, py + LCUT[level])
+    else:
+        set_vec2("uCut", "world", 0, 0)
+        set_vec2("uCut", "haze", 0, 0)
     if api_cam >= 2:
         set_vec2("uNF", "world", 1.2, 3.2)
     else:
@@ -1759,7 +1769,8 @@ def draw_obj(k):
     if DKIND[od] == 2:
         og_ = og_ * (1 + OOPN[k] * 2)
     set_vec3("uEmit", "world", DGR[od] * og_, DGG[od] * og_, DGB[od] * og_)
-    set_vec3("uMP", "world", obj_x[k], obj_y[k] + OOPN[k] * DSLIDE[od], obj_z[k])
+    set_vec3("uMP", "world", obj_x[k], obj_y[k] + OOPN[k] * DSLIDE[od] + DBOB[od] * (0.5 + 0.5 * sin(TT * 160 + k * 47)), obj_z[k])
+    set_vec3("uRim", "world", DHR[od], DHG[od], DHB[od])
     set_vec3("uMX", "world", bxx * osx_, bxy * osx_, bxz * osx_)
     set_vec3("uMY", "world", byx * osy2, byy * osy2, byz * osy2)
     set_vec3("uMZ", "world", bzx * osz_, bzy * osz_, bzz * osz_)
@@ -1773,6 +1784,7 @@ def draw_obj(k):
         set_vec3("uMP", "world", obj_x[k], obj_y[k] + 0.06 - OOPN[k] * 0.05, obj_z[k])
         set_vec4("uPR", "world", DPRX2[od], DPRY2[od], DPRS2[od], DPRT2[od])
         draw_geo(DG2[od])
+    set_vec3("uRim", "world", 0, 0, 0)
 
 
 @warp

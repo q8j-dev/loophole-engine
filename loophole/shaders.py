@@ -462,8 +462,14 @@ float lprof(vec3 L, vec4 D4, vec4 C4) {
   float c = dot(-L, D4.xyz);
   return C4.w < -1.5 ? max(c, 0.0) : smoothstep(D4.w, C4.w, c);
 }
+uniform vec2 uCut;
 vec3 haze(vec3 ro, vec3 rd, float len, float jit) {
   if (uHaze.x <= 0.0) return vec3(0.0);
+  if (uCut.x > 0.5 && rd.y < -0.01 && ro.y > uCut.y) {
+    float t0 = (ro.y - uCut.y) / -rd.y;
+    ro += rd * t0;
+    len = max(len - t0, 0.0);
+  }
   float L = min(len, 45.0);
   float dt = L / 10.0;
   vec3 acc = vec3(0.0);
@@ -491,8 +497,19 @@ float occ(vec3 p, vec3 n, vec4 s) {
 }
 
 uniform vec2 uNF;
+uniform vec3 uRim;
 void main() {
   gate(vW);
+  if (uCut.x > 0.5) {
+    if (vW.y > uCut.y) discard;
+    if (gl_FrontFacing) {
+      vec3 cd = normalize(vW - uCP);
+      vec3 cp = uCP + cd * ((uCP.y - uCut.y) / max(-cd.y, 0.05));
+      if (uGB.x > 0.5) { gbOut(cp); return; }
+      gl_FragColor = enc(vec3(0.0), 1.0);
+      return;
+    }
+  }
   bool leaf = vIrr.w > 4.5 && vIrr.w < 5.5;
   if (vMat > 76.5 && vMat < 77.5) {
     vec2 bp = mod(floor(gl_FragCoord.xy), 4.0);
@@ -1035,11 +1052,13 @@ void main() {
     float wrap = max(dot(N, sunL) * 0.5 + 0.5, 0.0);
     float back = pow(max(dot(-V, sunL), 0.0), 3.0);
     vec3 skyA = uSkyA;
-    E = E * (0.55 + 0.45 * wrap) + skyA + E * back * 0.9;
-    emis += alb * E * back * 0.35;
+    E = E * (0.62 + 0.38 * wrap) + skyA * 2.4 + E * back * 1.2;
+    emis += alb * E * back * 0.4;
+    ao = mix(ao, 1.0, 0.6);
     spec *= 0.3;
   }
   vec3 col = diff * (max(E - dloss, 0.0) * ao + ddir) + spec * mix(1.0, so, props ? 0.0 : 1.0) * ao + envs * ao + emis;
+  col += uRim * (0.1 + 1.3 * pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 2.4));
   float ext = exp(-dist * uHaze.x * 0.35);
   col = col * mix(1.0, ext, 0.7);
   if (uFog.w > 0.0) {
@@ -1283,6 +1302,7 @@ uniform vec4 uFogC;
 uniform vec2 u_res;
 uniform float u_timer;
 float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
+uniform vec2 uCut;
 void main() {
   vec2 uv = gl_FragCoord.xy / u_res;
   vec4 g = texture2D(uGBc, uv);
@@ -1292,11 +1312,18 @@ void main() {
   vec2 ndc = uv * 2.0 - 1.0 - uJit;
   vec3 dir = normalize(uCF + uCR * (ndc.x / uProj.x) - uCU * (ndc.y / uProj.y));
   float len = min(d / max(dot(dir, uCF), 0.05), 60.0);
+  vec3 ro = uCP;
+  if (uCut.x > 0.5 && sky) len = 0.0;
+  if (uCut.x > 0.5 && dir.y < -0.01 && ro.y > uCut.y) {
+    float t0 = (ro.y - uCut.y) / -dir.y;
+    ro += dir * t0;
+    len = max(len - t0, 0.0);
+  }
   float st = len / 24.0;
   float j = ign(gl_FragCoord.xy + fract(u_timer * 7.0) * 113.0);
   vec3 acc = vec3(0.0);
   for (int k = 0; k < 24; k++) {
-    vec3 p = uCP + dir * ((float(k) + j) * st);
+    vec3 p = ro + dir * ((float(k) + j) * st);
     for (int i = 0; i < 8; i++) {
       if (float(i) >= uHaze.y) break;
       vec3 lv = uLt[i].xyz - p;

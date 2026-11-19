@@ -15,7 +15,8 @@ FLOOR_PROPS = {"crate", "barrel", "machine", "tank", "rack", "terminal", "trolle
 COLORS = {"white": (1.0, 0.97, 0.92), "warm": (1.0, 0.82, 0.6), "cool": (0.8, 0.9, 1.0), "red": (1.0, 0.2, 0.1),
           "orange": (1.0, 0.55, 0.2), "amber": (1.0, 0.7, 0.3), "green": (0.35, 1.0, 0.45),
           "blue": (0.35, 0.6, 1.0), "cyan": (0.3, 0.9, 1.0), "purple": (0.7, 0.4, 1.0), "pink": (1.0, 0.4, 0.7),
-          "yellow": (1.0, 0.9, 0.35), "sodium": (1.0, 0.62, 0.28), "daylight": (0.95, 0.97, 1.0)}
+          "yellow": (1.0, 0.9, 0.35), "sodium": (1.0, 0.62, 0.28), "daylight": (0.95, 0.97, 1.0),
+          "gold": (1.0, 0.6, 0.1)}
 
 
 def facing(f):
@@ -43,7 +44,7 @@ class Obj:
     def __init__(self, name, model, pos, yaw=0.0, pitch=0.0, roll=0.0, scale=1.0, size=(1, 1, 1), visible=True,
                  solid=True, physics=False, carry=False, use=False, shadow=True, glow=1.0, glow_color=None,
                  collect=False, spin=0.0, path=None, speed=2.0, loop=True, face_path=True, kind=0, opens=None,
-                 slide=0.0, open_speed=0.8, texture=None):
+                 slide=0.0, open_speed=0.8, texture=None, highlight=None, bob=0.0):
         self.__dict__.update(locals())
         del self.__dict__["self"]
 
@@ -214,8 +215,12 @@ class Level:
         self.start_pitch = float(pitch)
         return self
 
+    def cutaway(self, height=2.4):
+        self.cut = float(height)
+        return self
+
     def light(self, x, y, z, color="white", power=8.0, fixture="cage", facing="-y", dynamic=False, name=None,
-              haze=0.0, on=True):
+              haze=0.0, on=True, flicker=0.0):
         n = np.array(globals()["facing"](facing), float)
         if fixture == "cage":
             if abs(n[1]) < 0.9:
@@ -225,6 +230,11 @@ class Level:
         p = tuple(np.array([x, y, z], float) + n * 0.11)
         self.lights.append(dict(kind="point", p=p, d=tuple(n), size=(0.05, 0.05), col=color_(color), power=power,
                                 vol=haze, dynamic=dynamic, name=name, on=on))
+        if flicker > 0 and not dynamic:
+            self.lights.append(dict(kind="point", p=p, d=tuple(n), size=(0.05, 0.05), col=color_(color),
+                                    power=power * 0.45, vol=0.0, dynamic=True, name=None, on=on, flicker=flicker))
+        elif flicker > 0:
+            self.lights[-1]["flicker"] = flicker
         return self
 
     def spot(self, x, y, z, target, color="white", power=40.0, cone=(18, 32), haze=1.0, fixture=True, dynamic=False,
@@ -258,7 +268,7 @@ class Level:
         return self
 
     def prop(self, kind, x, y, z, yaw=0.0, scale=1.0, solid=None, up=(0, 1, 0), seed=None, light=True, name=None,
-             on=True):
+             on=True, flicker=0.0):
         from . import library
         if light and kind in library.LIGHTS:
             off, col, pw = library.LIGHTS[kind]
@@ -266,7 +276,7 @@ class Level:
             o = (off[0] * math.cos(a) - off[2] * math.sin(a), off[1], off[0] * math.sin(a) + off[2] * math.cos(a))
             s_ = scale if isinstance(scale, (int, float)) else scale[1]
             self.light(x + o[0] * s_, y + o[1] * s_, z + o[2] * s_, color=col, power=pw * s_ * s_, fixture=None, haze=0.6,
-                       dynamic=name is not None, name=name, on=on)
+                       dynamic=name is not None, name=name, on=on, flicker=flicker)
         if kind in library.TRUNK and (solid is None or solid):
             r = library.TRUNK[kind] * (scale if isinstance(scale, (int, float)) else scale[0])
             self.solid_boxes = getattr(self, "solid_boxes", []) + [(x - r, y, z - r, x + r, y + 6.0, z + r)]
@@ -388,6 +398,8 @@ class Level:
         kw.setdefault("solid", False)
         kw.setdefault("spin", 90.0)
         kw.setdefault("shadow", False)
+        kw.setdefault("highlight", "gold")
+        kw.setdefault("bob", 0.12)
         return self.object(name, model, x, y, z, **kw)
 
     def trigger(self, name, x0, y0, z0, x1, y1, z1):
@@ -405,9 +417,13 @@ class Level:
         self.triggers.append(dict(name=name, box=_box(x0, y0, z0, x1, y1, z1), kind=1, to=0))
         return self
 
-    def grade(self, r=1.0, g=1.0, b=1.0, saturation=1.0):
+    def grade(self, r=1.0, g=1.0, b=1.0, saturation=1.0, exposure=None, auto_exposure=None):
         self.grade_rgb = (r, g, b)
         self.saturation = saturation
+        if exposure is not None:
+            self.exposure = exposure
+        if auto_exposure is not None:
+            self.auto_exposure = auto_exposure
         return self
 
     def outdoor(self, sky="day", sun=(0.4, 0.75, 0.3), sun_color=None, fog=0.0035, clouds=0.45):

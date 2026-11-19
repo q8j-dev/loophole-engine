@@ -1,67 +1,79 @@
 from loophole import Game
 
-game = Game("Crypt Crawl", camera="top down", camera_distance=10.0, camera_pitch=62, walk_speed=5.5)
+game = Game("Crypt Crawl", camera="top down", camera_distance=5.5, camera_pitch=56, walk_speed=5.5)
 game.script("game.py")
 
 c = game.level("Crypt")
-c.outdoor(sky="night", sun=(0.35, 0.7, -0.4), fog=0.004, clouds=0.25)
-c.grade(1.05, 0.97, 0.9, saturation=1.05)
+c.style("dungeon")
+c.cutaway(2.6)
+c.grade(0.9, 0.96, 1.14, saturation=0.92, exposure=1.0, auto_exposure=0.2)
 
-c.solid(-2, -1, -36, 24, 0, 12, material="cobble")
-
-
-def wall(x0, z0, x1, z1, h=3.5):
-    c.solid(x0, 0, z0, x1, h, z1, material="stone")
-
-
-wall(-2, 10, 24, 12)
-wall(-2, -36, 24, -34)
-wall(-2, -36, 0, 12)
-wall(22, -36, 24, 12)
-wall(0, -2, 9, 0)
-wall(13, -2, 22, 0)
-wall(0, -24, 10, -22)
-wall(12, -24, 22, -22)
-for x in (5, 11, 17):
-    for z in (-7, -17):
-        c.solid(x - 0.5, 0, z - 0.5, x + 0.5, 4.0, z + 0.5, material="stone")
-c.paint("planks", 9, 0, -2, 13, 0.01, 0, facing="+y")
-
+c.room(0, 0, 0, 22, 4, 10)
+c.room(0, 0, -22, 22, 5, -2)
+c.room(2, 0, -34, 20, 4, -24)
+c.room(9, 0, -2, 13, 2.5, 0)
+c.room(9.5, 0, -2, 12.5, 3.0, 0)
+c.room(10, 0, -2, 12, 3.5, 0)
+c.room(10, 0, -24, 12, 3.0, -22)
 c.spawn(11, 0, 7, yaw=0)
 
-c.prop("oillamp", 2, 0, 9, yaw=30)
-c.prop("oillamp", 20, 0, 9, yaw=-40)
-c.prop("candlestick", 7.6, 0, 1.0)
-c.prop("candlestick", 14.4, 0, 1.0)
-c.prop("woodbarrel", 1.2, 0, 2.2)
-c.prop("woodcrate", 20.6, 0, 2.0, yaw=15)
-c.prop("bucket", 19.4, 0, 1.4)
-c.prop("statue", 1.2, 0, -12, yaw=90, scale=0.9)
-c.prop("catstatue", 20.8, 0, -12, yaw=-90, scale=1.6)
-c.prop("firepit", 11, 0, -12)
-c.prop("candlestick", 5, 4.0, -7)
-c.prop("candlestick", 17, 4.0, -7)
-c.prop("candlestick", 5, 4.0, -17)
-c.prop("candlestick", 17, 4.0, -17)
-c.prop("oillamp", 1, 0, -21, yaw=45)
-c.prop("oillamp", 21, 0, -3, yaw=-120)
-c.prop("winebarrel", 21, 0, -20.5, yaw=90)
-c.prop("rock", 2, 0, -4, yaw=20, scale=0.6)
-c.prop("candlestick", 6, 0, -27)
-c.prop("candlestick", 16, 0, -27)
-c.prop("oillamp", 4, 0, -33, yaw=20)
-c.prop("oillamp", 18, 0, -33, yaw=-20)
-c.prop("woodcrate", 2, 0, -30, yaw=40)
-c.prop("goblet", 13.5, 0, -32.5, yaw=10)
 
-c.pickup("goblet1", "goblet", 2, 0.4, -9, scale=2.4, spin=90)
-c.pickup("goblet2", "goblet", 20, 0.4, -19, scale=2.4, spin=90)
-c.pickup("goblet3", "goblet", 11, 0.4, -20.5, scale=2.4, spin=90)
+def column(x, z, h):
+    c.solid(x - 0.75, 0, z - 0.75, x + 0.75, 0.5, z + 0.75, material="stone")
+    c.solid(x - 0.5, 0.5, z - 0.5, x + 0.5, h - 0.5, z + 0.5, material="rock")
+    c.solid(x - 0.75, h - 0.5, z - 0.75, x + 0.75, h, z + 0.75, material="stone")
 
-c.object("rat1", "rat", 2, 0, -5, scale=9, solid=False, path=[(2, 0, -5), (20, 0, -5)], speed=2.6)
-c.object("rat2", "rat", 20, 0, -12, scale=9, solid=False, path=[(20, 0, -12), (14, 0, -12), (14, 0, -19), (8, 0, -19), (8, 0, -12), (2, 0, -12)], speed=2.2)
-c.object("rat3", "rat", 2, 0, -15, scale=9, solid=False, path=[(2, 0, -15), (2, 0, -20), (20, 0, -20), (20, 0, -15)], speed=3.0)
+
+for x in (4.5, 17.5):
+    for z in (-6.5, -12, -17.5):
+        column(x, z, 5)
+for x in (3.5, 18.5):
+    column(x, 5, 4)
+c.solid(9.5, 0, -12.5, 12.5, 0.5, -11.5, material="stone")
+
+c.prop("firepit", 11, 0.5, -12, flicker=0.35)
+c.prop("candlestick", 4.5, 0.5, -6.5, flicker=0.5)
+c.prop("candlestick", 17.5, 0.5, -17.5, flicker=0.5)
+c.prop("candlestick", 4.5, 0.5, -17.5, flicker=0.5)
+c.prop("candlestick", 17.5, 0.5, -6.5, flicker=0.5)
+c.prop("oillamp", 0.8, 0, -21.2, yaw=45, flicker=0.3)
+c.prop("oillamp", 21.2, 0, -2.8, yaw=-120, flicker=0.3)
+c.prop("oillamp", 1.0, 0, 9.0, yaw=30, flicker=0.3)
+c.prop("candlestick", 9.2, 0, 0.6, flicker=0.5)
+c.prop("candlestick", 12.8, 0, 0.6, flicker=0.5)
+c.prop("candlestick", 6, 0, -25, flicker=0.5)
+c.prop("candlestick", 16, 0, -25, flicker=0.5)
+c.prop("oillamp", 3, 0, -33, yaw=20, flicker=0.3)
+c.prop("oillamp", 19, 0, -33, yaw=-20, flicker=0.3)
+c.spot(11, 4.6, -29, target=(11, 0, -31), color="amber", power=30, cone=(14, 26), haze=1.2, fixture=False)
+for (lx, ly, lz) in ((5, 3.7, 5), (17, 3.7, 5), (5, 4.7, -6), (17, 4.7, -6), (5, 4.7, -18), (17, 4.7, -18),
+                     (11, 4.7, -12), (7, 3.7, -29), (15, 3.7, -29)):
+    c.light(lx, ly, lz, color="blue", power=4.5, fixture=None)
+
+c.prop("woodbarrel", 1.0, 0, 1.0)
+c.prop("woodbarrel", 1.9, 0, 0.8, yaw=40)
+c.prop("woodcrate", 21.0, 0, 1.2, yaw=15)
+c.prop("bucket", 19.8, 0, 0.7)
+c.prop("statue", 1.2, 0, -12, yaw=90, scale=1.1)
+c.prop("catstatue", 20.9, 0, -12, yaw=-90, scale=2.0)
+c.prop("winebarrel", 21, 0, -20.6, yaw=90)
+c.prop("rock", 1.5, 0, -3.5, yaw=20, scale=0.7)
+c.prop("rock", 20, 0, -8.5, yaw=80, scale=0.5)
+c.prop("woodcrate", 3, 0, -30, yaw=40)
+c.prop("woodcrate", 3.2, 0.9, -30.3, yaw=10)
+c.prop("goblet", 13.0, 0, -32.8, yaw=10, scale=1.4)
+c.prop("candlestick", 13.8, 0, -32.6, flicker=0.6)
+
+c.pickup("goblet1", "goblet", 1.6, 0.5, -8.5, scale=2.4, spin=90)
+c.pickup("goblet2", "goblet", 20.4, 0.5, -19.5, scale=2.4, spin=90)
+c.pickup("goblet3", "goblet", 11, 0.5, -20.6, scale=2.4, spin=90)
+
+rat = dict(scale=11, solid=False, highlight=(0.35, 0.03, 0.01))
+c.object("rat1", "rat", 2, 0, -4.5, path=[(2, 0, -4.5), (20, 0, -4.5)], speed=2.6, **rat)
+c.object("rat2", "rat", 20, 0, -9.5, path=[(20, 0, -9.5), (14.5, 0, -9.5), (14.5, 0, -15), (7.5, 0, -15),
+                                         (7.5, 0, -9.5), (2, 0, -9.5)], speed=2.2, **rat)
+c.object("rat3", "rat", 2, 0, -15, path=[(2, 0, -15), (2, 0, -20), (20, 0, -20), (20, 0, -15)], speed=2.8, **rat)
 
 c.object("gate", "statue", 11, 0, -23, scale=1.35, kind=1, slide=-3.6, open_speed=0.5, solid=True, yaw=180)
-c.object("chest", "treasure", 11, 0, -31, scale=1.0, solid=True)
-c.goal(9, 0, -30.5, 13, 3, -28.5, paint=False)
+c.object("chest", "treasure", 11, 0, -31, scale=1.6, solid=True, highlight=(0.5, 0.36, 0.1))
+c.goal(9.5, 0, -30, 12.5, 3, -28.5, paint=False)

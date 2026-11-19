@@ -585,14 +585,14 @@ TPM = {}
 LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "HV1", "HKILL", "HPORT", "LSX", "LSY",
               "LSZ", "LSYAW", "LSPIT", "LKILL", "LO0", "LON", "LT0", "LTN", "TNAME", "TKIND", "TARG", "TX0", "TY0",
               "TZ0", "TX1", "TY1", "TZ1", "LL0", "LLN", "LNM", "LTX", "LTY", "LTZ", "LTW", "LDDX", "LDDY", "LDDZ",
-              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
+              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LLON", "LFLK", "LCUT", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
               "AMB0", "AMBNX", "AMBNY", "AMBNZ", "AMBST", "AMBOX", "AMBOY", "AMBOZ", "AMB", "LPX", "LPY", "LPZ",
               "LB0X", "LB0Y", "LB0Z", "LB1X", "LB1Y", "LB1Z", "LFY", "LCY_", "LV0", "LVNN", "VX0", "VZ0", "VX1",
               "VZ1", "VY0", "VY1", "VPW", "LSP0", "LSPN", "SPX", "SPY", "SPZ", "LSKY", "LSUN", "LTER", "TOX", "TOZ",
               "TST", "TNX", "TNZ", "TH0", "THT", "DNAME", "DG", "DG2", "DPRX", "DPRY", "DPRS", "DPRT", "DPRX2",
               "DPRY2", "DPRS2", "DPRT2", "DBX", "DBY", "DBZ", "DBCX", "DBCY", "DBCZ", "DSX", "DSY", "DSZ", "DKIND",
               "DPHYS", "DCARRY", "DUSE", "DSHAD", "DSOLID", "DVIS", "DX", "DY", "DZ", "DYAW", "DPITCH", "DROLL",
-              "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
+              "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DHR", "DHG", "DHB", "DBOB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
               "DPSP", "DPLOOP", "DPFACE", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS"]
 
 
@@ -652,12 +652,14 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
             q = norm_light(dl)
             q = light_json(dict(q, name=dl.get("name"), dynamic=True))
             q["on"] = 1.0 if dl.get("on", True) else 0.0
+            q["flicker"] = float(dl.get("flicker", 0.0))
             lts.append(q)
     lts = sorted(lts, key=lambda q: (q["kind"] != "sun", -q["vol"], -int(q["dynamic"]), -int(bool(q.get("name")))))[:24]
     L["LL0"].append(len(L["LTX"]) + 1)
     L["LLN"].append(len(lts))
     L["LVN"].append(min(8, sum(1 for q in lts if q["vol"] > 0)))
     L["LHZ"].append(Lv.haze)
+    L["LCUT"].append(r4(getattr(Lv, "cut", 0.0)))
     L["LHA"].append(Lv.haze_amb)
     L["LEXP"].append(Lv.exposure)
     L["LAE"].append(Lv.auto_exposure)
@@ -667,6 +669,7 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
     L["LSAT"].append(Lv.saturation)
     for i, q in enumerate(lts):
         L["LNM"].append(q.get("name") or f"light{i + 1}")
+        L["LFLK"].append(r4(q.get("flicker", 0.0)))
         L["LTX"].append(r4(q["p"][0]))
         L["LTY"].append(r4(q["p"][1]))
         L["LTZ"].append(r4(q["p"][2]))
@@ -855,6 +858,10 @@ def object_lists(L, o, names, models, Lv):
     L["DGR"].append(r4(glow[0]))
     L["DGG"].append(r4(glow[1]))
     L["DGB"].append(r4(glow[2]))
+    hl = color(o.highlight) if o.highlight else (0.0, 0.0, 0.0)
+    for k, v in zip(["DHR", "DHG", "DHB"], hl):
+        L[k].append(r4(v * 0.9))
+    L["DBOB"].append(r4(o.bob))
     if o.opens and o.opens not in names:
         raise SystemExit(f"{Lv.name}: button '{o.name}' opens '{o.opens}', but there is no object with that name")
     L["DLNK"].append(names.index(o.opens) + 1 if o.opens else 0)
