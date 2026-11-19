@@ -20,6 +20,7 @@ Every image on this page is a real TurboWarp frame captured by the playtest harn
 - First person, third person, top-down and free cameras. Four animated player characters, or import your own rigged glTF.
 - Objects that you can pick up and carry, buttons and doors, pickups that spin and glow, enemies that walk paths, triggers and goals.
 - On-screen text that you set from Scratch, letters on signs, OBJ and glTF model import.
+- Optional portals: `Game(portals=True)` adds a portal gun with see-through, walk-through portals.
 
 ## Make a game in five minutes
 
@@ -82,6 +83,8 @@ Each example uses only the public API and has a scripted playthrough in `tools/h
 - [examples/showcase](examples/showcase): Afterglow. A first-person lab puzzle with a cube, button and door, followed by a dusk valley where you find three lanterns to light the house. The held item switches from the lab device to a lantern.
 - [examples/orchard](examples/orchard): Orchard Dash. A third-person race to collect 12 apples before the timer runs out, with rats patrolling the rows. You play the rogue.
 - [examples/crypt](examples/crypt): Crypt Crawl. A top-down crypt lit by torches. Collect three goblets to sink the statue that blocks the treasure vault, and keep away from the giant rats. You play the knight.
+
+- [examples/portals](examples/portals): Portal Lab. A small room with an exit on a ledge you can only reach through portals.
 
 Build one with `loophole build examples/orchard`.
 

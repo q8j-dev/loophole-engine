@@ -57,6 +57,10 @@ Pen+ textures have no mipmaps, so every atlas cell stores its own mip chain and 
 11. **Composite.** Exposure, ACES tone mapping, the colour grade, fades and flashes.
 12. **HUD.** The `message` and `status` text draws as glyph quads from a font atlas. The layout updates only when the text changes.
 
+## Portals
+
+With `Game(portals=True)`, each portal is a disc on a wall or floor with a centre, a normal, and right and up axes. To draw the view through portal A, the engine moves the camera through it: it takes the camera's position and axes relative to A and re-expresses them relative to B, turned around. It repeats this up to four times for portals that see each other, shrinking a screen-space window to the portal's outline each time. It then renders the deepest view first into a render target, so each shallower view shows the deeper one inside its portal. A clip plane just in front of the exit portal removes the wall it sits on. The main pass draws the portal disc by sampling that render target at the pixel's screen position. Collision ignores the wall a portal is on while the player is inside its outline, and crossing the portal plane moves the player and rotates their velocity and view by the same transform.
+
 ## Characters
 
 Imported characters (`loophole/character.py`) use rigid skinning. Each vertex follows the joint with the largest weight. At build time the importer samples the idle, walk, run and jump clips at 15 frames per second into joint matrices. Each frame the engine interpolates between the two nearest frames, eases toward the target pose (which also crossfades when the clip changes), and uploads the matrices to a uniform array that the vertex shader indexes by each vertex's bone.

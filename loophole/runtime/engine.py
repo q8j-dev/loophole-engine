@@ -30,6 +30,47 @@ def init():
     lmb = 1
     api_ctl = 1
     api_cam = CAM0
+    mklist(QON, 2)
+    mklist(QCX, 2)
+    mklist(QCY, 2)
+    mklist(QCZ, 2)
+    mklist(QNX, 2)
+    mklist(QNY, 2)
+    mklist(QNZ, 2)
+    mklist(QUX, 2)
+    mklist(QUY, 2)
+    mklist(QUZ, 2)
+    mklist(QRX, 2)
+    mklist(QRY, 2)
+    mklist(QRZ, 2)
+    mklist(QREC, 2)
+    mklist(QSC, 2)
+    mklist(QD, 2)
+    lmb0 = 0
+    lmb2 = 0
+    dsq = 0
+    dsk = 0
+    mklist(KCX, MAXD)
+    mklist(KCY, MAXD)
+    mklist(KCZ, MAXD)
+    mklist(KFX, MAXD)
+    mklist(KFY, MAXD)
+    mklist(KFZ, MAXD)
+    mklist(KRX, MAXD)
+    mklist(KRY, MAXD)
+    mklist(KRZ, MAXD)
+    mklist(KUX, MAXD)
+    mklist(KUY, MAXD)
+    mklist(KUZ, MAXD)
+    mklist(KW0, MAXD)
+    mklist(KW1, MAXD)
+    mklist(KW2, MAXD)
+    mklist(KW3, MAXD)
+
+    btele = 0
+    bp1 = 0
+    bp2 = 0
+    vcq = 0
     lmsg = "-"
     lstat = "-"
     msgt = 0
@@ -118,6 +159,11 @@ def make_rts():
     create_rt("lum0", 4, 4)
     create_rt("lum1", 4, 4)
     lumreset = 1
+    if PORTALS == 1:
+        create_rt("p10", RTW, RTH)
+        create_rt("p11", RTW, RTH)
+        create_rt("p20", RTW, RTH)
+        create_rt("p21", RTW, RTH)
     create_rt("env", 3 * ENVT, 2 * ENVT)
     create_rt("envb", 3 * ENVT / 2, ENVT)
     create_rt("enve", 3 * ENVT / 2, ENVT)
@@ -278,6 +324,8 @@ def sounds_step():
 
 @warp
 def load_level(lv):
+    QON[1] = 0
+    QON[2] = 0
     level = lv
     api_level = lv
     api_lname = LNAME[lv]
@@ -516,6 +564,8 @@ def play_step():
         aim_ray()
     if ke == 1 and api_ctl == 1:
         use_key()
+    if PORTALS == 1:
+        portal_input()
     buttons_step()
     triggers_step()
     if py < LKILL[level]:
@@ -635,6 +685,13 @@ def player_move():
     px = bx
     py = by
     pz = bz
+    if btele > 0:
+        tele_dir(sin(yaw) * cos(pitch), sin(pitch), 0 - cos(yaw) * cos(pitch), btele)
+        atan2_(ttx, 0 - ttz)
+        yaw = at
+        pitch = asin(max(-1, min(1, tty)))
+        api_flash = 0.25
+        btele = 0
     vx = bvx
     vy = bvy
     vz = bvz
@@ -1113,9 +1170,19 @@ def move_body():
     bground = 0
     bkill = 0
     bplat = 0
+    bp1 = 0
+    bp2 = 0
+    if PORTALS == 1 and bself == 0 and QON[1] == 1 and QON[2] == 1:
+        portal_pass(1)
+        portal_pass(2)
     mb_axis(1)
     mb_axis(2)
     mb_axis(3)
+    if PORTALS == 1 and bself == 0 and QON[1] == 1 and QON[2] == 1:
+        btele = 0
+        tele_check(1)
+        if btele == 0:
+            tele_check(2)
     if HASTER == 1:
         terrain_ground()
 
@@ -1153,6 +1220,11 @@ def mb_axis(ax):
         mbv = bvz
     mbk = lh0
     for mbi in times(lhn):
+        mbskip = 0
+        if bp1 == 1 and mbk == QREC[1]:
+            mbskip = 1
+        if bp2 == 1 and mbk == QREC[2]:
+            mbskip = 1
         if HAX[mbk] == ax:
             if ax == 1:
                 mbo = (by < HV1[mbk] - 0.02 and by + bhy > HV0[mbk] and bz - bhx < HU1[mbk] and bz + bhx > HU0[mbk]) + 0
@@ -1172,6 +1244,8 @@ def mb_axis(ax):
                 mbhi = bz + bhx
                 mbnlo = mbn - bhx
                 mbnhi = mbn + bhx
+            if mbskip == 1:
+                mbo = 0
             mstp = 0
             if mbo == 1 and ax != 2 and bself == 0 and onground == 1:
                 mbc = bx
@@ -1262,10 +1336,25 @@ def solids_axis(ax):
 def render():
     FR += 1
     pick_cam()
+    if PORTALS == 1:
+        virt_cam()
+        save_main()
     frame_uniforms()
     if envdirty == 1:
         probe_all()
         pick_cam()
+        if PORTALS == 1:
+            virt_cam()
+            save_main()
+    if PORTALS == 1:
+        QD[1] = 0
+        QD[2] = 0
+        if QON[1] == 1 and QON[2] == 1:
+            chain(1)
+            chain(2)
+            load_main()
+        if vcq > 0:
+            set_vec4("uClip", "world", QNX[3 - vcq], QNY[3 - vcq], QNZ[3 - vcq], QCX[3 - vcq] * QNX[3 - vcq] + QCY[3 - vcq] * QNY[3 - vcq] + QCZ[3 - vcq] * QNZ[3 - vcq] - 0.002)
     wx0 = -1
     wy0 = -1
     wx1 = 1
@@ -1282,6 +1371,8 @@ def render():
     sky_pass()
     draw_scene(0)
     set_vec4("uSSR", "world", 0, 0, 0, 0)
+    if PORTALS == 1:
+        set_vec4("uClip", "world", 0, 0, 0, -9999)
     vmi = index_of(VMN, api_vm)
     if vmi > 0 and api_cam == 0 and (state == 1 or state == 2):
         draw_device()
@@ -1443,7 +1534,9 @@ def gbuffer():
     tex_filter(9729)
     set_tex("uHist", "world", join("hh", 1 - tp))
     set_vec4("uGB", "world", 1, 0, 0, 0)
+    set_vec4("uGB", "portal", 1, 0.5, 0, 0)
     draw_scene(0)
+    set_vec4("uGB", "portal", 0, 0, 0, 0)
     if vmi > 0 and api_cam == 0 and (state == 1 or state == 2):
         set_vec4("uGB", "world", 1, 1, 0, 0)
         draw_device()
@@ -1732,6 +1825,8 @@ def draw_scene(vq):
     set_vec4("uMode", "world", 1, 1, 0, 0)
     if api_cam != 0:
         draw_player()
+    if PORTALS == 1:
+        draw_portals()
     if gbm == 0 and LGRASS[level] == 1:
         cam_u("grass")
         draw_list("GRASS", "grass")
@@ -2064,3 +2159,431 @@ def blur_pass(dst, src, dx, dy):
     set_tex("uSrc", "blur", src)
     set_vec2("uDir", "blur", dx, dy)
     draw_list("QUAD", "blur")
+
+
+@warp
+def portal_input():
+    zm0 = mbtn(0)
+    zm2 = mbtn(2)
+    if locked == 1 and api_cam == 0 and api_ctl == 1:
+        if zm0 and lmb0 == 0:
+            shoot_portal(1)
+        if zm2 and lmb2 == 0:
+            shoot_portal(2)
+    lmb0 = zm0 + 0
+    lmb2 = zm2 + 0
+    for zq in rep(2):
+        QSC[zq] = min(1, QSC[zq] + dt * 4)
+
+
+@warp
+def shoot_portal(q):
+    zox = px
+    zoy = py + eyeh
+    zoz = pz
+    zdx = sin(yaw) * cos(pitch)
+    zdy = sin(pitch)
+    zdz = 0 - cos(yaw) * cos(pitch)
+    ray_world(zox, zoy, zoz, zdx, zdy, zdz)
+    if rwk > 0 and HPORT[rwk] == 1 and rwt < 60:
+        zhx = zox + zdx * rwt
+        zhy = zoy + zdy * rwt
+        zhz = zoz + zdz * rwt
+        if HAX[rwk] == 1:
+            zu = zhz
+            zv = zhy
+        elif HAX[rwk] == 2:
+            zu = zhx
+            zv = zhz
+        else:
+            zu = zhx
+            zv = zhy
+        place_portal(q, rwk, zu, zv, zdx, zdz)
+    else:
+        play("fail")
+
+
+@warp
+def place_portal(q, p, u, v, dx, dz):
+    zpa = HAX[p]
+    zps = HSG[p]
+    zux = 0
+    zuz = 0
+    if zpa == 2:
+        if abs(dx) > abs(dz):
+            if dx > 0:
+                zux = 1
+            else:
+                zux = -1
+        else:
+            if dz > 0:
+                zuz = 1
+            else:
+                zuz = -1
+        if zps < 0:
+            zux = 0 - zux
+            zuz = 0 - zuz
+        if zux != 0:
+            zhu = PORH
+            zhv = PORW
+        else:
+            zhu = PORW
+            zhv = PORH
+    else:
+        zhu = PORW
+        zhv = PORH
+    if HU1[p] - HU0[p] < 2 * zhu + 0.02 or HV1[p] - HV0[p] < 2 * zhv + 0.02:
+        play("fail")
+        return
+    zpu = max(HU0[p] + zhu + 0.01, min(HU1[p] - zhu - 0.01, u))
+    zpv = max(HV0[p] + zhv + 0.01, min(HV1[p] - zhv - 0.01, v))
+    if zpa != 2 and zpv - zhv - HV0[p] < 1.6:
+        zpv = HV0[p] + zhv + 0.01
+    zq2 = 3 - q
+    if QON[zq2] == 1 and QREC[zq2] == p:
+        if zpa == 1:
+            zqu = QCZ[zq2]
+            zqv = QCY[zq2]
+        elif zpa == 2:
+            zqu = QCX[zq2]
+            zqv = QCZ[zq2]
+        else:
+            zqu = QCX[zq2]
+            zqv = QCY[zq2]
+        if abs(zpu - zqu) < 2 * zhu and abs(zpv - zqv) < 2 * zhv:
+            play("fail")
+            return
+    if zpa == 1:
+        QCX[q] = HPL[p]
+        QCY[q] = zpv
+        QCZ[q] = zpu
+        QNX[q] = HSG[p]
+        QNY[q] = 0
+        QNZ[q] = 0
+        QUX[q] = 0
+        QUY[q] = 1
+        QUZ[q] = 0
+    elif zpa == 2:
+        QCX[q] = zpu
+        QCY[q] = HPL[p]
+        QCZ[q] = zpv
+        QNX[q] = 0
+        QNY[q] = HSG[p]
+        QNZ[q] = 0
+        QUX[q] = zux
+        QUY[q] = 0
+        QUZ[q] = zuz
+    else:
+        QCX[q] = zpu
+        QCY[q] = zpv
+        QCZ[q] = HPL[p]
+        QNX[q] = 0
+        QNY[q] = 0
+        QNZ[q] = HSG[p]
+        QUX[q] = 0
+        QUY[q] = 1
+        QUZ[q] = 0
+    QRX[q] = QUY[q] * QNZ[q] - QUZ[q] * QNY[q]
+    QRY[q] = QUZ[q] * QNX[q] - QUX[q] * QNZ[q]
+    QRZ[q] = QUX[q] * QNY[q] - QUY[q] * QNX[q]
+    QREC[q] = p
+    QON[q] = 1
+    QSC[q] = 0
+    play("boost")
+    broadcast("portal")
+
+
+@warp
+def portal_pass(q):
+    zcx = bx - QCX[q]
+    zcy = by + bhy / 2 - QCY[q]
+    zcz = bz - QCZ[q]
+    zn = zcx * QNX[q] + zcy * QNY[q] + zcz * QNZ[q]
+    zr = zcx * QRX[q] + zcy * QRY[q] + zcz * QRZ[q]
+    zu2 = zcx * QUX[q] + zcy * QUY[q] + zcz * QUZ[q]
+    zin = 0
+    if abs(zn) < 1.6 and (zr / (PORW - 0.1)) * (zr / (PORW - 0.1)) + (zu2 / (PORH - 0.08)) * (zu2 / (PORH - 0.08)) < 1:
+        zin = 1
+    if q == 1:
+        bp1 = zin
+    else:
+        bp2 = zin
+
+
+@warp
+def tele_check(q):
+    zcx = bx - QCX[q]
+    zcy = by + bhy / 2 - QCY[q]
+    zcz = bz - QCZ[q]
+    zn = zcx * QNX[q] + zcy * QNY[q] + zcz * QNZ[q]
+    zr = zcx * QRX[q] + zcy * QRY[q] + zcz * QRZ[q]
+    zu2 = zcx * QUX[q] + zcy * QUY[q] + zcz * QUZ[q]
+    if zn < 0 and zn > -1.2 and (zr / PORW) * (zr / PORW) + (zu2 / PORH) * (zu2 / PORH) < 1:
+        zq2 = 3 - q
+        zncx = QCX[zq2] - zr * QRX[zq2] + zu2 * QUX[zq2] - zn * QNX[zq2]
+        zncy = QCY[zq2] - zr * QRY[zq2] + zu2 * QUY[zq2] - zn * QNY[zq2]
+        zncz = QCZ[zq2] - zr * QRZ[zq2] + zu2 * QUZ[zq2] - zn * QNZ[zq2]
+        tele_dir(bvx, bvy, bvz, q)
+        bvx = ttx
+        bvy = tty
+        bvz = ttz
+        if abs(QNY[q]) > 0.5 and abs(QNY[zq2]) < 0.5:
+            ztn = bvx * QNX[zq2] + bvy * QNY[zq2] + bvz * QNZ[zq2]
+            bvx = QNX[zq2] * ztn + (bvx - QNX[zq2] * ztn) * 0.3
+            bvy = QNY[zq2] * ztn + (bvy - QNY[zq2] * ztn) * 0.3
+            bvz = QNZ[zq2] * ztn + (bvz - QNZ[zq2] * ztn) * 0.3
+        zns = max(0, 0.08 + zn)
+        zncx += QNX[zq2] * zns
+        zncy += QNY[zq2] * zns
+        zncz += QNZ[zq2] * zns
+        if QNY[zq2] > 0.5:
+            bvy = max(bvy, 3)
+        bx = zncx
+        by = zncy - bhy / 2
+        bz = zncz
+        if abs(QNY[zq2]) < 0.5:
+            by = max(by, QCY[zq2] - PORH + 0.02)
+        btele = q
+        play("whoosh")
+
+
+@warp
+def tele_dir(dx, dy, dz, q):
+    zq2 = 3 - q
+    ztr = dx * QRX[q] + dy * QRY[q] + dz * QRZ[q]
+    ztu = dx * QUX[q] + dy * QUY[q] + dz * QUZ[q]
+    ztn = dx * QNX[q] + dy * QNY[q] + dz * QNZ[q]
+    ttx = 0 - ztr * QRX[zq2] + ztu * QUX[zq2] - ztn * QNX[zq2]
+    tty = 0 - ztr * QRY[zq2] + ztu * QUY[zq2] - ztn * QNY[zq2]
+    ttz = 0 - ztr * QRZ[zq2] + ztu * QUZ[zq2] - ztn * QNZ[zq2]
+
+
+@warp
+def save_main():
+    m_cx = ccx
+    m_cy = ccy
+    m_cz = ccz
+    m_fx = cfx
+    m_fy = cfy
+    m_fz = cfz
+    m_rx = crx
+    m_ry = cry
+    m_rz = crz
+    m_ux = cux
+    m_uy = cuy
+    m_uz = cuz
+
+
+@warp
+def load_main():
+    ccx = m_cx
+    ccy = m_cy
+    ccz = m_cz
+    cfx = m_fx
+    cfy = m_fy
+    cfz = m_fz
+    crx = m_rx
+    cry = m_ry
+    crz = m_rz
+    cux = m_ux
+    cuy = m_uy
+    cuz = m_uz
+
+
+@warp
+def virt_cam():
+    vcq = 0
+    if PORTALS == 1 and QON[1] == 1 and QON[2] == 1:
+        for zq in rep(2):
+            zvx = ccx - QCX[zq]
+            zvy = ccy - QCY[zq]
+            zvz = ccz - QCZ[zq]
+            zvn = zvx * QNX[zq] + zvy * QNY[zq] + zvz * QNZ[zq]
+            zvr = (zvx * QRX[zq] + zvy * QRY[zq] + zvz * QRZ[zq]) / (PORW - 0.12)
+            zvu = (zvx * QUX[zq] + zvy * QUY[zq] + zvz * QUZ[zq]) / (PORH - 0.12)
+            if zvn < 0.03 and zvn > -0.6 and zvr * zvr + zvu * zvu < 1 and vcq == 0:
+                vcq = zq
+    if vcq > 0:
+        through(vcq)
+
+
+@warp
+def store_k(k):
+    KCX[k] = ccx
+    KCY[k] = ccy
+    KCZ[k] = ccz
+    KFX[k] = cfx
+    KFY[k] = cfy
+    KFZ[k] = cfz
+    KRX[k] = crx
+    KRY[k] = cry
+    KRZ[k] = crz
+    KUX[k] = cux
+    KUY[k] = cuy
+    KUZ[k] = cuz
+    KW0[k] = zwx0
+    KW1[k] = zwy0
+    KW2[k] = zwx1
+    KW3[k] = zwy1
+
+
+@warp
+def load_k(k):
+    ccx = KCX[k]
+    ccy = KCY[k]
+    ccz = KCZ[k]
+    cfx = KFX[k]
+    cfy = KFY[k]
+    cfz = KFZ[k]
+    crx = KRX[k]
+    cry = KRY[k]
+    crz = KRZ[k]
+    cux = KUX[k]
+    cuy = KUY[k]
+    cuz = KUZ[k]
+    wx0 = KW0[k]
+    wy0 = KW1[k]
+    wx1 = KW2[k]
+    wy1 = KW3[k]
+
+
+@warp
+def through(q):
+    zq2 = 3 - q
+    zhx = ccx - QCX[q]
+    zhy = ccy - QCY[q]
+    zhz = ccz - QCZ[q]
+    zhr = zhx * QRX[q] + zhy * QRY[q] + zhz * QRZ[q]
+    zhu = zhx * QUX[q] + zhy * QUY[q] + zhz * QUZ[q]
+    zhn = zhx * QNX[q] + zhy * QNY[q] + zhz * QNZ[q]
+    ccx = QCX[zq2] - zhr * QRX[zq2] + zhu * QUX[zq2] - zhn * QNX[zq2]
+    ccy = QCY[zq2] - zhr * QRY[zq2] + zhu * QUY[zq2] - zhn * QNY[zq2]
+    ccz = QCZ[zq2] - zhr * QRZ[zq2] + zhu * QUZ[zq2] - zhn * QNZ[zq2]
+    tele_dir(cfx, cfy, cfz, q)
+    cfx = ttx
+    cfy = tty
+    cfz = ttz
+    tele_dir(crx, cry, crz, q)
+    crx = ttx
+    cry = tty
+    crz = ttz
+    tele_dir(cux, cuy, cuz, q)
+    cux = ttx
+    cuy = tty
+    cuz = ttz
+
+
+@warp
+def proj_pt(x, y, z):
+    zjx = x - ccx
+    zjy = y - ccy
+    zjz = z - ccz
+    zjd = zjx * cfx + zjy * cfy + zjz * cfz
+    if zjd < NEAR * 2:
+        zjbad = 1
+    else:
+        zjsx = (zjx * crx + zjy * cry + zjz * crz) * PFX / zjd
+        zjsy = 0 - (zjx * cux + zjy * cuy + zjz * cuz) * PFY / zjd
+        zbx0 = min(zbx0, zjsx)
+        zbx1 = max(zbx1, zjsx)
+        zby0 = min(zby0, zjsy)
+        zby1 = max(zby1, zjsy)
+
+
+@warp
+def portal_bbox(q):
+    zbok = 0
+    if (ccx - QCX[q]) * QNX[q] + (ccy - QCY[q]) * QNY[q] + (ccz - QCZ[q]) * QNZ[q] > 0.001:
+        zbx0 = 99
+        zbx1 = -99
+        zby0 = 99
+        zby1 = -99
+        zjbad = 0
+        for zbk in rep(12):
+            zba = zbk * 30
+            zbr = cos(zba) * PORW * 1.08
+            zbu = sin(zba) * PORH * 1.08
+            proj_pt(QCX[q] + QRX[q] * zbr + QUX[q] * zbu, QCY[q] + QRY[q] * zbr + QUY[q] * zbu, QCZ[q] + QRZ[q] * zbr + QUZ[q] * zbu)
+        if zjbad == 1:
+            zbx0 = -1
+            zbx1 = 1
+            zby0 = -1
+            zby1 = 1
+        zbok = 1
+
+
+@warp
+def chain(q):
+    load_main()
+    zwx0 = -1
+    zwy0 = -1
+    zwx1 = 1
+    zwy1 = 1
+    zcd = 0
+    for zck in rep(MAXD):
+        if zcd == zck - 1:
+            portal_bbox(q)
+            if zbok == 1:
+                znx0 = max(zwx0, zbx0)
+                zny0 = max(zwy0, zby0)
+                znx1 = min(zwx1, zbx1)
+                zny1 = min(zwy1, zby1)
+                if znx1 > znx0 + 0.004 and zny1 > zny0 + 0.004:
+                    if zck == 1 or (znx1 - znx0) * (zny1 - zny0) > MINA:
+                        zwx0 = znx0
+                        zwy0 = zny0
+                        zwx1 = znx1
+                        zwy1 = zny1
+                        through(q)
+                        store_k(zck)
+                        zcd = zck
+    QD[q] = zcd
+    zq2 = 3 - q
+    set_vec4("uClip", "world", QNX[zq2], QNY[zq2], QNZ[zq2], QCX[zq2] * QNX[zq2] + QCY[zq2] * QNY[zq2] + QCZ[zq2] * QNZ[zq2] + 0.03)
+    set_vec4("uClip", "portal", QNX[zq2], QNY[zq2], QNZ[zq2], QCX[zq2] * QNX[zq2] + QCY[zq2] * QNY[zq2] + QCZ[zq2] * QNZ[zq2] + 0.03)
+    set_vec4("uSSR", "world", 0, 0, 0, 0)
+    for zkk in rep(zcd):
+        zkd = zcd + 1 - zkk
+        load_k(zkd)
+        target_rt(join(join("p", q), zkd % 2))
+        clear_rt(join(join("p", q), zkd % 2))
+        dsq = q
+        dsk = zkd
+        sky_pass()
+        draw_scene(0)
+    dsq = 0
+    dsk = 0
+    set_vec4("uClip", "world", 0, 0, 0, -9999)
+    set_vec4("uClip", "portal", 0, 0, 0, -9999)
+
+
+@warp
+def draw_portals():
+    cam_u("portal")
+    if dsq == 0:
+        for zdq in rep(2):
+            if QON[zdq] == 1:
+                if QON[3 - zdq] == 1 and QD[zdq] > 0:
+                    draw_portal(zdq, 1, join(join("p", zdq), 1))
+                else:
+                    draw_portal(zdq, 0, "atlas")
+    elif dsk < QD[dsq]:
+        draw_portal(dsq, 1, join(join("p", dsq), (dsk + 1) % 2))
+    else:
+        draw_portal(dsq, 0, "atlas")
+
+
+@warp
+def draw_portal(q, open_, tex):
+    set_vec3("uQC", "portal", QCX[q], QCY[q], QCZ[q])
+    set_vec3("uQR", "portal", QRX[q], QRY[q], QRZ[q])
+    set_vec3("uQU", "portal", QUX[q], QUY[q], QUZ[q])
+    set_vec3("uQN", "portal", QNX[q], QNY[q], QNZ[q])
+    set_vec4("uQS", "portal", PORW, PORH, QSC[q], 0)
+    set_vec4("uQM", "portal", open_, 0, 0, 0)
+    if q == 1:
+        set_vec3("uCol", "portal", COLAR, COLAG, COLAB)
+    else:
+        set_vec3("uCol", "portal", COLBR, COLBG, COLBB)
+    set_tex("uView", "portal", tex)
+    draw_list("DISC", "portal")

@@ -23,11 +23,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await page.evaluate(() => {
     const st = () => S.vm.runtime.getTargetForStage();
     window.V = n => st().lookupVariableByNameAndType(n, '');
-    window.Lst = n => st().lookupVariableByNameAndType(n, 'list');
+    window.Lst = n => st().lookupVariableByNameAndType(n, 'list') || S.vm.runtime.targets.map(t => t.lookupVariableByNameAndType(n, 'list')).find(Boolean);
     window.getv = n => { const v = V(n); return v ? v.value : null; };
     window.setv = (n, x) => { V(n).value = x; };
     window.key = (k, d) => S.vm.postIOData('keyboard', {key: k === 'space' ? ' ' : k, isDown: d});
-    window.lockOn = () => { const e = S.vm.runtime.ext_pointerlock; if (e) { e.isLocked = () => true; } };
+    window.lockOn = () => { const e = S.vm.runtime.ext_pointerlock; if (e) { e.isLocked = () => true; } const c = S.vm.renderer && S.vm.renderer.canvas; if (c) { Object.defineProperty(document, 'pointerLockElement', {configurable: true, get: () => c}); document.dispatchEvent(new Event('pointerlockchange')); } };
     lockOn();
   });
   await sleep(+(process.env.BOOT || 3500));
@@ -46,6 +46,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     else if (cmd === 'recstart') { global.recOn = true; global.recDone = (async () => { let i = 0; while (global.recOn) { await page.screenshot({path: path.join(out, `${a}_${String(i++).padStart(3, '0')}.png`)}); await sleep(+(b || 40)); } })(); }
     else if (cmd === 'recstop') { global.recOn = false; await global.recDone; }
     else if (cmd === 'rec') { for (let i = 0; i < +a; i++) { await page.screenshot({path: path.join(out, `${b}_${String(i).padStart(3, '0')}.png`)}); await sleep(+(c || 60)); } }
+    else if (cmd === 'click') { await page.evaluate(bt => S.vm.postIOData('mouse', {isDown: true, button: +bt, x: 240, y: 180, canvasWidth: 480, canvasHeight: 360}), a); await sleep(150); await page.evaluate(bt => S.vm.postIOData('mouse', {isDown: false, button: +bt, x: 240, y: 180, canvasWidth: 480, canvasHeight: 360}), a); }
     else if (cmd === 'get') console.log('VAR', a, JSON.stringify(await page.evaluate(n => getv(n), a)));
     else if (cmd === 'list') console.log('LIST', a, JSON.stringify(await page.evaluate(n => Lst(n).value, a)));
     else if (cmd === 'pos') await page.evaluate((x, y, z) => { setv('player x', x); setv('player y', y); setv('player z', z); }, +a, +b, +c);

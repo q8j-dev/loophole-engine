@@ -1,0 +1,1 @@
+hideui;wait,3000;walkto,8,14;look,0,25;wait,300;click,2;wait,400;walkto,8,9;look,0,-60;wait,300;click,0;wait,500;list,QON;look,0,-5;wait,1200;shot,po1;look,0,-60;wait,300;walkto,8,7.6,3000;wait,1500;log,through;get,message;shot,po2;walkto,8,1.5,4000;wait,1500;get,message;log,goal

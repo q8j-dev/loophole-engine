@@ -1001,7 +1001,9 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
               "AIRCAP": 0.8, "STEPH": 0.55, "EYE": 1.6, "EYEC": 1.05, "PHT": 1.75, "PHTC": 1.2, "PW": 0.3,
               "ENVT": 192, "NEAR": 0.01, "FAR": 150.0, "SENS": 0.11, "EXPO": 0.72, "AMBS": 0.01, "HOLDD": 1.6,
               "USED": 2.6, "NSHAD": 4, "HASTER": 1 if has_terrain else 0, "PAW": paw, "PAH": pah,
-              "CH0": 5, "CHAR": gids["char"], "CNJ": L.pop("_CNJ", 0), "CFPS": 15, "G_DEVICE": gids["device"], "G_ARMS": gids["arms"], "G_PLAYER": gids["player"]}
+              "CH0": 5, "PORTALS": 1 if game.portals else 0, "PORW": 0.62, "PORH": 1.02, "MAXD": 4, "MINA": 0.004,
+              "COLAR": 0.1, "COLAG": 0.42, "COLAB": 1.5, "COLBR": 1.6, "COLBG": 0.6, "COLBB": 0.18,
+              "CHAR": gids["char"], "CNJ": L.pop("_CNJ", 0), "CFPS": 15, "G_DEVICE": gids["device"], "G_ARMS": gids["arms"], "G_PLAYER": gids["player"]}
     for n in ("device", "arms", "player"):
         x, y, s, t = props.region(n)
         consts.update({f"PR_{n.upper()}_X": x, f"PR_{n.upper()}_Y": y, f"PR_{n.upper()}_S": s, f"PR_{n.upper()}_T": t})
@@ -1014,7 +1016,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     eng_lists = {}
     from . import mesh as M
     meshes = {"QUAD": M.quad_mesh(), "DUST": M.particles(320, 5), "IMPACT": M.particles(56, 21),
-              "VENTP": M.particles(140, 13), "GRASS": M.grass_cards(3000, 9), "TEXT": M.text_quads(96)}
+              "VENTP": M.particles(140, 13), "GRASS": M.grass_cards(3000, 9), "TEXT": M.text_quads(96), "DISC": M.portal_disc()}
     for name, m in meshes.items():
         eng_lists[proj.uid("l")] = [name, m.items()]
     eng_lists[proj.uid("l")] = ["IC", geo.index_items(geo.CHUNK)]

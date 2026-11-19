@@ -32,10 +32,12 @@ vec4 project(vec3 w) {
 
 GATE = """
 uniform vec4 uWin;
+uniform vec4 uClip;
 uniform vec2 u_res;
 void gate(vec3 w) {
   vec2 s = gl_FragCoord.xy / u_res * 2.0 - 1.0;
   if (s.x < uWin.x || s.y < uWin.y || s.x > uWin.z || s.y > uWin.w) discard;
+  if (dot(w, uClip.xyz) < uClip.w) discard;
 }
 """
 
@@ -1610,6 +1612,89 @@ def merge(vs, fs):
     return "\n".join(lines[:1] + add + lines[1:]) + "\n"
 
 
+PORTAL_VS = HEAD + CAM_U + PROJECT + """
+attribute vec3 aPos;
+uniform vec3 uQC;
+uniform vec3 uQR;
+uniform vec3 uQU;
+uniform vec3 uQN;
+uniform vec4 uQS;
+varying vec2 vL;
+varying vec3 vW;
+void main() {
+  vL = aPos.xy;
+  vec3 w = uQC + uQR * (aPos.x * uQS.x * uQS.z) + uQU * (aPos.y * uQS.y * uQS.z) + uQN * (0.004 + aPos.z);
+  w += uQN * length(w - uCP) * 0.0006;
+  vW = w;
+  gl_Position = project(w);
+}
+"""
+
+PORTAL_FS = HEAD + """
+uniform float u_timer;
+""" + GATE + ENC + NOISE + """
+uniform sampler2D uView;
+uniform vec4 uQM;
+uniform vec3 uCol;
+varying vec2 vL;
+varying vec3 vW;
+uniform vec3 uCP;
+
+uniform vec4 uGB;
+uniform vec3 uCF;
+void gbOut(vec3 w) {
+  float d = dot(w - uCP, uCF);
+  float v = clamp(d / 150.0, 0.0, 1.0) * 65535.0;
+  float hi = floor(v / 256.0);
+  float lo = floor(v - hi * 256.0);
+  gl_FragColor = vec4(hi / 255.0, lo / 255.0, uGB.y, 1.0);
+}
+void main() {
+  gate(vW);
+  float r = length(vL);
+  if (uGB.x > 0.5) {
+    if (r > 1.0) discard;
+    gbOut(vW);
+    return;
+  }
+  float t = u_timer;
+  float ang = atan(vL.y, vL.x);
+  float n1 = vnoise(vec2(ang * 2.5 + t * 1.7, r * 5.0 - t * 2.2));
+  float n2 = vnoise(vec2(ang * 5.0 - t * 2.9, r * 9.0 + t * 1.3));
+  float nn = n1 * 0.65 + n2 * 0.35;
+  if (r > 1.0) {
+    float g = exp(-(r - 1.0) * 16.0) * (0.6 + 0.9 * nn);
+    if (g < 0.004) discard;
+    gl_FragColor = vec4(sqrt(clamp(uCol * g * 0.4, 0.0, 1.0)), 0.0);
+    return;
+  }
+  vec3 inside;
+  if (uQM.x > 0.5) {
+    vec2 suv = gl_FragCoord.xy / u_res;
+    float wob = pow(r, 6.0) * 0.012;
+    suv += vec2(cos(ang * 3.0 + t * 2.0), sin(ang * 2.0 - t * 1.7)) * wob;
+    inside = texture2D(uView, suv).rgb;
+    inside *= mix(0.62, 1.0, smoothstep(1.0, 0.55, r));
+    if (uQM.y > 0.5) {
+      inside = mix(inside, enc(uCol * (0.2 + nn * 0.4), 1.0).rgb, 0.55);
+    }
+  } else {
+    float sw = vnoise(vec2(ang * 3.0 + r * 6.0 - t * 2.5, r * 4.0 - t)) ;
+    vec3 c = uCol * (0.15 + 0.85 * pow(r, 2.5)) * (0.6 + sw * 0.8);
+    inside = enc(c, 1.0).rgb;
+  }
+  float n3 = vnoise(vec2(ang * 9.0 - t * 4.0, t * 1.3));
+  float edge = smoothstep(0.915, 0.965, r + (nn - 0.5) * 0.05 + (n3 - 0.5) * 0.03);
+  float inner = smoothstep(0.72, 0.97, r) * 0.45;
+  float hot = smoothstep(0.958, 0.985, r + (nn - 0.5) * 0.03);
+  vec3 rim = uCol * (3.2 + nn * 3.2 + n3 * 2.0) + vec3(1.0) * hot * 3.5;
+  vec3 rimE = enc(rim, 1.0).rgb;
+  inside = mix(inside, enc(uCol * 1.2, 1.0).rgb, inner * (0.6 + 0.4 * nn));
+  gl_FragColor = vec4(mix(inside, rimE, edge), 1.0);
+}
+"""
+
+
 TEXT_VS = HEAD + """
 attribute float aSlot;
 attribute vec2 aCorner;
@@ -1645,6 +1730,7 @@ void main() {
 
 SHADERS = {k: (merge(v, f), f) for k, (v, f) in {
     "text": (TEXT_VS, TEXT_FS),
+    "portal": (PORTAL_VS, PORTAL_FS),
     "world": (WORLD_VS, WORLD_FS),
     "sky": (SKY_VS, SKY_FS),
     "part": (PART_VS, PART_FS),

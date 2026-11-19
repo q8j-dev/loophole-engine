@@ -24,7 +24,7 @@ lab.spawn(6, 0, 12)
 ```python
 Game(title="My Game", viewmodel="none", viewmodels=None, hand_color="cyan", quality=3, fov=72, start_level=1,
      camera="first person", camera_distance=4.0, camera_pitch=None, walk_speed=6.0, jump_power=7.0,
-     textures="normal", viewmodel_arms=False, player_model="suit")
+     textures="normal", viewmodel_arms=False, player_model="suit", portals=False)
 ```
 
 | Argument | Meaning |
@@ -42,6 +42,7 @@ Game(title="My Game", viewmodel="none", viewmodels=None, hand_color="cyan", qual
 | `walk_speed`, `jump_power` | Movement in metres per second. Scripts can change them at run time. |
 | `textures` | `"normal"` uses 512-pixel textures and keeps games small. `"high"` uses 1024 pixels and makes files about twice as large. |
 | `viewmodel_arms` | Draw the suit arms holding prop viewmodels. |
+| `portals` | Turns on the portal gun in first person. Left click places the blue portal and right click the orange one, on any `white`, `concrete`, `floor`, `plaster`, `tiles` or `marble` surface big enough to hold it. Walking into one portal brings you out of the other, and you can see through them. |
 | `player_model` | Character shown in third person and top down: `"suit"`, `"knight"`, `"mage"`, `"rogue"`, `"barbarian"`, or a name added with `game.character`. |
 
 | Method | What it does |

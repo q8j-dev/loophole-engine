@@ -112,6 +112,7 @@ The engine sends these. Use them with "when I receive".
 | `player died` | The player hit a hazard and is respawning. |
 | `paused`, `resumed` | The game paused or resumed. |
 | `game complete` | The player reached the goal of the last level. |
+| `portal` | The player placed a portal (only with `Game(portals=True)`). |
 
 Use the plain broadcast (`touch`) when you want one script for many objects and check `last touched`. Use the named one (`touch rat1`) when only one object matters.
 
@@ -136,6 +137,7 @@ end
 | Shift or C | Crouch. |
 | E | Pick up, drop or use the object under the crosshair. |
 | R | Restart from the spawn point. |
+| Left and right click | Place the blue and orange portals, when portals are on. |
 | P or Escape | Pause. |
 
 ## Python gameplay scripts
