@@ -588,7 +588,7 @@ void main() {
   }
   if (leaf) {
     float dl = length(uCP - vW);
-    float alod = floor(clamp(log2(max(dl * 0.6, 1.0)), 0.0, 4.0) + 0.5);
+    float alod = floor(clamp(log2(max(dl / (uProj.y * u_res.y * 0.5) * 480.0, 1e-4)), 0.0, 5.0) + 0.5);
     float al = texture2D(uDR, dmip(vLM, alod)).b;
     float face = abs(dot(normalize(vTan), (uCP - vW) / dl));
     float thr = mix(0.5, 1.01, 1.0 - smoothstep(0.05, 0.22, face));
@@ -607,7 +607,7 @@ void main() {
     float ldist = length(lV);
     lV /= ldist;
     float lfocal = uProj.y * u_res.y * 0.5;
-    float llod = clamp(log2(max(ldist / lfocal * 1400.0, 1e-4)), 0.0, 7.0);
+    float llod = clamp(log2(max(ldist / lfocal * 480.0, 1e-4)), 0.0, 7.0);
     vec3 la = texture2D(uDA, dmip(vLM, floor(llod + 0.5))).rgb;
     vec3 lalb = la * la;
     vec3 cq = floor(vMP * 1.3 + vSeed * 0.37);
@@ -1046,7 +1046,7 @@ void main() {
   }
   float prough = -1.0;
   if (((vIrr.w > 0.5 && vIrr.w < 2.5) || leaf) && uMode.w < 0.5) {
-    float lodd = clamp(log2(max(dist / focal * 1400.0 / max(sqrt(ndv), 0.3), 1e-4)), 0.0, 7.0);
+    float lodd = clamp(log2(max(dist / focal * 1000.0 / max(sqrt(ndv), 0.3), 1e-4)), 0.0, 7.0);
     vec3 da = dsamp(uDA, vLM, lodd);
     vec3 dn = dsamp(uDN, vLM, max(lodd - 1.0, 0.0)) * 2.0 - 1.0;
     vec3 dr = dsamp(uDR, vLM, max(lodd - 1.0, 0.0));
