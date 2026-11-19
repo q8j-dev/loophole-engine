@@ -59,6 +59,9 @@ def init():
     costume("blank")
     tex_filter(9729)
     set_tex("uAtlas", "world", "atlas")
+    set_tex("uAtlas2", "world", "atlas2")
+    set_tex("uAtlas3", "world", "atlas3")
+    api_vm = VMDEF
     set_tex("uProp", "world", "patlas")
     set_tex("uDA", "world", "dA")
     set_tex("uDN", "world", "dN")
@@ -1235,7 +1238,8 @@ def render():
     sky_pass()
     draw_scene(0)
     set_vec4("uSSR", "world", 0, 0, 0, 0)
-    if HANDS == 1 and api_cam == 0 and (state == 1 or state == 2):
+    vmi = index_of(VMN, api_vm)
+    if vmi > 0 and api_cam == 0 and (state == 1 or state == 2):
         draw_device()
     taa()
     post()
@@ -1391,7 +1395,7 @@ def gbuffer():
     set_tex("uHist", "world", join("hh", 1 - tp))
     set_vec4("uGB", "world", 1, 0, 0, 0)
     draw_scene(0)
-    if HANDS == 1 and api_cam == 0 and (state == 1 or state == 2):
+    if vmi > 0 and api_cam == 0 and (state == 1 or state == 2):
         set_vec4("uGB", "world", 1, 1, 0, 0)
         draw_device()
     set_vec4("uGB", "world", 0, 0, 0, 0)
@@ -1820,17 +1824,28 @@ def draw_device():
     dxy = rxy
     dxz = rxz
     amb_at(px, py + eyeh, pz)
-    set_vec3("uEmit", "world", HANDR * 2.2, HANDG * 2.2, HANDB * 2.2)
-    set_vec4("uMode", "world", 1, 1, 1, 1)
-    set_vec4("uPR", "world", PR_DEVICE_X, PR_DEVICE_Y, PR_DEVICE_S, PR_DEVICE_T)
+    set_vec3("uEmit", "world", VMR[vmi] * 2.2, VMGC[vmi] * 2.2, VMB[vmi] * 2.2)
     set_vec4("uWin", "world", -1, -1, 1, 1)
-    set_vec3("uMP", "world", dox, doy, doz)
-    set_vec3("uMX", "world", dxx, dxy, dxz)
-    set_vec3("uMY", "world", 0 - dyx, 0 - dyy, 0 - dyz)
-    set_vec3("uMZ", "world", dzx, dzy, dzz)
-    draw_geo(G_DEVICE)
-    set_vec4("uPR", "world", PR_ARMS_X, PR_ARMS_Y, PR_ARMS_S, PR_ARMS_T)
-    draw_geo(G_ARMS)
+    vms = VMS[vmi]
+    set_vec3("uMP", "world", dox + dxx * VMOX[vmi] - dyx * VMOY[vmi] + dzx * VMOZ[vmi], doy + dxy * VMOX[vmi] - dyy * VMOY[vmi] + dzy * VMOZ[vmi], doz + dxz * VMOX[vmi] - dyz * VMOY[vmi] + dzz * VMOZ[vmi])
+    set_vec3("uMX", "world", dxx * vms, dxy * vms, dxz * vms)
+    set_vec3("uMY", "world", (0 - dyx) * vms, (0 - dyy) * vms, (0 - dyz) * vms)
+    set_vec3("uMZ", "world", dzx * vms, dzy * vms, dzz * vms)
+    if VMG[vmi] > 0:
+        if VMPRS[vmi] > 0:
+            set_vec4("uMode", "world", 1, 1, 1, 1)
+            set_vec4("uPR", "world", VMPRX[vmi], VMPRY[vmi], VMPRS[vmi], VMPRT[vmi])
+        else:
+            set_vec4("uMode", "world", 1, 1, 1, 0)
+        draw_geo(VMG[vmi])
+    if VMARM[vmi] == 1:
+        set_vec3("uMP", "world", dox, doy, doz)
+        set_vec3("uMX", "world", dxx, dxy, dxz)
+        set_vec3("uMY", "world", 0 - dyx, 0 - dyy, 0 - dyz)
+        set_vec3("uMZ", "world", dzx, dzy, dzz)
+        set_vec4("uMode", "world", 1, 1, 1, 1)
+        set_vec4("uPR", "world", PR_ARMS_X, PR_ARMS_Y, PR_ARMS_S, PR_ARMS_T)
+        draw_geo(G_ARMS)
 
 
 @warp

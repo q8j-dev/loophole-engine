@@ -70,9 +70,22 @@ def build(c):
             hi = P.max(0)
             sh = np.minimum(0.1, (hi - lo) * 0.18) + (0.0 if name in ("catwalk", "tray") else 0.02)
             boxes.append(tuple(lo + sh) + tuple(hi - sh))
+    Ms = [np.concatenate([m, np.zeros((len(m), 2))], 1) for m in Ms]
+    from . import procprops
+    for (kind, pos, yaw, scale, seed) in getattr(c, "procs", []):
+        P, N, M, S = procprops.instance(kind, pos, yaw, scale, seed)
+        Ps.append(P)
+        Ns.append(N)
+        extra = np.zeros((len(P), 8))
+        extra[:, 6] = 1.0
+        extra[:, 7] = M
+        Ms.append(extra)
+        As.append(np.ones(len(P)))
+        Ss.append(S)
+        boxes += procprops.occluders(kind, pos, yaw, scale, seed)
     if not Ps:
         z = np.zeros((0, 3))
-        return z, z, np.zeros((0, 6)), np.zeros(0), np.zeros(0), boxes
+        return z, z, np.zeros((0, 8)), np.zeros(0), np.zeros(0), boxes
     return (np.concatenate(Ps), np.concatenate(Ns), np.concatenate(Ms), np.concatenate(As), np.concatenate(Ss),
             boxes)
 

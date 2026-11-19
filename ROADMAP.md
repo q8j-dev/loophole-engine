@@ -40,11 +40,18 @@ Status: `[ ]` not started, `[~]` in progress, `[x]` built and checked in a 1080p
 - [ ] `docs/`: world API, Scratch API, renderer
 
 ### 4. Outdoor
-- [ ] Sun as a directional light baked into the lightmaps, sky light from rays that escape the level
-- [ ] Sky dome (day, sunset, night, overcast presets) with clouds and sun disc, drawn into reflections
-- [ ] Heightmap terrain with its own collision and baked vertex lighting
-- [ ] Open levels without a ceiling, with distance fog
+- [~] Sun as a directional light baked into the lightmaps, sky light from rays that escape the level (works; a 80 m level bakes in 6 minutes, needs to drop under 1)
+- [~] Sky dome (day, sunset, night, overcast presets) with clouds and sun disc, drawn into reflections (renders; presets read pale and washed out)
+- [~] Heightmap terrain with its own collision and baked vertex lighting (works; the slope blend reads as dirt with thin grass)
+- [ ] Open levels without visible boundary walls, with distance fog
+- [ ] Real window openings that let daylight into interiors
 - [ ] Showcase includes an outdoor space next to an indoor one
+
+### 4b. Look library
+- [x] Second and third material atlases from Poly Haven CC0 sets: grass, rock, sand, dirt, brick, wood, planks, plaster, tiles, stone, cobble, bark, asphalt, snow, cliff, gravel, roof tiles, marble
+- [x] Level styles: lab, house, dungeon, outdoor, plain (default materials, skirting per wall material, lab beams and stripes only in labs, daylight windows)
+- [x] Viewmodel is data-driven: none, arms, device, or any prop or model, switchable from the `viewmodel` variable
+- [~] Prop library beyond the industrial kit. `procprops.py` has primitive stand-ins (trees, rocks, furniture, torches); they look cheap next to the kit and must be replaced by Blender-modelled props with baked PBR maps and alpha-cut foliage with wind sway
 
 ### 5. Game variety
 - [ ] Camera modes in the API: first person, free, third person orbit, top down

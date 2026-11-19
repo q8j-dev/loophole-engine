@@ -64,6 +64,7 @@ class Level:
         self.triggers = []
         self.vents = []
         self.spark_pts = []
+        self.procs = []
         self.start = (0.0, 0.0, 0.0, 0.0)
         self.start_pitch = 0.0
         self.default_mats = {"floor": "floor", "ceil": "ceil", "wall": "white"}
@@ -74,6 +75,8 @@ class Level:
         self.saturation = 1.0
         self.kill_height = None
         self.lit_windows = True
+        self.window_style = "lab"
+        self.style_name = "lab"
         self.beams = True
         self.stripe = True
         self.probe = None
@@ -83,6 +86,25 @@ class Level:
         self.terrain_def = None
         self.open_faces = set()
         self.bake_quality = "normal"
+
+    def style(self, name):
+        presets = {
+            "lab": dict(mats=("floor", "white", "ceil"), beams=True, stripe=True, win="lab", haze=0.02),
+            "house": dict(mats=("wood", "plaster", "plaster"), beams=False, stripe=False, win="sky", haze=0.012),
+            "dungeon": dict(mats=("cobble", "stone", "stone"), beams=False, stripe=False, win="sky", haze=0.03),
+            "outdoor": dict(mats=("grass", "brick", "concrete"), beams=False, stripe=False, win="sky", haze=0.0),
+            "plain": dict(mats=("concrete", "concrete", "concrete"), beams=False, stripe=False, win="sky", haze=0.01),
+        }
+        if name not in presets:
+            raise ValueError(f"unknown style '{name}'. Styles: {', '.join(presets)}")
+        p = presets[name]
+        self.default_mats = {"floor": p["mats"][0], "wall": p["mats"][1], "ceil": p["mats"][2]}
+        self.beams = p["beams"]
+        self.stripe = p["stripe"]
+        self.window_style = p["win"]
+        self.haze = p["haze"]
+        self.style_name = name
+        return self
 
     def room(self, x0, y0, z0, x1, y1, z1, floor=None, walls=None, ceiling=None):
         b = _box(x0, y0, z0, x1, y1, z1)
@@ -192,7 +214,21 @@ class Level:
                                 col=color_(color), power=power, name=name))
         return self
 
-    def prop(self, kind, x, y, z, yaw=0.0, scale=1.0, solid=None, up=(0, 1, 0)):
+    def prop(self, kind, x, y, z, yaw=0.0, scale=1.0, solid=None, up=(0, 1, 0), seed=None, light=True):
+        from . import procprops
+        if kind in procprops.KINDS:
+            sd = seed if seed is not None else (len(self.procs) * 7919 + 13) % 997
+            self.procs.append((kind, (float(x), float(y), float(z)), float(yaw), scale, sd))
+            if solid if solid is not None else kind in procprops.SOLID:
+                lo, hi = procprops.collider(kind, (x, y, z), yaw, scale, sd)
+                self.solid_boxes = getattr(self, "solid_boxes", []) + [tuple(lo) + tuple(hi)]
+            if light and kind in procprops.LIGHTS:
+                off, col, pw = procprops.LIGHTS[kind]
+                a = math.radians(yaw)
+                o = (off[0] * math.cos(a) - off[2] * math.sin(a), off[1], off[0] * math.sin(a) + off[2] * math.cos(a))
+                s_ = scale if isinstance(scale, (int, float)) else scale[1]
+                self.light(x + o[0] * s_, y + o[1] * s_, z + o[2] * s_, color=col, power=pw, fixture=None, haze=0.6)
+            return self
         sc = (scale, scale, scale) if isinstance(scale, (int, float)) else tuple(scale)
         f = (math.cos(math.radians(yaw)), 0.0, math.sin(math.radians(yaw)))
         self.deco(kind, (x, y, z), f, up, sc)
@@ -210,9 +246,9 @@ class Level:
         return self
 
     def deco(self, name, pos, fwd=(1, 0, 0), up=(0, 1, 0), scale=(1, 1, 1)):
-        from . import decor_place
+        from . import decor_place, procprops
         if name not in decor_place.KINDS:
-            raise ValueError(f"unknown prop '{name}'. Built-in props: {', '.join(decor_place.KINDS)}")
+            raise ValueError(f"unknown prop '{name}'. Built-in props: {', '.join(decor_place.KINDS + sorted(procprops.KINDS))}")
         self.decor.append((name, tuple(map(float, pos)), tuple(map(float, fwd)), tuple(map(float, up)),
                            tuple(map(float, scale))))
 
@@ -339,9 +375,15 @@ class Level:
         self.default_mats.setdefault("floor", "concrete")
         return self
 
-    def terrain(self, x0, z0, x1, z1, height=None, base=0.0, step=1.0, material="grass", seed=1, hills=4.0):
+    def terrain(self, x0, z0, x1, z1, height=None, base=0.0, step=1.0, material="terrain", seed=1, hills=4.0):
         self.terrain_def = dict(x0=x0, z0=z0, x1=x1, z1=z1, height=height, base=base, step=step, material=material,
-                                seed=seed, hills=hills)
+                                seed=seed, hills=hills, flats=[])
+        return self
+
+    def flatten(self, x0, z0, x1, z1, height=0.0, falloff=6.0):
+        if not self.terrain_def:
+            raise ValueError("call level.terrain(...) before level.flatten(...)")
+        self.terrain_def["flats"].append((min(x0, x1), min(z0, z1), max(x0, x1), max(z0, z1), height, falloff))
         return self
 
 
@@ -350,9 +392,13 @@ def color_(c):
 
 
 class Game:
-    def __init__(self, title="My Game", hands=True, hand_color="cyan", quality=3, fov=72, start_level=1):
+    def __init__(self, title="My Game", viewmodel="none", viewmodels=None, hand_color="cyan", quality=3, fov=72,
+                 start_level=1, hands=None):
         self.title = title
-        self.hands = hands
+        if hands is not None:
+            viewmodel = "device" if hands else "none"
+        self.viewmodel = viewmodel
+        self.viewmodels = list(dict.fromkeys(([viewmodel] if viewmodel != "none" else []) + list(viewmodels or [])))
         self.hand_color = color(hand_color)
         self.quality = quality
         self.fov = fov

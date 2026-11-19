@@ -6,6 +6,8 @@ from .geo import GW, TPV
 _M = json.loads((Path(__file__).resolve().parent / "data" / "atlas" / "materials.json").read_text())
 ATLAS_W, ATLAS_H, CELL_W, CELL_H, COLS, S = _M["ATLAS_W"], _M["ATLAS_H"], _M["CELL_W"], _M["CELL_H"], _M["COLS"], _M["S"]
 LAYOUT = [tuple(x) for x in _M["LAYOUT"]]
+ATLAS_H2 = json.loads((Path(__file__).resolve().parent / "data" / "atlas" / "materials2.json").read_text())["ATLAS_H"]
+ATLAS_H3 = json.loads((Path(__file__).resolve().parent / "data" / "atlas" / "materials3.json").read_text())["ATLAS_H"]
 
 HEAD = "precision highp float;\n"
 
@@ -83,6 +85,21 @@ vec3 tap(float cid, vec2 uv, float l) {{
 vec3 samp(float cid, vec2 uv, float lod) {{
   float l0 = floor(lod);
   return mix(tap(cid, uv, l0), tap(cid, uv, min(l0 + 1.0, {len(LAYOUT) - 1}.0)), lod - l0);
+}}
+uniform sampler2D uAtlas2;
+uniform sampler2D uAtlas3;
+vec3 tapB(float atl, float cid, vec2 uv, float l) {{
+  vec3 mi = mipInfo(l);
+  vec2 cell = vec2(mod(cid, {COLS}.0) * {CELL_W}.0, floor(cid / {COLS}.0 + 0.001) * {CELL_H}.0);
+  vec2 f = fract(uv);
+  vec2 p = cell + mi.xy + vec2(f.x, 1.0 - f.y) * mi.z;
+  if (atl < 2.5) return texture2D(uAtlas2, p / vec2({ATLAS_W}.0, {ATLAS_H2}.0)).rgb;
+  return texture2D(uAtlas3, p / vec2({ATLAS_W}.0, {ATLAS_H3}.0)).rgb;
+}}
+vec3 sampA(float atl, float cid, vec2 uv, float lod) {{
+  if (atl < 1.5) return samp(cid, uv, lod);
+  float l0 = floor(lod);
+  return mix(tapB(atl, cid, uv, l0), tapB(atl, cid, uv, min(l0 + 1.0, {len(LAYOUT) - 1}.0)), lod - l0);
 }}
 """
 
@@ -491,6 +508,7 @@ void main() {
   float ndv = abs(dot(Ng, V));
   float focal = uProj.y * u_res.y * 0.5;
   float cidA = 0.0;
+  float atl = 1.0;
   float tile = 2.0;
   float metal = 0.0;
   float gscale = 1.0;
@@ -518,6 +536,29 @@ void main() {
   else if (mat > 36.5 && mat < 37.5) { cidA = 20.0; tile = 3.0; }
   else if (mat > 37.5 && mat < 38.5) { cidA = 12.0; tile = 1.0; metal = 0.55; }
   else if ((mat > 38.5 && mat < 39.5) || (mat > 41.5 && mat < 42.5)) { cidA = 22.0; tile = 6.0; }
+  else if (mat > 49.5 && mat < 50.5) { atl = 2.0; cidA = 0.0; tile = 3.0; }
+  else if (mat > 50.5 && mat < 51.5) { atl = 2.0; cidA = 2.0; tile = 3.0; }
+  else if (mat > 51.5 && mat < 52.5) { atl = 2.0; cidA = 4.0; tile = 3.0; }
+  else if (mat > 52.5 && mat < 53.5) { atl = 2.0; cidA = 6.0; tile = 3.0; }
+  else if (mat > 53.5 && mat < 54.5) { atl = 2.0; cidA = 8.0; tile = 2.0; }
+  else if (mat > 54.5 && mat < 55.5) { atl = 2.0; cidA = 10.0; tile = 2.0; }
+  else if (mat > 55.5 && mat < 56.5) { atl = 2.0; cidA = 12.0; tile = 2.0; }
+  else if (mat > 56.5 && mat < 57.5) { atl = 2.0; cidA = 14.0; tile = 3.0; }
+  else if (mat > 57.5 && mat < 58.5) { atl = 2.0; cidA = 16.0; tile = 2.0; }
+  else if (mat > 58.5 && mat < 59.5) { atl = 2.0; cidA = 18.0; tile = 2.0; }
+  else if (mat > 59.5 && mat < 60.5) { atl = 2.0; cidA = 20.0; tile = 2.0; }
+  else if (mat > 60.5 && mat < 61.5) { atl = 2.0; cidA = 22.0; tile = 1.5; }
+  else if (mat > 61.5 && mat < 62.5) { atl = 3.0; cidA = 0.0; tile = 4.0; }
+  else if (mat > 62.5 && mat < 63.5) { atl = 3.0; cidA = 2.0; tile = 3.0; }
+  else if (mat > 63.5 && mat < 64.5) { atl = 3.0; cidA = 4.0; tile = 4.0; }
+  else if (mat > 64.5 && mat < 65.5) { atl = 3.0; cidA = 6.0; tile = 3.0; }
+  else if (mat > 65.5 && mat < 66.5) { atl = 3.0; cidA = 8.0; tile = 2.0; }
+  else if (mat > 66.5 && mat < 67.5) { atl = 3.0; cidA = 10.0; tile = 2.0; }
+  else if (mat > 69.5 && mat < 70.5) { atl = 2.0; cidA = 0.0; tile = 3.0; }
+  else if (mat > 70.5 && mat < 71.5) { atl = 1.0; cidA = 22.0; tile = 1.5; }
+  else if (mat > 71.5 && mat < 72.5) { atl = 2.0; cidA = 14.0; tile = 3.0; }
+  else if (mat > 72.5 && mat < 73.5) { atl = 1.0; cidA = 22.0; tile = 0.5; }
+  else if (mat > 73.5 && mat < 74.5) { atl = 1.0; cidA = 10.0; tile = 1.0; metal = 1.0; }
   else { tex = false; }
   bool liquid = (mat > 7.5 && mat < 8.5) || (mat > 38.5 && mat < 39.5) || (mat > 41.5 && mat < 42.5);
   float lod = clamp(log2(max(dist / focal * (""" + f"{S}.0" + """ / tile) / max(sqrt(ndv), 0.3), 1e-4)), 0.0, 6.0);
@@ -527,8 +568,21 @@ void main() {
     vec2 tuv = uv / tile + vec2(fract(vSeed * 0.6180339), fract(vSeed * 0.3819660)) * 5.0;
     if (mat > 4.5 && mat < 5.5) tuv = uv / tile + 0.5;
     if (liquid) tuv = uv / tile + vec2(u_timer * 0.013, u_timer * 0.007);
-    vec3 a = samp(cidA, tuv, lod);
-    vec3 nm = samp(cidA + 1.0, tuv, lod);
+    vec3 a = sampA(atl, cidA, tuv, lod);
+    vec3 nm = sampA(atl, cidA + 1.0, tuv, lod);
+    if (mat > 69.5 && mat < 70.5) {
+      float ns = samp(22.0, vW.xz * 0.02, 2.0).r;
+      float ns2 = samp(22.0, vW.xz * 0.07 + 0.3, 2.0).g;
+      float wr = smoothstep(0.86, 0.68, Ng.y + (ns - 0.5) * 0.12);
+      float wd = smoothstep(0.52, 0.66, ns2 + ns * 0.3) * (1.0 - wr);
+      vec2 tr = uv / 3.0 + 0.37;
+      vec3 ar = sampA(2.0, 2.0, tr, lod);
+      vec3 nr = sampA(2.0, 3.0, tr, lod);
+      vec3 ad = sampA(2.0, 6.0, uv / 3.0, lod);
+      vec3 nd = sampA(2.0, 7.0, uv / 3.0, lod);
+      a = mix(mix(a * vec3(0.92, 1.05, 0.8), ad, wd), ar, wr);
+      nm = mix(mix(nm, nd, wd), nr, wr);
+    }
     float sv = fract(vSeed * 0.7548777);
     alb = a * a * (1.0 + (sv - 0.5) * 0.16) * mix(vec3(1.0), vec3(1.04, 1.0, 0.9), step(0.82, fract(vSeed * 0.391)));
     if (mat > 20.5 && mat < 21.5) alb *= 0.45;
@@ -538,6 +592,20 @@ void main() {
       float st = step(0.5, fract((vW.x + vW.y + vW.z) * 3.0));
       alb = mix(alb * 0.25, alb * vec3(2.2, 1.45, 0.25), st);
     }
+    if (mat > 70.5 && mat < 71.5) {
+      float lv = fract(vSeed * 0.618);
+      float n1 = a.r;
+      alb = mix(vec3(0.03, 0.07, 0.015), vec3(0.11, 0.2, 0.04), smoothstep(0.25, 0.75, n1)) * (0.75 + 0.5 * lv);
+      alb *= mix(vec3(1.0), vec3(1.25, 1.05, 0.6), step(0.8, lv));
+      nm = vec3(0.5 + (a.g - 0.5) * 0.8, 0.5 + (a.b - 0.5) * 0.8, 0.2);
+    }
+    if (mat > 71.5 && mat < 72.5) alb = mix(alb, vec3(0.5 + 0.4 * fract(vSeed * 0.31), 0.5 + 0.4 * fract(vSeed * 0.53), 0.5 + 0.4 * fract(vSeed * 0.77)) * 0.7, 0.75);
+    if (mat > 72.5 && mat < 73.5) {
+      vec3 fc = vec3(0.5 + 0.5 * sin(vSeed * 1.7), 0.35 + 0.3 * sin(vSeed * 2.9 + 1.0), 0.3 + 0.3 * sin(vSeed * 4.1 + 2.0));
+      alb = fc * (0.25 + 0.15 * a.r);
+      nm = vec3(0.5, 0.5, 0.15);
+    }
+    if (mat > 73.5 && mat < 74.5) alb = vec3(1.0, 0.72, 0.28) * (0.75 + 0.25 * a.r);
     vec2 nxy = nm.xy * 2.0 - 1.0;
     float nz = sqrt(max(1.0 - dot(nxy, nxy), 0.0));
     gloss = nm.z;
@@ -624,6 +692,17 @@ void main() {
     } else if (mat < 16.5) {
       alb = vec3(0.86, 0.87, 0.9);
       gloss = 0.7;
+    } else if (mat > 75.5 && mat < 76.5) {
+      vec3 rd = -V;
+      float hy = clamp(rd.y * 1.6 + 0.15, 0.0, 1.0);
+      emis = mix(vec3(1.5, 1.45, 1.35), vec3(0.45, 0.68, 1.15), hy) * 1.1;
+      emis += vec3(0.3, 0.26, 0.2) * smoothstep(0.1, -0.2, rd.y);
+      alb = vec3(0.0);
+      gloss = 0.97;
+    } else if (mat > 74.5 && mat < 75.5) {
+      float fl = 0.7 + 0.3 * sin(u_timer * 13.0 + vSeed) * sin(u_timer * 7.3 + vMP.y * 9.0);
+      alb = vec3(0.0);
+      emis = mix(vec3(2.6, 0.7, 0.08), vec3(3.4, 2.6, 0.9), clamp(1.0 - vMP.y * 3.0, 0.0, 1.0)) * fl;
     } else if (mat > 22.5 && mat < 23.5) {
       alb = vec3(0.045, 0.047, 0.052);
       gloss = 0.45;
@@ -746,7 +825,7 @@ void main() {
     }
   }
   float prough = -1.0;
-  if (vIrr.w > 0.5 && uMode.w < 0.5) {
+  if (vIrr.w > 0.5 && vIrr.w < 2.5 && uMode.w < 0.5) {
     float lodd = clamp(log2(max(dist / focal * 1400.0 / max(sqrt(ndv), 0.3), 1e-4)), 0.0, 7.0);
     vec3 da = dsamp(uDA, vLM, lodd);
     vec3 dn = dsamp(uDN, vLM, lodd) * 2.0 - 1.0;

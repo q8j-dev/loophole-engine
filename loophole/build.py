@@ -11,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import bake, decor_place, geo, kit, props, sbc, shaders
+from . import bake, decor_place, geo, kit, procprops, props, sbc, shaders
 from . import level as lvl
 from .materials import KILL, MATID, PORTAL, TABLE
 from .world import Game, color
@@ -19,6 +19,7 @@ from .world import Game, color
 HERE = Path(__file__).resolve().parent
 DATA = HERE / "data"
 ENGINE_VERSION = "0.1.0"
+VERBOSE = False
 BAKE_VERSION = 3
 PENP_URL = "https://extensions.turbowarp.org/obviousAlexC/penPlus.js"
 PLOCK_URL = "https://extensions.turbowarp.org/pointerlock.js"
@@ -33,7 +34,7 @@ API_VARS = {
     "api_cyaw": "camera yaw", "api_cpitch": "camera pitch", "api_cdist": "camera distance",
     "api_fov": "field of view", "api_expo": "exposure", "api_fade": "fade", "api_flash": "flash",
     "api_walk": "walk speed", "api_jump": "jump power", "api_grav": "gravity", "api_paused": "paused",
-    "api_locked": "mouse locked",
+    "api_locked": "mouse locked", "api_vm": "viewmodel",
 }
 API_LISTS = {
     "obj_name": "obj name", "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw",
@@ -196,12 +197,14 @@ def voxelize(L, li):
     c.open_faces = set(L.open_faces)
     c.main_box = L.probe or boxes[0]
     c.decor = list(L.decor)
+    c.procs = list(L.procs)
     c.lights = [dict(l) for l in L.lights if not l.get("dynamic")]
     c.windows = list(L.windows)
     c.signs = list(L.signs)
     c.occluders = list(L.occluders)
     c.open_panels = list(L.open_panels)
     c.lit_windows = L.lit_windows
+    c.window_style = L.window_style
     c.beams = L.beams
     c.stripe = L.stripe
     c.rings = [o.pos for o in L.objects if o.kind == 2]
@@ -209,6 +212,12 @@ def voxelize(L, li):
     c.sky = L.sky
     q = {"draft": (48, 10, 2, 2, 64), "normal": (128, 24, 3, 3, 96), "high": (256, 32, 4, 4, 128)}[L.bake_quality]
     c.bake_gi_rays, c.bake_ao_rays, c.bake_dres, c.bake_ns, c.bake_amb_rays = q
+    c.terrain = None
+    if L.terrain_def:
+        from . import terrain as T
+        xs, zs, H = T.heights(L.terrain_def)
+        TP, TN, TM, TS = T.mesh(L.terrain_def, H, xs, zs)
+        c.terrain = dict(grid=(xs, zs, H), P=TP, N=TN, M=TM, S=TS, step=L.terrain_def["step"])
     if L.sky:
         c.sun = dict(d=L.sun_dir, col=sky_preset(L)["sun"])
         c.sky_rad = sky_preset(L)["amb"]
@@ -216,21 +225,21 @@ def voxelize(L, li):
 
 
 SKIES = {
-    "day": dict(zen=(0.16, 0.36, 0.78), hor=(0.62, 0.74, 0.88), ground=(0.18, 0.17, 0.15), sun=(6.0, 5.5, 4.8),
-                amb=(0.45, 0.6, 0.85), fog=(0.55, 0.65, 0.78)),
-    "sunset": dict(zen=(0.12, 0.16, 0.38), hor=(1.0, 0.55, 0.3), ground=(0.12, 0.09, 0.08), sun=(6.5, 3.6, 1.6),
-                   amb=(0.5, 0.42, 0.45), fog=(0.85, 0.55, 0.42)),
-    "night": dict(zen=(0.01, 0.015, 0.04), hor=(0.04, 0.06, 0.11), ground=(0.01, 0.01, 0.012), sun=(0.5, 0.6, 0.9),
-                  amb=(0.03, 0.04, 0.07), fog=(0.04, 0.05, 0.08)),
-    "overcast": dict(zen=(0.42, 0.45, 0.5), hor=(0.62, 0.64, 0.66), ground=(0.2, 0.2, 0.2), sun=(1.2, 1.2, 1.2),
-                     amb=(0.7, 0.72, 0.76), fog=(0.6, 0.62, 0.65)),
+    "day": dict(zen=(0.25, 0.5, 1.05), hor=(0.85, 0.95, 1.1), ground=(0.2, 0.19, 0.17), sun=(3.4, 3.15, 2.8),
+                amb=(0.32, 0.42, 0.6), fog=(0.62, 0.72, 0.86)),
+    "sunset": dict(zen=(0.14, 0.2, 0.48), hor=(1.35, 0.72, 0.38), ground=(0.12, 0.09, 0.08), sun=(3.6, 2.0, 0.9),
+                   amb=(0.32, 0.27, 0.33), fog=(0.9, 0.58, 0.42)),
+    "night": dict(zen=(0.01, 0.015, 0.04), hor=(0.04, 0.06, 0.11), ground=(0.01, 0.01, 0.012), sun=(0.35, 0.42, 0.62),
+                  amb=(0.025, 0.035, 0.06), fog=(0.04, 0.05, 0.08)),
+    "overcast": dict(zen=(0.55, 0.58, 0.62), hor=(0.8, 0.82, 0.85), ground=(0.2, 0.2, 0.2), sun=(0.7, 0.7, 0.72),
+                     amb=(0.6, 0.62, 0.66), fog=(0.62, 0.64, 0.68)),
 }
 
 
 def sky_preset(L):
     p = dict(SKIES.get(L.sky, SKIES["day"]))
     if L.sun_color:
-        p["sun"] = tuple(np.array(color(L.sun_color)) * 6.0)
+        p["sun"] = tuple(np.array(color(L.sun_color)) * 3.4)
     return p
 
 
@@ -238,10 +247,13 @@ def level_key(c, L):
     h = hashlib.sha1()
     h.update(f"{BAKE_VERSION}|{bake.LMW}|{bake.LMH}".encode())
     h.update(np.packbits(c.air).tobytes())
-    h.update(repr((c.size, tuple(c.origin), [(m, tuple(a), tuple(b), f) for m, a, b, f in c.paint_ops],
+    h.update(repr((c.procs, c.size, tuple(c.origin), [(m, tuple(a), tuple(b), f) for m, a, b, f in c.paint_ops],
                    c.default_mats, sorted(c.open_faces), c.decor, c.lights, c.windows, c.occluders, c.main_box,
                    c.bake_gi_rays, c.bake_ao_rays, c.bake_dres, c.bake_ns, c.bake_amb_rays,
                    getattr(c, "sun", None), getattr(c, "sky_rad", None))).encode())
+    if c.terrain is not None:
+        h.update(np.round(c.terrain["grid"][2], 3).tobytes())
+        h.update(repr((tuple(c.terrain["grid"][0][:2]), tuple(c.terrain["grid"][1][:2]))).encode())
     return h.hexdigest()[:20]
 
 
@@ -251,9 +263,10 @@ def baked(c, L, cache, log):
     if f.exists():
         d = np.load(f, allow_pickle=False)
         log(f"  {L.name}: cached bake")
-        return json.loads(bytes(d["meta"]).decode()), bytes(d["lm"]), d["dirr"]
+        return json.loads(bytes(d["meta"]).decode()), bytes(d["lm"]), d["dirr"], d["tirr"]
     log(f"  {L.name}: baking (first time, cached afterwards)")
     t0 = time.time()
+    bake.LOG = log if VERBOSE else None
     res = bake.bake_level(c, seed=c.level_index)
     meta = dict(rects=[{k: (float(v) if isinstance(v, (np.floating, float)) else (int(v) if isinstance(v, np.integer) else v))
                         for k, v in r.items()} for r in res["rects"]],
@@ -264,9 +277,9 @@ def baked(c, L, cache, log):
     lm = bake.png_bytes(res["lightmap"])
     cache.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(f, meta=np.frombuffer(json.dumps(meta).encode(), np.uint8), lm=np.frombuffer(lm, np.uint8),
-                        dirr=res["dirr"].astype(np.float32))
+                        dirr=res["dirr"].astype(np.float32), tirr=res["tirr"].astype(np.float32))
     log(f"  {L.name}: baked in {time.time() - t0:.0f}s")
-    return meta, lm, res["dirr"].astype(np.float32)
+    return meta, lm, res["dirr"].astype(np.float32), res["tirr"].astype(np.float32)
 
 
 def light_json(Lt):
@@ -328,6 +341,18 @@ class Models:
         self.cache[name] = (gid, hs, ctr)
         return self.cache[name]
 
+    def proc(self, name):
+        key = "proc:" + name
+        if key in self.cache:
+            return self.cache[key]
+        from . import procprops
+        P, N, M, S = procprops.mesh(name, 1)
+        gid = self.reg(self.pk.add(P, N, np.zeros((len(P), 2)), M, None, S, irr=np.full((len(P), 3), 0.5),
+                                   flag=np.full(len(P), 3.0)))
+        hs, ctr = model_bounds(P)
+        self.cache[key] = (gid, hs, ctr)
+        return self.cache[key]
+
     def kit(self, name):
         key = "kit:" + name
         if key in self.cache:
@@ -355,11 +380,22 @@ def build(world_path, out=None, log=print, cache=None):
     pkm = geo.Pack()
     models = Models(pkm, L)
     broadcasts = set(FIXED_BROADCASTS)
+    used_ids = set()
+    has_terrain = False
     for li, Lv in enumerate(game.levels, start=1):
         c = voxelize(Lv, li)
-        meta, lm, dirr = baked(c, Lv, cache, log)
+        meta, lm, dirr, tirr = baked(c, Lv, cache, log)
         lms[li] = lm
         P_, N_, UV_, M_, A_, S_, I_, F_, T_ = kit.build(c, meta, dirr)
+        if c.terrain is not None:
+            t = c.terrain
+            n = len(t["P"])
+            ti = tirr if len(tirr) == n else np.full((n, 3), 0.4)
+            P_, N_, UV_ = np.concatenate([P_, t["P"]]), np.concatenate([N_, t["N"]]), np.concatenate([UV_, np.zeros((n, 2))])
+            M_, A_, S_ = np.concatenate([M_, t["M"]]), np.concatenate([A_, np.ones(n)]), np.concatenate([S_, t["S"]])
+            I_, F_, T_ = np.concatenate([I_, ti]), np.concatenate([F_, np.full(n, 3.0)]), np.concatenate([T_, np.zeros((n, 3))])
+            has_terrain = True
+        used_ids.update(np.unique(M_).astype(int).tolist())
         pk = geo.Pack()
         info = pk.add(P_, N_, UV_, M_, A_, S_, irr=I_, flag=F_, tan=T_)
         L["GIDW"].append(models.reg(info, f"g{li}"))
@@ -368,6 +404,7 @@ def build(world_path, out=None, log=print, cache=None):
     for name in ("device", "arms", "player"):
         gid, _, _ = models.builtin(name)
         L.setdefault("_G", {})[name] = gid
+    viewmodel_lists(L, game, models)
     groups.append(("gm", pkm))
     gcost = {}
     for gname, pk in groups:
@@ -378,7 +415,10 @@ def build(world_path, out=None, log=print, cache=None):
                 L["GH"][i] = 1.0 / h
                 L["GIB"][i] = ib
     gids = L.pop("_G")
-    proj = assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log)
+    for key in models.cache:
+        if key.startswith("proc:"):
+            used_ids.update(np.unique(procprops.mesh(key[5:], 1)[2]).astype(int).tolist())
+    proj = assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_ids, has_terrain)
     return proj
 
 
@@ -457,7 +497,7 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
             q = norm_light(dl)
             q = light_json(dict(q, name=dl.get("name"), dynamic=True))
             lts.append(q)
-    lts = sorted(lts, key=lambda q: (-q["vol"], -int(q["dynamic"]), -int(bool(q.get("name")))))[:24]
+    lts = sorted(lts, key=lambda q: (q["kind"] != "sun", -q["vol"], -int(q["dynamic"]), -int(bool(q.get("name")))))[:24]
     L["LL0"].append(len(L["LTX"]) + 1)
     L["LLN"].append(len(lts))
     L["LVN"].append(min(8, sum(1 for q in lts if q["vol"] > 0)))
@@ -478,9 +518,10 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
         L["LDDY"].append(r4(q["d"][1]))
         L["LDDZ"].append(r4(q["d"][2]))
         L["LDDW"].append(r4(q["cout"]))
-        L["LCR"].append(r4(q["col"][0] * q["inten"]))
-        L["LCG"].append(r4(q["col"][1] * q["inten"]))
-        L["LCB"].append(r4(q["col"][2] * q["inten"]))
+        sk = 160000.0 if q["kind"] == "sun" else 1.0
+        L["LCR"].append(r4(q["col"][0] * q["inten"] * sk))
+        L["LCG"].append(r4(q["col"][1] * q["inten"] * sk))
+        L["LCB"].append(r4(q["col"][2] * q["inten"] * sk))
         L["LCW"].append(r4(q["cin"]))
         L["LDYN"].append(1 if q["dynamic"] else 0)
     amb = meta["amb"]
@@ -514,7 +555,21 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
     else:
         vals = [0.0] * 21
     L["SKY"].extend(vals + [0.0] * (24 - len(vals)))
-    L["LTER"].append(0)
+    if c.terrain is not None:
+        xs, zs, H = c.terrain["grid"]
+        L["LTER"].append(1)
+        L["TOX"].append(r4(xs[0]))
+        L["TOZ"].append(r4(zs[0]))
+        L["TST"].append(r4(c.terrain["step"]))
+        L["TNX"].append(len(xs))
+        L["TNZ"].append(len(zs))
+        L["TH0"].append(len(L["THT"]) + 1)
+        L["THT"].extend(r4(v) for v in H.ravel())
+    else:
+        L["LTER"].append(0)
+        for k in ("TOX", "TOZ", "TST", "TNX", "TNZ"):
+            L[k].append(0)
+        L["TH0"].append(1)
     L["LT0"].append(len(L["TNAME"]) + 1)
     L["LTN"].append(len(Lv.triggers))
     for t in Lv.triggers:
@@ -549,6 +604,10 @@ def object_lists(L, o, names, models, Lv):
         gid, hs, ctr = models.kit(o.model)
         pr = (0, 0, 0, 0)
         glow = (1.0, 0.6, 0.3)
+    elif o.model in procprops.KINDS:
+        gid, hs, ctr = models.proc(o.model)
+        pr = (0, 0, 0, 0)
+        glow = (1.0, 0.75, 0.3)
     else:
         raise SystemExit(f"{Lv.name}: object '{o.name}' uses unknown model '{o.model}'. Built-in models: "
                          f"{', '.join(sorted(set(props.BUILTIN) - {'arms', 'device'}) + decor_place.KINDS)}")
@@ -672,19 +731,25 @@ def game_sprite(A, proj, game, world_path, consts):
             "direction": 90, "draggable": False, "rotationStyle": "don't rotate"}
 
 
-def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log):
+def placeholder_jpg():
+    from PIL import Image
+    b = io.BytesIO()
+    Image.new("RGB", (8, 8), (128, 128, 128)).save(b, "JPEG")
+    return b.getvalue()
+
+
+def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_ids=(), has_terrain=False):
     A = Assets()
     proj = Project(global_names=list(API_VARS.values()), global_lists=list(API_LISTS.values()))
     for b in sorted(broadcasts):
         proj.bc_id(b)
     paw, pah = props.atlas_size()
     consts = {"NLEV": len(game.levels), "START_LEVEL": max(1, min(len(game.levels), game.start_level)),
-              "QUALITY": game.quality, "FOV": game.fov, "HANDS": 1 if game.hands else 0,
-              "HANDR": game.hand_color[0], "HANDG": game.hand_color[1], "HANDB": game.hand_color[2],
+              "QUALITY": game.quality, "FOV": game.fov, "VMDEF": game.viewmodel,
               "WALK": 6.0, "JUMPV": 7.0, "GRAV": 20.0, "FRIC": 5.0, "STOPSPD": 1.9, "ACCEL": 10.0, "AIRACC": 12.0,
               "AIRCAP": 0.8, "STEPH": 0.55, "EYE": 1.6, "EYEC": 1.05, "PHT": 1.75, "PHTC": 1.2, "PW": 0.3,
               "ENVT": 192, "NEAR": 0.01, "FAR": 150.0, "SENS": 0.11, "EXPO": 0.72, "AMBS": 0.01, "HOLDD": 1.6,
-              "USED": 2.6, "NSHAD": 4, "HASTER": 0, "PAW": paw, "PAH": pah,
+              "USED": 2.6, "NSHAD": 4, "HASTER": 1 if has_terrain else 0, "PAW": paw, "PAH": pah,
               "G_DEVICE": gids["device"], "G_ARMS": gids["arms"], "G_PLAYER": gids["player"]}
     for n in ("device", "arms", "player"):
         x, y, s, t = props.region(n)
@@ -711,6 +776,14 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log):
     costumes = [blank, A.bitmap("atlas", (DATA / "atlas" / "materials.jpg").read_bytes(), "jpg", mj["ATLAS_W"],
                                 mj["ATLAS_H"]),
                 A.bitmap("patlas", props.atlas_bytes(), "jpg", paw, pah)]
+    need2 = any(49 < i < 62 or i in (70, 72) for i in used_ids)
+    need3 = any(61 < i < 68 for i in used_ids)
+    for nm, need, f in (("atlas2", need2, "materials2"), ("atlas3", need3, "materials3")):
+        if need:
+            mj2 = json.loads((DATA / "atlas" / f"{f}.json").read_text())
+            costumes.append(A.bitmap(nm, (DATA / "atlas" / f"{f}.jpg").read_bytes(), "jpg", mj2["ATLAS_W"], mj2["ATLAS_H"]))
+        else:
+            costumes.append(A.bitmap(nm, placeholder_jpg(), "jpg", 8, 8))
     dj = json.loads((DATA / "atlas" / "decor.json").read_text())
     costumes.append(A.bitmap("dA", (DATA / "atlas" / "dA.jpg").read_bytes(), "jpg", dj["PW"], dj["PH"] * 3 // 2))
     costumes.append(A.bitmap("dN", (DATA / "atlas" / "dN.jpg").read_bytes(), "jpg", dj["PW"], dj["PH"] * 3 // 2))
@@ -729,7 +802,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log):
     cfg_text = ("Configuration for https://turbowarp.org/\nYou can move, resize, and minimize this comment, "
                 "but don't edit it by hand. This comment can be deleted to remove the stored settings.\n"
                 + json.dumps(tw_cfg, separators=(",", ":")) + " // _twconfig_")
-    api_values = {"controls": 1, "camera mode": 0, "field of view": game.fov, "exposure": 1, "walk speed": 6.0,
+    api_values = {"viewmodel": game.viewmodel, "controls": 1, "camera mode": 0, "field of view": game.fov, "exposure": 1, "walk speed": 6.0,
                   "jump power": 7.0, "gravity": 20.0, "camera distance": 4, "level": game.start_level}
     shader_store = {name: {"projectData": {"vertShader": vs, "fragShader": fs}, "modifyDate": 1763400000000}
                     for name, (vs, fs) in shaders.SHADERS.items()}
@@ -753,6 +826,51 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log):
     nb = sum(len(t["blocks"]) for t in pj["targets"])
     log(f"wrote {out.name} ({out.stat().st_size // 1024} KB, {nb} blocks)" + (" merged into existing project" if old else ""))
     return out
+
+
+def viewmodel_lists(L, game, models):
+    for k in ("VMN", "VMG", "VMPRX", "VMPRY", "VMPRS", "VMPRT", "VMS", "VMOX", "VMOY", "VMOZ", "VMARM", "VMR", "VMGC",
+              "VMB"):
+        L[k] = []
+    for name in game.viewmodels:
+        arms = 1
+        off = (0.0, 0.0, 0.0)
+        glow = game.hand_color
+        if name == "arms":
+            g, pr, sc = 0, (0, 0, 0, 0), 1.0
+        elif name == "device":
+            g, _, _ = models.builtin("device")
+            pr, sc = props.region("device"), 1.0
+        elif name in props.BUILTIN:
+            b = props.BUILTIN[name]
+            g, hs, _ = models.builtin(b["file"])
+            pr = props.region(b["region"])
+            sc = 0.32 / max(hs.max() * 2, 1e-3)
+            glow = b["glow"]
+            off = (0.0, -0.02, 0.05)
+        elif name in procprops.KINDS:
+            g, hs, ctr = models.proc(name)
+            pr = (0, 0, 0, 0)
+            sc = 0.42 / max(hs.max() * 2, 1e-3)
+            off = (-ctr[0] * sc, 0.02 - ctr[1] * sc, 0.06 - ctr[2] * sc)
+            glow = (1.0, 0.7, 0.3)
+        elif name in decor_place.KINDS:
+            g, hs, ctr = models.kit(name)
+            pr = (0, 0, 0, 0)
+            sc = 0.36 / max(hs.max() * 2, 1e-3)
+            off = (-ctr[0] * sc, -ctr[1] * sc, 0.05 - ctr[2] * sc)
+        else:
+            raise SystemExit(f"unknown viewmodel '{name}'. Use none, arms, device, or any prop or model name")
+        L["VMN"].append(name)
+        L["VMG"].append(g)
+        for k, v in zip(["VMPRX", "VMPRY", "VMPRS", "VMPRT"], pr):
+            L[k].append(v)
+        L["VMS"].append(r4(sc))
+        for k, v in zip(["VMOX", "VMOY", "VMOZ"], off):
+            L[k].append(r4(v))
+        L["VMARM"].append(arms)
+        for k, v in zip(["VMR", "VMGC", "VMB"], glow):
+            L[k].append(r4(v))
 
 
 def level_consts(game):

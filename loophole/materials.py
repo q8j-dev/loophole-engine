@@ -22,9 +22,31 @@ TABLE = {
     "lava": dict(id=42, alb=0.3, tint=(1.3, 0.5, 0.2), emit=(1.6, 0.45, 0.06), kill=True),
 }
 
+import json as _json
+from pathlib import Path as _Path
+
+_A = _Path(__file__).resolve().parent / "data" / "atlas"
+EXTRA_IDS = {}
+for _f, _base in (("materials2", 50), ("materials3", 62)):
+    _j = _json.loads((_A / f"{_f}.json").read_text())
+    for _i, _n in enumerate(_j["MATS"]):
+        _c = np.array(_j["AVG"][_n])
+        _l = float(_c @ np.array([0.2126, 0.7152, 0.0722]))
+        TABLE[_n] = dict(id=_base + _i, alb=min(0.85, _l * 1.15), tint=tuple(np.round(_c / max(_l, 1e-3), 3)),
+                         portal=_n in ("plaster", "tiles", "marble"))
+        EXTRA_IDS[_n] = (_f, _i)
+TABLE["terrain"] = dict(id=70, alb=0.2, tint=(1.05, 0.95, 0.6))
+TABLE["leaves"] = dict(id=71, alb=0.18, tint=(0.55, 1.1, 0.35))
+TABLE["paint"] = dict(id=72, alb=0.6, tint=(1.0, 1.0, 1.0))
+TABLE["fabric"] = dict(id=73, alb=0.35, tint=(1.0, 0.8, 0.7))
+TABLE["gold"] = dict(id=74, alb=0.6, tint=(1.3, 1.0, 0.45))
+TABLE["flame"] = dict(id=75, alb=0.1, tint=(1.0, 1.0, 1.0), emit=(2.4, 1.1, 0.3))
+
 ALIASES = {"panel": "white", "panels": "white", "ceiling": "ceil", "tile": "ceil", "tiles": "ceil",
            "steel": "metal", "dark metal": "dark", "slime": "goo", "toxic": "goo", "diamond": "plate",
-           "stripes": "hazard", "glow": "light", "booster": "boost"}
+           "stripes": "hazard", "glow": "light", "booster": "boost", "wood floor": "wood", "floorboards": "wood",
+           "stone wall": "stone", "castle": "stone", "bricks": "brick", "cobblestone": "cobble", "road": "asphalt",
+           "pebbles": "gravel", "mud": "dirt", "earth": "dirt", "foliage": "leaves", "roof tiles": "roof"}
 
 MATID = {k: v["id"] for k, v in TABLE.items()}
 ALB = {k: v["alb"] for k, v in TABLE.items()}

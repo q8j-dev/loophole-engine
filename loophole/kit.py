@@ -15,6 +15,9 @@ TRIM = 20
 RUBBER = 21
 FIXTURE = 11
 LIGHT = 10
+SKIRT = {"white": (21, 0.11, 0.013), "metal": (21, 0.11, 0.013), "dark": (21, 0.11, 0.013),
+         "plaster": (55, 0.14, 0.018), "paint": (55, 0.14, 0.018), "tiles": (58, 0.1, 0.012)}
+LIP = {"white", "metal", "dark", "floor", "ceil", "concrete", "plate", "boost"}
 
 
 
@@ -314,25 +317,25 @@ def trims(wb, c, ri):
                 x = o[0] + (fi + (1 if dx > 0 else 0)) * R
                 z0, z1 = o[2] + a * R, o[2] + b * R
                 wall = ri.find(0, -dx, x, np.array([x, y + 0.3, (z0 + z1) / 2]))
-                if wall is None or wall["mat"] not in ("white", "metal", "dark"):
+                if wall is None or wall["mat"] not in SKIRT:
                     continue
+                sm, sh, t = SKIRT[wall["mat"]]
                 lmf = lm_fn(wall)
-                t = 0.013
                 lo = [x - dx * t if dx > 0 else x, y, z0]
-                hi = [x if dx > 0 else x - dx * t, y + 0.11, z1]
+                hi = [x if dx > 0 else x - dx * t, y + sh, z1]
                 lo[0], hi[0] = min(lo[0], hi[0]), max(lo[0], hi[0])
-                box(wb, lo, hi, lmf, RUBBER, ao_bottom=0.55, skip=((0, dx),))
+                box(wb, lo, hi, lmf, sm, ao_bottom=0.55, skip=((0, dx),))
             else:
                 z = o[2] + (fk + (1 if dz > 0 else 0)) * R
                 x0, x1 = o[0] + a * R, o[0] + b * R
                 wall = ri.find(2, -dz, z, np.array([(x0 + x1) / 2, y + 0.3, z]))
-                if wall is None or wall["mat"] not in ("white", "metal", "dark"):
+                if wall is None or wall["mat"] not in SKIRT:
                     continue
+                sm, sh, t = SKIRT[wall["mat"]]
                 lmf = lm_fn(wall)
-                t = 0.013
                 lo = [x0, y, min(z, z - dz * t)]
-                hi = [x1, y + 0.11, max(z, z - dz * t)]
-                box(wb, lo, hi, lmf, RUBBER, ao_bottom=0.55, skip=((2, dz),))
+                hi = [x1, y + sh, max(z, z - dz * t)]
+                box(wb, lo, hi, lmf, sm, ao_bottom=0.55, skip=((2, dz),))
         else:
             w = 0.045
             t = 0.004
@@ -341,7 +344,7 @@ def trims(wb, c, ri):
                 z0, z1 = o[2] + a * R, o[2] + b * R
                 top = ri.find(1, 1, y, np.array([x - dx * 0.2, y, (z0 + z1) / 2]))
                 side = ri.find(0, dx, x, np.array([x, y - 0.2, (z0 + z1) / 2]))
-                if top is None or side is None:
+                if top is None or side is None or top["mat"] not in LIP:
                     continue
                 box(wb, [min(x - dx * w, x + dx * t), y, z0], [max(x - dx * w, x + dx * t), y + t, z1], lm_fn(top),
                     TRIM, skip=((1, -1),))
@@ -352,7 +355,7 @@ def trims(wb, c, ri):
                 x0, x1 = o[0] + a * R, o[0] + b * R
                 top = ri.find(1, 1, y, np.array([(x0 + x1) / 2, y, z - dz * 0.2]))
                 side = ri.find(2, dz, z, np.array([(x0 + x1) / 2, y - 0.2, z]))
-                if top is None or side is None:
+                if top is None or side is None or top["mat"] not in LIP:
                     continue
                 box(wb, [x0, y, min(z - dz * w, z + dz * t)], [x1, y + t, max(z - dz * w, z + dz * t)], lm_fn(top),
                     TRIM, skip=((1, -1),))
@@ -572,7 +575,8 @@ def windows(wb, c, ri):
             order = [3, 2, 1, 0]
         P = [corners[i] for i in order]
         U = [uvs[i] for i in order]
-        gm = 19 if getattr(c, "lit_windows", False) else GLASS
+        ws = getattr(c, "window_style", "lab")
+        gm = 76 if ws == "sky" else (19 if getattr(c, "lit_windows", False) else GLASS)
         wb.tri([P[0], P[1], P[2]], [list(n)] * 3, [U[0], U[1], U[2]], gm, [1, 1, 1], seed)
         wb.tri([P[0], P[2], P[3]], [list(n)] * 3, [U[0], U[2], U[3]], gm, [1, 1, 1], seed)
 
@@ -629,11 +633,12 @@ def build(c, meta, dirr=None):
         P = np.concatenate([P, DP])
         N = np.concatenate([N, DN])
         UV = np.concatenate([UV, DM[:, 0:2]])
-        Mt = np.concatenate([Mt, np.full(len(DP), 40.0)])
+        proc = DM[:, 6] > 0.5
+        Mt = np.concatenate([Mt, np.where(proc, DM[:, 7], 40.0)])
         A = np.concatenate([A, DA])
         S = np.concatenate([S, DS])
         irr = np.concatenate([irr, di])
-        flag = np.concatenate([flag, np.where(DM[:, 5] < 0, 2.0, 1.0)])
+        flag = np.concatenate([flag, np.where(proc, 3.0, np.where(DM[:, 5] < 0, 2.0, 1.0))])
         tan = np.zeros((len(P), 3))
         tan[n0:] = DM[:, 2:5]
         return P, N, UV, Mt, A, S, irr, flag, tan

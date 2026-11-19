@@ -59,11 +59,15 @@ class Grid:
         self.solid = ~c.air
         self.origin = c.origin
         self.shape = np.array(self.solid.shape)
-        self.fine = np.repeat(np.repeat(np.repeat(self.solid, FINE, 0), FINE, 1), FINE, 2)
+        self.open_top = (1, -1) in getattr(c, "open_faces", ())
+        vol = float(np.prod(self.shape))
+        self.F = FINE if vol * FINE ** 3 < 60e6 else (2 if vol * 8 < 60e6 else 1)
+        F = self.F
+        self.fine = np.repeat(np.repeat(np.repeat(self.solid, F, 0), F, 1), F, 2)
         self.fshape = np.array(self.fine.shape)
 
     def add_occluders(self, boxes):
-        fr = lvl.RES * FINE
+        fr = lvl.RES * self.F
         for (x0, y0, z0, x1, y1, z1) in boxes:
             a = np.floor((np.array([x0, y0, z0]) - self.origin) * fr).astype(int)
             b = np.ceil((np.array([x1, y1, z1]) - self.origin) * fr).astype(int)
@@ -71,10 +75,36 @@ class Grid:
             b = np.clip(b, 0, self.fshape)
             self.fine[a[0]:b[0], a[1]:b[1], a[2]:b[2]] = True
 
+    def add_heightfield(self, xs, zs, H):
+        fr = lvl.RES * self.F
+        nxf, nyf, nzf = self.fshape
+        cx = self.origin[0] + (np.arange(nxf) + 0.5) / fr
+        cz = self.origin[2] + (np.arange(nzf) + 0.5) / fr
+        hx = np.interp(cx, xs, np.arange(len(xs)), left=-1, right=-1)
+        hz = np.interp(cz, zs, np.arange(len(zs)), left=-1, right=-1)
+        for i in range(nxf):
+            if hx[i] < 0:
+                continue
+            ok = hz >= 0
+            x0 = int(np.floor(hx[i]))
+            x1 = min(x0 + 1, len(xs) - 1)
+            fx = hx[i] - x0
+            zz = hz[ok]
+            z0 = np.floor(zz).astype(int)
+            z1 = np.minimum(z0 + 1, len(zs) - 1)
+            fz = zz - z0
+            h = (H[z0, x0] * (1 - fx) + H[z0, x1] * fx) * (1 - fz) + (H[z1, x0] * (1 - fx) + H[z1, x1] * fx) * fz
+            top = np.clip(np.floor((h - 0.05 - self.origin[1]) * fr).astype(int), 0, nyf)
+            ks = np.nonzero(ok)[0]
+            ys = np.arange(nyf)
+            self.fine[i][:, ks] |= ys[:, None] < top[None, :]
+
     def fine_solid(self, P):
-        I = np.floor((P - self.origin) * (lvl.RES * FINE)).astype(np.int64)
+        I = np.floor((P - self.origin) * (lvl.RES * self.F)).astype(np.int64)
         ok = np.all((I >= 0) & (I < self.fshape), axis=1)
         out = np.ones(len(I), bool)
+        if self.open_top:
+            out[I[:, 1] >= self.fshape[1]] = False
         J = I[ok]
         out[ok] = self.fine[J[:, 0], J[:, 1], J[:, 2]]
         return out
@@ -85,6 +115,8 @@ class Grid:
     def is_solid(self, I):
         ok = np.all((I >= 0) & (I < self.shape), axis=1)
         out = np.ones(len(I), bool)
+        if self.open_top:
+            out[I[:, 1] >= self.shape[1]] = False
         J = I[ok]
         out[ok] = self.solid[J[:, 0], J[:, 1], J[:, 2]]
         return out
@@ -95,11 +127,14 @@ class Grid:
         act = np.arange(n)
         t = t0
         st = 0.07
+        top = self.origin[1] + self.shape[1] / lvl.RES
         while len(act):
             Q = P[act] + D[act] * t
             s = self.fine_solid(Q)
             hit[act[s]] = True
             keep = ~s & (tmax[act] > t + st)
+            if self.open_top:
+                keep &= Q[:, 1] < top
             act = act[keep]
             t += st
         return hit
@@ -112,8 +147,15 @@ class Grid:
         act = np.arange(n)
         prev = self.idx(P + D * t0)
         t = t0 + STEP
+        top = self.shape[1]
         while len(act) and t < tmax:
             I = self.idx(P[act] + D[act] * t)
+            if self.open_top:
+                up = I[:, 1] >= top
+                if up.any():
+                    act = act[~up]
+                    prev = prev[~up]
+                    I = I[~up]
             s = self.is_solid(I)
             if s.any():
                 a = act[s]
@@ -147,11 +189,24 @@ def cos_dirs(N, k, rng):
     return lx[..., None] * T1[:, None, :] + ly[..., None] * T2[:, None, :] + lz[..., None] * N[:, None, :]
 
 
+def sky_rad(c, D):
+    sr = np.array(getattr(c, "sky_rad", (0, 0, 0)), float)
+    y = np.clip(D[..., 1], 0, 1)
+    return sr * (0.55 + 0.45 * y)[..., None]
+
+
 def light_list(c, rects):
     out = []
     for L in getattr(c, "lights", []):
         out.append(norm_light(L))
-    if not out:
+    sun = getattr(c, "sun", None)
+    if sun:
+        sd = np.array(sun["d"], float)
+        sd /= np.linalg.norm(sd)
+        out.insert(0, dict(kind="sun", sd=sd, p=sd * 400.0, d=-sd, u=np.array([1.0, 0, 0]), v=np.array([0, 0, 1.0]),
+                           hu=0.3, hv=0.3, col=np.array(sun["col"], float) / max(sun["col"]), power=max(sun["col"]),
+                           inten=max(sun["col"]), cin=-0.99, cout=-1.0, vol=0.0, fixture=False, name="sun"))
+    if not out and not sun:
         for (cx, cy, cz, hu, hv) in light_panels(rects):
             out.append(norm_light(dict(kind="panel", p=(cx, cy, cz), d=(0, -1, 0), size=(hu, hv), col=PANEL_C,
                                        power=PANEL_L)))
@@ -200,8 +255,16 @@ def light_profile(L, w):
 CULL = 0.004
 
 
+LOG = None
+
+
+def _log(msg):
+    if LOG:
+        LOG(msg)
+
+
 def stage(t0, msg):
-    print(f"  [{time.time() - t0:6.1f}s] {msg}", flush=True)
+    _log(f"    [{time.time() - t0:6.1f}s] {msg}")
 
 
 def direct(P, N, lights, grid, rng, ns=3):
@@ -209,6 +272,29 @@ def direct(P, N, lights, grid, rng, ns=3):
     E = np.zeros((n, 3))
     Dv = np.zeros((n, 3))
     for L in lights:
+        if L["kind"] == "sun":
+            k = max(2, ns)
+            sd = L["sd"]
+            up = np.array([0.0, 1.0, 0.0]) if abs(sd[1]) < 0.9 else np.array([1.0, 0.0, 0.0])
+            tu = np.cross(up, sd)
+            tu /= np.linalg.norm(tu)
+            tv = np.cross(sd, tu)
+            cp0 = N @ sd
+            for s_ in range(k * k):
+                a = ((s_ % k + rng.random(n)) / k * 2 - 1) * 0.012
+                b = ((s_ // k + rng.random(n)) / k * 2 - 1) * 0.012
+                Vn = sd[None] + tu[None] * a[:, None] + tv[None] * b[:, None]
+                Vn /= np.linalg.norm(Vn, axis=1, keepdims=True)
+                ok = cp0 > 0
+                if not ok.any():
+                    continue
+                idx = np.nonzero(ok)[0]
+                occ = grid.occluded(P[idx], Vn[idx], np.full(len(idx), 400.0))
+                vis = idx[~occ]
+                c = L["inten"] * np.clip(np.einsum("ij,ij->i", Vn[vis], N[vis]), 0, None) / (k * k)
+                E[vis] += c[:, None] * L["col"][None]
+                Dv[vis] += Vn[vis] * (c * L["col"].mean())[:, None]
+            continue
         k = ns if L["kind"] in ("panel", "strip") else max(2, ns - 1)
         for s in range(k * k):
             a = (s % k + rng.random(n)) / k * 2 - 1
@@ -256,6 +342,9 @@ def bake_level(c, seed=1, ao_rays=32, gi_rays=256):
     from . import decor_place
     DP, DN, DM, DA, DS, dboxes = decor_place.build(c)
     grid.add_occluders(list(getattr(c, "occluders", [])) + dboxes)
+    TER = getattr(c, "terrain", None)
+    if TER is not None:
+        grid.add_heightfield(*TER["grid"])
     cf = []
     for ri, r in enumerate(rects):
         nu = int(round((r["u1"] - r["u0"]) * 2))
@@ -328,9 +417,10 @@ def bake_level(c, seed=1, ao_rays=32, gi_rays=256):
         hid[sel] = F[d][I[inb, 0], I[inb, 1], I[inb, 2]]
     hit_ids = hid.reshape(n, gi_rays)
     Li = np.zeros((n, 3))
+    skyB = sky_rad(c, dirs) if getattr(c, "sky_rad", None) is not None else 0.0
     for it in range(4):
         B = cem_g + calb * (Ld + Li)
-        Bh = np.where(hit_ids[..., None] >= 0, B[np.clip(hit_ids, 0, None)], 0.0)
+        Bh = np.where(hit_ids[..., None] >= 0, B[np.clip(hit_ids, 0, None)], skyB)
         Li = Bh.mean(1)
     for r in rects:
         base, nu, nv = r["cf0"], r["nu"], r["nv"]
@@ -339,10 +429,10 @@ def bake_level(c, seed=1, ao_rays=32, gi_rays=256):
             p_ = np.pad(g, ((1, 1), (1, 1), (0, 0)), mode="edge")
             g = (p_[:-2, 1:-1] + p_[2:, 1:-1] + p_[1:-1, :-2] + p_[1:-1, 2:] + 2 * p_[1:-1, 1:-1]) / 6
         Li[base:base + nu * nv] = g.reshape(-1, 3)
-    Bh = np.where(hit_ids[..., None] >= 0, B[np.clip(hit_ids, 0, None)], 0.0)
+    Bh = np.where(hit_ids[..., None] >= 0, B[np.clip(hit_ids, 0, None)], skyB)
     Lw = Bh.mean(2)
     Di = np.einsum("nk,nkj->nj", Lw, dirs) / gi_rays
-    print(f"  {c.name}: {len(rects)} rects, {n} cell faces, {len(lights)} lights, gi {time.time() - t0:.1f}s")
+    _log(f"  {c.name}: {len(rects)} rects, {n} cell faces, {len(lights)} lights, gi {time.time() - t0:.1f}s")
     stage(t0, "gi done; lightmap alloc")
     texels = alloc(rects)
     TP, TN, TR, TIJ = [], [], [], []
@@ -423,7 +513,7 @@ def bake_level(c, seed=1, ao_rays=32, gi_rays=256):
     gimg = denoise(gimg, rects)
     enc = np.sqrt(np.clip(img / LMAX, 0, 1))
     full = np.concatenate([enc, dimg, np.clip(gimg, 0, 1)], 0)
-    print(f"  texels {len(TP)} density {rects[0]['dens']:.1f}/m, total {time.time() - t0:.1f}s")
+    _log(f"  texels {len(TP)} density {rects[0]['dens']:.1f}/m, total {time.time() - t0:.1f}s")
     stage(t0, "ambient grid")
     amb = ambient_grid(c, grid, F, B, rng, step=getattr(c, "bake_amb_step", 1.0), k=getattr(c, "bake_amb_rays", 128))
     stage(t0, "decor vertex lighting")
@@ -437,8 +527,20 @@ def bake_level(c, seed=1, ao_rays=32, gi_rays=256):
         Ed, _ = direct(UP + UN * 0.03, UN, lights, grid, rng, ns=2)
         Ei = amb_sample(amb, UP + UN * 0.1, UN)
         dirr = (Ed + Ei)[inv.ravel()]
-        print(f"  decor {len(DP) // 3} tris, {len(UP)} lit vertices")
-    return dict(rects=rects, panels=panels, lights=lights, lightmap=full, amb=amb, B=B, dirr=dirr)
+        _log(f"  decor {len(DP) // 3} tris, {len(UP)} lit vertices")
+    tirr = np.zeros((0, 3))
+    if TER is not None and len(TER["P"]):
+        TP_, TN_ = TER["P"], TER["N"]
+        key = np.round(TP_ * 100).astype(np.int64)
+        uq, inv = np.unique(key, axis=0, return_inverse=True)
+        first = np.zeros(len(uq), np.int64)
+        first[inv[::-1]] = np.arange(len(TP_))[::-1]
+        UP, UN = TP_[first], TN_[first]
+        Et, _ = direct(UP + UN * 0.08, UN, lights, grid, rng, ns=2)
+        Ei = amb_sample(amb, UP + UN * 0.6, UN)
+        tirr = (Et + Ei)[inv.ravel()]
+        _log(f"  terrain {len(TP_) // 3} tris, {len(UP)} lit vertices")
+    return dict(rects=rects, panels=panels, lights=lights, lightmap=full, amb=amb, B=B, dirr=dirr, tirr=tirr)
 
 
 def amb_sample(amb, P, N):
@@ -660,6 +762,9 @@ def ambient_grid(c, grid, F, B, rng, step=1.0, k=128):
         h = F[d][Ii[inb, 0], Ii[inb, 1], Ii[inb, 2]]
         good = h >= 0
         rad[sel[good]] = B[h[good]]
+    if getattr(c, "sky_rad", None) is not None:
+        miss = ~ok
+        rad[miss] = sky_rad(c, Dr[miss])
     rad = rad.reshape(n, k, 3)
     cube = np.zeros((n, 6, 3))
     axes = np.array([[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]], float)
