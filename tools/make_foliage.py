@@ -15,9 +15,18 @@ from lh_tiles import save_tile
 TILE = 1024
 
 
+def load_alpha(path):
+    im = Image.open(path)
+    if im.mode in ("I;16", "I;16B", "I;16L", "I"):
+        arr = np.asarray(im).astype(np.float64)
+        arr = arr / max(float(arr.max()), 1.0) * 255.0
+        return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "L")
+    return im.convert("L")
+
+
 def load_rgba(src, diff, alpha):
     d = Image.open(src / diff).convert("RGB")
-    a = Image.open(src / alpha).convert("L").resize(d.size)
+    a = load_alpha(src / alpha).resize(d.size)
     im = d.copy()
     im.putalpha(a)
     return im
@@ -109,7 +118,12 @@ def rgba_to_maps(im, rough=0.6, nrm=None):
     a = np.asarray(im, np.float32) / 255.0
     rgb, al = a[..., :3], a[..., 3]
     m = al > 0.3
-    rgb = dilate(rgb, m)
+    rgb = dilate(rgb, m, 64)
+    if m.any():
+        mean = rgb[m].mean(0)
+        grown = dilate(np.where(m[..., None], rgb, 0.0), m, 64)
+        filled = np.abs(grown).sum(-1) > 1e-6
+        rgb = np.where(filled[..., None], rgb, mean)
     lin = rgb ** 2.2
     alb = np.sqrt(lin)
     n = np.zeros_like(rgb)
@@ -149,15 +163,16 @@ def bark_strip(path, w, h, reps=3, tint=(1.0, 1.0, 1.0)):
 
 class Mesh:
     def __init__(self):
-        self.P, self.N, self.UV, self.F, self.S = [], [], [], [], []
+        self.P, self.N, self.UV, self.F, self.S, self.CN = [], [], [], [], [], []
 
-    def tri(self, ps, ns, uvs, flag, sway):
+    def tri(self, ps, ns, uvs, flag, sway, cn=None):
         for p, n, uv, s in zip(ps, ns, uvs, sway):
             self.P.append(p)
             self.N.append(n)
             self.UV.append(uv)
             self.F.append(flag)
             self.S.append(s)
+            self.CN.append(n if cn is None else cn)
 
     def tube(self, path, radii, u0, u1, v0, v1, segs=8, sway=None, flag=1.0, vreps=1.0):
         path = np.asarray(path, float)
@@ -198,6 +213,8 @@ class Mesh:
         c = np.asarray(center, float)
         nrm = np.asarray(normal, float)
         nrm = nrm / np.linalg.norm(nrm)
+        cn = np.cross(np.asarray(right, float), np.asarray(up, float))
+        cn = cn / max(np.linalg.norm(cn), 1e-9)
         x0, y0, x1, y1 = uv_rect
         rows = 3
         grid = []
@@ -210,8 +227,8 @@ class Mesh:
             grid.append(row)
         for j in range(rows):
             a, b, cc, d = grid[j][0], grid[j][1], grid[j + 1][1], grid[j + 1][0]
-            self.tri([a[0], b[0], cc[0]], [nrm] * 3, [a[1], b[1], cc[1]], 5.0, [a[2], b[2], cc[2]])
-            self.tri([a[0], cc[0], d[0]], [nrm] * 3, [a[1], cc[1], d[1]], 5.0, [a[2], cc[2], d[2]])
+            self.tri([a[0], b[0], cc[0]], [nrm] * 3, [a[1], b[1], cc[1]], 5.0, [a[2], b[2], cc[2]], cn)
+            self.tri([a[0], cc[0], d[0]], [nrm] * 3, [a[1], cc[1], d[1]], 5.0, [a[2], cc[2], d[2]], cn)
 
     def save(self, name):
         P = np.array(self.P, np.float32)
@@ -231,9 +248,19 @@ class Mesh:
                 t /= max(np.linalg.norm(t), 1e-6)
                 T[i + k, :3] = t
                 T[i + k, 3] = 1.0
+                if self.F[i + k] > 4.5:
+                    T[i + k, :3] = self.CN[i + k]
         np.savez_compressed(KIT / f"kit_{name}.npz", pos=P, nrm=N, uv=UV, tan=T, flag=np.array(self.F, np.float32),
                             sway=np.array(self.S, np.float32))
         return len(P) // 3
+
+
+def tangent_frame(n, rng):
+    n = np.asarray(n, float)
+    a = np.array([0.0, 1.0, 0.0]) if abs(n[1]) < 0.9 else np.array([1.0, 0.0, 0.0])
+    r = np.cross(a, n)
+    r /= np.linalg.norm(r)
+    return r, np.cross(n, r)
 
 
 def branch_path(start, direction, length, steps, droop, rng, curl=0.15):
@@ -249,10 +276,10 @@ def branch_path(start, direction, length, steps, droop, rng, curl=0.15):
     return out
 
 
-def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=300, tint=(1, 1, 1), leaf_tint=1.0):
+def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=560, tint=(1, 1, 1), leaf_tint=1.0):
     rng = np.random.default_rng(seed)
     leaves = sprites(load_rgba(src, "island_tree_01__leaves_diff.jpg", "island_tree_01__leaves_alpha.png"))
-    cards = [cluster_card(leaves, 512, seed * 7 + k) for k in range(2)]
+    cards = [cluster_card(leaves, 512, seed * 7 + k, n=170, leaf_scale=0.12, spread=1.0) for k in range(2)]
     tile = np.zeros((TILE, TILE, 3), np.float32)
     ntile = np.zeros_like(tile)
     ntile[..., :2] = 0.5
@@ -265,7 +292,7 @@ def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=300, tint=(
     rtile[:, :TILE // 2, 0] = 0.85
     for k, cimg in enumerate(cards):
         al, nm, rm = rgba_to_maps(cimg, 0.55)
-        al = al * leaf_tint
+        al = al * leaf_tint * np.array([0.78, 0.9, 0.66])
         tile[k * 512:(k + 1) * 512, TILE // 2:] = al
         ntile[k * 512:(k + 1) * 512, TILE // 2:] = nm
         rtile[k * 512:(k + 1) * 512, TILE // 2:] = rm
@@ -302,29 +329,35 @@ def broadleaf(name, seed, src, bark, height=6.5, crown=2.8, clusters=300, tint=(
                        sway=[0.2, 0.3, 0.4, 0.5])
                 tips += sub[1:]
     tips.append(tp[-1])
-    for c in range(clusters):
-        if c % 3 == 0:
-            base = tips[int(rng.integers(0, len(tips)))] + rng.normal(0, crown * 0.18, 3)
+    nclump = max(10, clusters // 22)
+    clumps = []
+    for ci in range(nclump):
+        if ci % 2 == 0:
+            cc = tips[int(rng.integers(0, len(tips)))] + rng.normal(0, crown * 0.1, 3)
         else:
             dvec = rng.normal(0, 1, 3)
+            dvec[1] = abs(dvec[1]) * 0.8 + 0.1
             dvec /= np.linalg.norm(dvec)
-            base = crown_c + dvec * crown * np.array([1.0, 0.75, 1.0]) * rng.uniform(0.55, 1.0) ** 0.5
-        rel = base - crown_c
-        rel[1] *= 0.8
-        if np.linalg.norm(rel) > crown * 1.1:
-            base = crown_c + rel / np.linalg.norm(rel) * crown * rng.uniform(0.6, 1.05)
-        nrm_s = base - crown_c + np.array([0, crown * 0.35, 0])
+            cc = crown_c + dvec * crown * np.array([0.85, 0.65, 0.85]) * rng.uniform(0.5, 0.9)
+        clumps.append((cc, crown * rng.uniform(0.26, 0.38)))
+    for c in range(clusters):
+        cc, cr = clumps[int(rng.integers(0, nclump))]
+        dvec = rng.normal(0, 1, 3)
+        dvec /= np.linalg.norm(dvec)
+        base = cc + dvec * cr * rng.uniform(0.35, 1.0) ** 0.5
+        nrm_s = (base - cc) / cr * 0.75 + (base - crown_c) / crown * 0.45 + np.array([0, 0.15, 0])
         nrm_s /= np.linalg.norm(nrm_s)
         k = int(rng.integers(0, 2))
         rect = (0.5, k * 0.5, 1.0, (k + 1) * 0.5)
-        w = rng.uniform(1.3, 1.9) * crown / 2.6
-        for q in range(3):
-            ang = rng.uniform(0, math.pi) + q * math.pi / 3
-            right = np.array([math.cos(ang), 0, math.sin(ang)])
-            upv = nrm_s * 0.6 + np.array([0, 0.5, 0]) + rng.normal(0, 0.25, 3)
-            upv -= right * np.dot(upv, right)
+        w = rng.uniform(0.75, 1.05) * crown / 2.6
+        tr, tu = tangent_frame(nrm_s, rng)
+        for q, tilt in enumerate((0.0, 0.7, -0.7)):
+            ca = rng.uniform(0, 2 * math.pi)
+            r0 = tr * math.cos(ca) + tu * math.sin(ca)
+            u0 = np.cross(nrm_s, r0)
+            upv = u0 * math.cos(tilt) + nrm_s * math.sin(tilt)
             upv /= np.linalg.norm(upv)
-            m.card(base - upv * w * 0.45, right, upv, w, w, rect, nrm_s, sway=1.0, bend=0.08)
+            m.card(base - upv * w * 0.5, r0, upv, w, w, rect, nrm_s, sway=1.0, bend=0.0)
     save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
     return m.save(name)
 
@@ -448,14 +481,14 @@ def bush(name, seed, src, size=1.3, cards=12):
         th = rng.uniform(0, 2 * math.pi)
         ph = rng.uniform(0.15, 1.2)
         d = np.array([math.cos(th) * math.sin(ph), math.cos(ph), math.sin(th) * math.sin(ph)])
-        base = ctr + d * size * 0.25 - np.array([0, size * 0.35, 0])
-        right = np.array([-d[2], 0, d[0]])
-        if np.linalg.norm(right) < 1e-3:
-            right = np.array([1.0, 0, 0])
-        right /= np.linalg.norm(right)
-        upv = d * 0.7 + np.array([0, 0.6, 0])
-        upv -= right * np.dot(upv, right)
+        base = ctr + d * size * 0.32 - np.array([0, size * 0.1, 0])
+        tr, tu = tangent_frame(d, rng)
+        ca = rng.uniform(0, 2 * math.pi)
+        right = tr * math.cos(ca) + tu * math.sin(ca)
+        tilt = rng.uniform(-0.6, 0.6)
+        upv = np.cross(d, right) * math.cos(tilt) + d * math.sin(tilt)
         upv /= np.linalg.norm(upv)
+        base = base - upv * size * 0.3
         k = int(rng.integers(0, 2))
         w = size * rng.uniform(0.6, 0.9)
         m.card(base, right, upv, w * 0.6, w, (k * 0.5, 0.0, (k + 1) * 0.5, 1.0), d + np.array([0, 0.4, 0]), sway=0.6)

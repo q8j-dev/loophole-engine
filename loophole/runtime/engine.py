@@ -1877,8 +1877,9 @@ def draw_scene(vq):
         draw_player()
     if PORTALS == 1:
         draw_portals()
-    if gbm == 0 and LGRASS[level] == 1:
+    if LGRASS[level] == 1:
         cam_u("grass")
+        set_vec4("uGB", "grass", gbm, 0, 0, 0)
         draw_list("GRASS", "grass")
     if gbm == 0:
         if LSKY[level] == 0:

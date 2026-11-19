@@ -82,10 +82,13 @@ def instance(name, pos, fwd=(1, 0, 0), up=(0, 1, 0), scale=(1, 1, 1)):
     wp = (P * sc) @ R.T + np.asarray(pos, float)
     nn = (N / sc) @ R.T
     nn = nn / np.maximum(np.linalg.norm(nn, axis=1, keepdims=True), 1e-9)
+    tt = (T[:, :3] / sc) @ R.T
+    raw = tt / np.maximum(np.linalg.norm(tt, axis=1, keepdims=True), 1e-9)
     tt = (T[:, :3] * sc) @ R.T
     tt = tt - nn * np.sum(tt * nn, 1, keepdims=True)
     tt = tt / np.maximum(np.linalg.norm(tt, axis=1, keepdims=True), 1e-9)
     sign = T[:, 3] * (np.sign(np.linalg.det(R * sc[None, :])) or 1.0)
+    instance.raw = raw
     return wp, nn, UV, tt, sign
 
 
@@ -98,10 +101,11 @@ def build(c):
     for k, it in enumerate(getattr(c, "decor", [])):
         name, pos, fwd, up, scale = it
         P, N, UV, T, sg = instance(name, pos, fwd, up, scale)
+        fl, sw = vflags(name)
+        T = np.where((fl > 4.5)[:, None], instance.raw, T)
         Ps.append(P)
         Ns.append(N)
         Ms.append(np.concatenate([UV, T, sg[:, None]], 1))
-        fl, sw = vflags(name)
         As.append(np.where(fl > 4.5, sw, 1.0))
         Fl.append(fl)
         Ss.append(np.full(len(P), (k * 37) % 251))
