@@ -442,7 +442,7 @@ def pine(name, seed, src, height=8.0, whorls=22):
     for k in range(4):
         card = needle_card(twigs, 512, seed * 11 + k)
         al, nm, rm = rgba_to_maps(card, 0.65)
-        al = al * np.array([0.44, 0.6, 0.5])
+        al = al * np.array([0.46, 0.6, 0.42])
         tile[k * 256:(k + 1) * 256, TILE // 2:] = al
         ntile[k * 256:(k + 1) * 256, TILE // 2:] = nm
         rtile[k * 256:(k + 1) * 256, TILE // 2:] = rm
@@ -454,9 +454,12 @@ def pine(name, seed, src, height=8.0, whorls=22):
     for w in range(whorls):
         t = (w + 1) / (whorls + 1)
         y = height * (0.18 + 0.8 * t)
-        L = (1 - t) * height * 0.32 + 0.35
+        L0 = ((1 - t) * height * 0.32 + 0.35) * (1.12 if w % 2 == 0 else 0.82) * rng.uniform(0.85, 1.1)
         nb = int(rng.integers(9, 13))
         for b in range(nb):
+            if rng.random() < 0.18:
+                continue
+            L = L0 * rng.uniform(0.7, 1.2)
             ang = 2 * math.pi * (b + rng.random() * 0.6) / nb + w * 0.7
             d = np.array([math.cos(ang), 0.0, math.sin(ang)])
             k = int(rng.integers(0, 4))
