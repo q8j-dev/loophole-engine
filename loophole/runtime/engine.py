@@ -32,6 +32,8 @@ def init():
     api_ctl = 1
     api_cam = CAM0
     cullon = 1
+    lwdep = 0
+    api_water = 0
     detm = 0
     mklist(QON, 2)
     mklist(QCX, 2)
@@ -402,6 +404,9 @@ def sky_load(lv):
     set_vec3("uFogSun", "world", SKY[sb], SKY[sb + 1], SKY[sb + 2])
     set_vec4("uSunC", "world", SKY[sb + 3], SKY[sb + 4], SKY[sb + 5], LSUN[level])
     set_vec4("uWind", "world", LWX[level], LWZ[level], LWS[level], 0)
+    for shi in rep(8):
+        shk_ = (level - 1) * 8 + shi
+        set_arr4(shi, "uSH", "world", SHX[shk_], SHZ[shk_], SHR[shk_], SHY[shk_])
     set_vec4("uLOD", "world", 20, 12, 0, 0)
     set_vec4("uRay", "haze", LRAY[level], 0, 0, 0)
     set_vec4("uWind", "grass", LWX[level], LWZ[level], LWS[level], 0)
@@ -653,6 +658,24 @@ def player_move():
         crouch = 0
     if mwl < 0.001:
         wsp = 0
+    wdep = 0
+    wk = LWB0[level]
+    for wi_ in rep(LWBN[level]):
+        if px > WBX0[wk] and px < WBX1[wk] and pz > WBZ0[wk] and pz < WBZ1[wk] and py < WBY[wk]:
+            wdep = max(wdep, WBY[wk] - py)
+        wk += 1
+    if wdep > 0.15:
+        wsp = wsp * max(0.5, 1 - wdep * 0.35)
+    if wdep > 0 and lwdep == 0 and vy < -2:
+        play("whoosh")
+    lwdep = wdep
+    api_water = round(wdep * 100) / 100
+    swim = 0
+    if wdep > 1.15:
+        swim = 1
+        onground = 0
+        if api_ctl == 1 and key("space"):
+            vy = min(vy + 14 * dt, 2.6)
     if api_ctl == 1 and onground == 1 and key("space") and lastjump > 0.08:
         vy = api_jump
         onground = 0
@@ -676,7 +699,13 @@ def player_move():
         if mcap > AIRCAP:
             mcap = AIRCAP
         accel(mwx, mwz, mcap, wsp, AIRACC)
-    vy = max(-40, vy - api_grav * dt)
+    if swim == 1:
+        vy += (min(wdep - 1.25, 1.0) * 9 - vy * 2.2) * dt
+        accel(mwx, mwz, wsp, wsp, ACCEL * 0.6)
+        vx = vx * (1 - min(1, dt * 1.5))
+        vz = vz * (1 - min(1, dt * 1.5))
+    else:
+        vy = max(-40, vy - api_grav * dt)
     vent_at(px, py, pz)
     if vin > 0:
         vy = min(7.5 * vin, vy + (api_grav + 30 * (vfall - 0.3)) * dt * vin)
@@ -1921,6 +1950,13 @@ def draw_scene(vq):
                 set_vec3("uCol", "part", 3.0, 2.2, 1.2)
                 draw_list("IMPACT", "part")
             sj += 1
+    if LWAT[level] > 0 and gbm == 0 and cullon == 1:
+        tex_filter(9728)
+        set_tex("uGBn", "world", join("gb", tp))
+        tex_filter(9729)
+        set_vec4("uMode", "world", 0, 1, 0, 0)
+        model_id()
+        draw_geo(LWAT[level])
 
 
 @warp

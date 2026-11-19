@@ -681,6 +681,103 @@ def fern(name, seed, src, size=1.0, fronds=13, tint=(0.62, 0.72, 0.5)):
     return m.save(name)
 
 
+def reeds(name, seed, size=1.7, cards=5):
+    rng = np.random.default_rng(seed)
+    T = TILE // 2
+    W, H = T // 2, T
+    tile = np.zeros((T, T, 3), np.float32)
+    ntile = np.zeros_like(tile)
+    ntile[..., :2] = 0.5
+    ntile[..., 2] = 1.0
+    rtile = np.zeros_like(tile)
+    for k in range(2):
+        im = Image.new("RGBA", (W * 4, H * 4), (0, 0, 0, 0))
+        dr = ImageDraw.Draw(im)
+        for b in range(60):
+            x0 = W * 4 * rng.uniform(0.25, 0.75)
+            lean = rng.normal(0, 0.35) * W * 4
+            top = H * 4 * rng.uniform(0.02, 0.4)
+            wdt = W * 4 * rng.uniform(0.006, 0.014)
+            col = np.array([rng.uniform(70, 105), rng.uniform(88, 118), rng.uniform(40, 62)])
+            if rng.random() < 0.3:
+                col = col * np.array([1.25, 1.05, 0.85])
+            pts = []
+            for i in range(9):
+                t = i / 8
+                cx = x0 + lean * t * t
+                cy = H * 4 - (H * 4 - top) * t
+                pts.append((cx, cy, wdt * (1 - t * 0.9)))
+            poly = [(p[0] - p[2], p[1]) for p in pts] + [(p[0] + p[2], p[1]) for p in pts[::-1]]
+            dr.polygon(poly, fill=tuple(int(c) for c in col * rng.uniform(0.8, 1.15)) + (255,))
+            if b % 11 == 0:
+                cx, cy = pts[6][0], pts[6][1]
+                dr.rounded_rectangle([cx - wdt * 2.6, cy - H * 0.3, cx + wdt * 2.6, cy + H * 0.05],
+                                     radius=int(wdt * 2), fill=(92, 58, 34, 255))
+        im = im.resize((W, H), Image.LANCZOS)
+        al, nm, rm = rgba_to_maps(im, 0.6)
+        tile[:, k * W:(k + 1) * W] = al
+        ntile[:, k * W:(k + 1) * W] = nm
+        rtile[:, k * W:(k + 1) * W] = rm
+    m = Mesh()
+    for q in range(cards):
+        ang = q * math.pi / cards + rng.uniform(0, 0.3)
+        right = np.array([math.cos(ang), 0, math.sin(ang)])
+        k = int(rng.integers(0, 2))
+        s_ = size * rng.uniform(0.85, 1.15)
+        m.card(np.array([rng.normal(0, 0.12), 0, rng.normal(0, 0.12)]), right, np.array([0, 1.0, 0]), s_ * 0.5, s_,
+               (k * 0.5, 0.0, (k + 1) * 0.5, 1.0), np.array([0, 1.0, 0]), sway=1.0, rows=3)
+    save_tile(ROOT / "loophole" / "data" / "tiles", name, tile, ntile, rtile)
+    return m.save(name)
+
+
+def lilypad(name, seed, pads=5):
+    rng = np.random.default_rng(seed)
+    S = 512
+    im = Image.new("RGB", (S, S), (40, 80, 30))
+    dr = ImageDraw.Draw(im)
+    for r in range(S // 2, 0, -4):
+        f = r / (S / 2)
+        dr.ellipse([S / 2 - r, S / 2 - r, S / 2 + r, S / 2 + r], fill=(int(46 + 34 * f), int(92 + 40 * f), int(30 + 12 * f)))
+    for a in np.linspace(0, 2 * math.pi, 22, endpoint=False):
+        dr.line([(S / 2, S / 2), (S / 2 + math.cos(a) * S * 0.48, S / 2 + math.sin(a) * S * 0.48)], fill=(110, 150, 70),
+                width=3)
+    dr.rectangle([0, 0, S * 0.08, S * 0.08], fill=(236, 226, 228))
+    al = np.asarray(im, np.float32) / 255.0
+    nm = np.zeros_like(al)
+    nm[..., :2] = 0.5
+    nm[..., 2] = 1.0
+    rm = np.stack([np.full(al.shape[:2], 0.3), np.zeros(al.shape[:2]), np.zeros(al.shape[:2])], -1)
+    m = Mesh()
+    up = np.array([0.0, 1.0, 0.0])
+    for p in range(pads):
+        c = np.array([rng.normal(0, 0.35), 0.0, rng.normal(0, 0.35)]) if p else np.zeros(3)
+        r = rng.uniform(0.16, 0.26)
+        notch = rng.uniform(0, 2 * math.pi)
+        segs = 14
+        for i in range(segs):
+            a0 = notch + 0.35 + (2 * math.pi - 0.7) * i / segs
+            a1 = notch + 0.35 + (2 * math.pi - 0.7) * (i + 1) / segs
+            pa = c + np.array([math.cos(a0), 0, math.sin(a0)]) * r
+            pb = c + np.array([math.cos(a1), 0, math.sin(a1)]) * r
+            uv = lambda q: (0.5 + (q[0] - c[0]) / r * 0.48 * 0.75, 0.5 + (q[2] - c[2]) / r * 0.48 * 0.75)
+            m.tri([c, pb, pa], [up] * 3, [uv(c), uv(pb), uv(pa)], 1.0, [0.0] * 3)
+    fc = np.array([0.1, 0.03, 0.12])
+    for i in range(7):
+        a = i * 2 * math.pi / 7
+        d = np.array([math.cos(a), 0, math.sin(a)])
+        side = np.array([-d[2], 0, d[0]])
+        tip = fc + d * 0.07 + up * 0.06
+        q = [fc + side * 0.02, fc - side * 0.02, tip]
+        nrm = np.cross(q[1] - q[0], q[2] - q[0])
+        nrm = nrm / np.linalg.norm(nrm)
+        if nrm[1] < 0:
+            q = [q[1], q[0], q[2]]
+            nrm = -nrm
+        m.tri(q, [nrm] * 3, [(0.04, 0.04)] * 3, 1.0, [0.0] * 3)
+    save_tile(ROOT / "loophole" / "data" / "tiles", name, al, nm, rm)
+    return m.save(name)
+
+
 def bush(name, seed, src, size=1.3, cards=22):
     rng = np.random.default_rng(seed)
     leaves = sprites(load_rgba(src, "island_tree_01__leaves_diff.jpg", "island_tree_01__leaves_alpha.png"))
@@ -741,6 +838,8 @@ def main():
                          cards=3, count=3, spread=0.3, rough=0.75, tint=(0.88, 0.92, 0.7), region=(0.62, 1.0),
                          flowers=True))
     print("fern", fern("fern", 6, src))
+    print("reeds", reeds("reeds", 7))
+    print("lilypad", lilypad("lilypad", 8))
 
 
 if __name__ == "__main__":

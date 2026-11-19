@@ -556,6 +556,45 @@ class Level:
         from . import decor_place
         return set(decor_place.KINDS)
 
+    def lake(self, x, z, radius, depth=2.5, level=None, reeds=True, lilies=10, seed=3):
+        if not self.terrain_def:
+            raise ValueError("call level.terrain(...) before level.lake(...)")
+        self.terrain_def.setdefault("waters", []).append(dict(kind="lake", x=float(x), z=float(z), r=float(radius),
+                                                              depth=float(depth), level=level, seed=seed))
+        import random
+        rng = random.Random(seed)
+        if reeds:
+            for i in range(int(radius * 2.2)):
+                a = rng.uniform(0, 6.2832)
+                rr = radius * rng.uniform(0.92, 1.12)
+                self.prop("reeds", x + math.cos(a) * rr, 0, z + math.sin(a) * rr, yaw=rng.uniform(0, 360),
+                          scale=rng.uniform(0.8, 1.2))
+        self.lilies = getattr(self, "lilies", [])
+        for i in range(lilies):
+            a = rng.uniform(0, 6.2832)
+            rr = radius * math.sqrt(rng.uniform(0.15, 0.6))
+            self.lilies.append((x + math.cos(a) * rr, z + math.sin(a) * rr, rng.uniform(0, 360), rng.uniform(0.7, 1.3)))
+        return self
+
+    def river(self, *points, width=4.0, depth=1.4, level=None, reeds=True, seed=5):
+        if not self.terrain_def:
+            raise ValueError("call level.terrain(...) before level.river(...)")
+        pts = [tuple(map(float, p)) for p in points]
+        self.terrain_def.setdefault("waters", []).append(dict(kind="river", pts=pts, width=float(width),
+                                                              depth=float(depth), level=level, seed=seed))
+        import random
+        rng = random.Random(seed)
+        if reeds:
+            for a, b in zip(pts, pts[1:]):
+                L = math.hypot(b[0] - a[0], b[1] - a[1])
+                nx, nz = -(b[1] - a[1]) / max(L, 1e-6), (b[0] - a[0]) / max(L, 1e-6)
+                for i in range(int(L / 3)):
+                    t = rng.random()
+                    side = rng.choice((-1, 1)) * width * rng.uniform(0.5, 0.65)
+                    self.prop("reeds", a[0] + (b[0] - a[0]) * t + nx * side, 0, a[1] + (b[1] - a[1]) * t + nz * side,
+                              yaw=rng.uniform(0, 360), scale=rng.uniform(0.8, 1.2))
+        return self
+
     def flatten(self, x0, z0, x1, z1, height=0.0, falloff=6.0):
         if not self.terrain_def:
             raise ValueError("call level.terrain(...) before level.flatten(...)")

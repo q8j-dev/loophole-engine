@@ -91,6 +91,8 @@ v.building(-2, -10, 9, -2, door=("+z", 3.5), windows=[("+z", 7.0)])
 | --- | --- |
 | `outdoor(sky="day", sun=(0.4, 0.75, 0.3), sun_color=None, fog=0.0035, clouds=0.45, shafts=0.6)` | Opens the level to the sky. Skies: `day`, `sunset`, `dusk`, `night`, `overcast`. `sun` points toward the sun. `shafts` sets how strongly sunbeams show through gaps in trees when you look toward the sun. |
 | `terrain(x0, z0, x1, z1, hills=4.0, seed=1, height=None, grass=1.0, grass_style="lawn", material="terrain")` | Rolling ground with grass, dirt and rock on slopes. The hills continue to the horizon. `grass_style` is `"lawn"` (short, green), `"meadow"` (tall, with wildflowers), `"dry"` (golden) or `"forest"` (sparse, with leaf litter and moss under trees). `grass` scales the density. Pass a 2D `height` array to sculpt the ground yourself. |
+| `lake(x, z, radius, depth=2.5, level=None, reeds=True, lilies=10)` | Digs a lake into the terrain and fills it with water. The water level is set from the ground around it unless you pass `level`. Reeds grow around the shore and lily pads float on top. |
+| `river(*points, width=4.0, depth=1.4, level=None, reeds=True)` | Digs a river channel along the points and fills it with water. |
 | `wind(direction=(1, 0.35), strength=1.0)` | Wind for the level. Gusts roll across grass in waves and sway trees, bushes and clumps of leaves together. `strength=0` stops it. |
 | `flatten(x0, z0, x1, z1, height=0, falloff=6)` | Levels an area, blending back into the hills over `falloff` metres. |
 | `path(*points, width=2.0, material="gravel")` | A smooth path through the points. Use `"dirt"` or `"gravel"`. |
@@ -110,6 +112,8 @@ v.scatter(["boulder", "rock"], -30, -30, 30, 30, spacing=8)
 | `scatter(kinds, x0, z0, x1, z1, spacing=3.0, scale=(0.8, 1.2), seed=0)` | Places props randomly with at least `spacing` metres between them, with random size and rotation. `kinds` is a prop name, a list of names, or a list of `(name, weight)` pairs. |
 
 Big forests stay fast: leaves far from the camera are thinned out and replaced by fewer, larger clusters, and parts of the level behind the camera are skipped.
+
+Water reflects the sky and the scene, ripples with the wind, gets darker with depth, and foams along the shore, where the ground turns to wet sand. The player wades in shallow water and swims in deep water: space swims up. Scripts can read `water depth`.
 
 On a level with terrain, `y` means height above the ground for spawns, props, lights, objects and triggers. `y=0` stands on the hillside wherever you are.
 
@@ -139,7 +143,7 @@ v.wall_prop("sconce", 8.3, 1.8, -4.5, facing="-x")
 | Group | Props |
 | --- | --- |
 | Trees | `oak`, `birch`, `maple` (autumn colours), `willow`, `pine`, `spruce` |
-| Nature | `bush`, `grass`, `fern`, `log`, `boulder`, `rock`, `mossrock`, `stump` |
+| Nature | `bush`, `grass`, `fern`, `reeds`, `lilypad`, `log`, `boulder`, `rock`, `mossrock`, `stump` |
 | House | `table`, `chair`, `armchair`, `sofa`, `bed`, `bookshelf`, `cabinet`, `nightstand`, `picture`, `chandelier`, `sconce`, `lantern`, `candlestick`, `oillamp` |
 | Village | `woodbarrel`, `winebarrel`, `woodcrate`, `bench`, `firepit`, `streetlamp`, `walllamp`, `toolcart`, `bucket` |
 | Treasure | `apple`, `goblet`, `treasure`, `statue`, `catstatue`, `rat` |

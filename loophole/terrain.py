@@ -53,7 +53,69 @@ def heights(t):
         w = np.clip(1 - d / max(fall, 1e-3), 0, 1)
         w = w * w * (3 - 2 * w)
         H = H * (1 - w) + fy * w
+    H = carve_waters(t, X, Z, H)
     return xs, zs, H
+
+
+def seg_dist(X, Z, pts):
+    pts = np.asarray(pts, float)
+    d = np.full(X.shape, 1e9)
+    for a, b in zip(pts, pts[1:]):
+        ab = b - a
+        L2 = max(float(ab @ ab), 1e-6)
+        tt = np.clip(((X - a[0]) * ab[0] + (Z - a[1]) * ab[1]) / L2, 0, 1)
+        d = np.minimum(d, np.hypot(X - (a[0] + ab[0] * tt), Z - (a[1] + ab[1] * tt)))
+    return d
+
+
+def carve_waters(t, X, Z, H):
+    H = H.copy()
+    step = t["step"]
+    for w in t.get("waters", []):
+        if w["kind"] == "lake":
+            ang = np.linspace(0, 2 * np.pi, 48, endpoint=False)
+            rx = w["x"] + np.cos(ang) * w["r"] * 1.15
+            rz = w["z"] + np.sin(ang) * w["r"] * 1.15
+            ix = np.clip(np.round((rx - t["x0"]) / step).astype(int), 0, X.shape[1] - 1)
+            iz = np.clip(np.round((rz - t["z0"]) / step).astype(int), 0, X.shape[0] - 1)
+            if w.get("level") is None:
+                w["y"] = float(np.percentile(H[iz, ix], 25)) - 0.2
+            else:
+                w["y"] = float(w["level"])
+            nz = fbm(X / 6.0, Z / 6.0, w.get("seed", 3), 3)
+            d = np.hypot(X - w["x"], Z - w["z"]) / (w["r"] * (0.85 + 0.35 * nz))
+            prof = w["y"] - w["depth"] * (1 - np.clip((d - 0.35) / 0.65, 0, 1) ** 1.6)
+            shore = w["y"] + 0.3 + (d - 1.0) * w["r"] * 0.25
+            target = np.where(d < 1.0, prof, shore)
+            H = np.where(d < 1.5, np.minimum(H, target), H)
+        else:
+            pts = np.asarray(w["pts"], float)
+            d = seg_dist(X, Z, pts)
+            if w.get("level") is None:
+                near = d < w["width"] * 0.5 + 2.0
+                w["y"] = float(np.percentile(H[near], 15)) - 0.25 if near.any() else 0.0
+            else:
+                w["y"] = float(w["level"])
+            nz = fbm(X / 5.0, Z / 5.0, w.get("seed", 5), 3)
+            hw = w["width"] * 0.5 * (0.85 + 0.3 * nz)
+            prof = w["y"] - w["depth"] * (1 - np.clip(d / np.maximum(hw, 0.3), 0, 1) ** 2)
+            shore = w["y"] + 0.3 + (d - hw) * 0.3
+            target = np.where(d < hw, prof, shore)
+            H = np.where(d < hw + 4.0, np.minimum(H, target), H)
+    return H
+
+
+def under_water(t, X, Z, H):
+    m = np.zeros(X.shape, bool)
+    for w in t.get("waters", []):
+        if "y" not in w:
+            continue
+        if w["kind"] == "lake":
+            near = np.hypot(X - w["x"], Z - w["z"]) < w["r"] * 1.6
+        else:
+            near = seg_dist(X, Z, w["pts"]) < w["width"] + 3
+        m |= near & (H < w["y"] + 0.12)
+    return m
 
 
 def masks(t, xs2, zs2, H2, holes, res):
@@ -78,6 +140,7 @@ def masks(t, xs2, zs2, H2, holes, res):
             edge = fbm(X / 1.3, Z / 1.3, 77, 3) * 0.6
             pm = np.maximum(pm, np.clip((w / 2 + edge - 0.2 - d) / 0.5, 0, 1))
     dens *= (1 - pm) * float(t.get("grass", 1.0))
+    dens[under_water(t, X, Z, H2)] = 0
     return np.clip(dens, 0, 1), pm
 
 

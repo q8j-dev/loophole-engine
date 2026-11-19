@@ -35,7 +35,7 @@ API_VARS = {
     "api_fov": "field of view", "api_expo": "exposure", "api_fade": "fade", "api_flash": "flash",
     "api_walk": "walk speed", "api_jump": "jump power", "api_grav": "gravity", "api_paused": "paused",
     "api_locked": "mouse locked", "api_vm": "viewmodel", "api_lcoll": "last collected", "api_ltouch": "last touched",
-    "api_ltrig": "last trigger", "api_msg": "message", "api_stat": "status", "quality": "quality",
+    "api_ltrig": "last trigger", "api_water": "water depth", "api_msg": "message", "api_stat": "status", "quality": "quality",
 }
 API_LISTS = {
     "obj_name": "obj name", "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw",
@@ -57,7 +57,7 @@ USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "pla
                 "field_of_view": "field of view", "exposure": "exposure", "fade": "fade", "flash": "flash",
                 "walk_speed": "walk speed", "jump_power": "jump power", "gravity": "gravity", "paused": "paused",
                 "mouse_locked": "mouse locked", "viewmodel": "viewmodel", "last_collected": "last collected",
-                "last_touched": "last touched", "last_trigger": "last trigger", "message": "message", "status": "status", "quality": "quality", "obj_name": "obj name",
+                "last_touched": "last touched", "last_trigger": "last trigger", "message": "message", "status": "status", "quality": "quality", "water_depth": "water depth", "obj_name": "obj name",
                 "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw", "obj_pitch": "obj pitch",
                 "obj_roll": "obj roll", "obj_scale": "obj scale", "obj_visible": "obj visible", "obj_solid": "obj solid",
                 "obj_glow": "obj glow", "obj_open": "obj open", "obj_touching": "obj touching",
@@ -259,6 +259,15 @@ def ground_relative(L):
         return (b[0], b[1] + d, b[2], b[3], b[4] + d, b[5])
 
     L.decor = [(n_, (p[0], p[1] + h(p[0], p[2]), p[2]), fw, up, sc) for n_, p, fw, up, sc in L.decor]
+    for (lx, lz, lyaw, lsc) in getattr(L, "lilies", []):
+        wy = None
+        for w in td.get("waters", []):
+            if w["kind"] == "lake" and (lx - w["x"]) ** 2 + (lz - w["z"]) ** 2 < (w["r"] * 1.2) ** 2:
+                wy = w["y"]
+        if wy is not None and h(lx, lz) < wy - 0.3:
+            a = np.radians(lyaw)
+            L.decor.append(("lilypad", (lx, wy + 0.015, lz), (float(np.cos(a)), 0.0, float(np.sin(a))), (0.0, 1.0, 0.0),
+                            (lsc, 1.0, lsc)))
     for q in L.lights:
         p = q["p"]
         q["p"] = (p[0], p[1] + h(p[0], p[2]), p[2])
@@ -519,7 +528,7 @@ def build(world_path, out=None, log=print, cache=None):
     log(f"loophole {ENGINE_VERSION}: building '{game.title}' ({len(game.levels)} level{'s' * (len(game.levels) != 1)})")
     L = {k: [] for k in LIST_NAMES}
     for k in ["GTEX", "GB", "GC", "GH", "GIB", "GNC", "GOX", "GOY", "GOZ", "GR", "GIDW", "GCH0", "CHX", "CHY", "CHZ",
-              "CHR", "LDET"]:
+              "CHR", "LDET", "LWAT", "LWB0", "LWBN", "WBX0", "WBZ0", "WBX1", "WBZ1", "WBY", "SHX", "SHZ", "SHR", "SHY"]:
         L[k] = []
     groups = []
     lms = {}
@@ -535,6 +544,8 @@ def build(world_path, out=None, log=print, cache=None):
     tiles.update(v for v in game.viewmodels if v in decor_place.KINDS)
     if game.player_model != "suit":
         tiles.add(game.player_model)
+    if any(getattr(Lv, "lilies", None) for Lv in game.levels):
+        tiles.add("lilypad")
     if any(Lv.terrain_def for Lv in game.levels):
         tiles.add("grass")
     tiles = sorted(t for t in tiles if t in decor_pack.available())
@@ -561,6 +572,7 @@ def build(world_path, out=None, log=print, cache=None):
                 I_, F_ = np.concatenate([I_, ii]), np.concatenate([F_, np.full(n, fl)])
                 T_ = np.concatenate([T_, np.zeros((n, 3))])
             has_terrain = True
+        water_lists(L, Lv, groups, models, li)
         used_ids.update(np.unique(M_).astype(int).tolist())
         F_ = np.asarray(F_, float).copy()
         bbv = np.nonzero(F_ > 5.5)[0]
@@ -673,6 +685,62 @@ def portal_blockers(L, Lv, c, rects, h0):
 
 from .world import Level as _Lv
 Level_styles = _Lv.GRASS_STYLES
+
+
+def water_lists(L, Lv, groups, models, li):
+    from . import terrain as T
+    td = Lv.terrain_def
+    waters = (td or {}).get("waters", [])
+    L["LWB0"].append(len(L["WBY"]) + 1)
+    L["LWBN"].append(len(waters))
+    shore = []
+    Ps = []
+    for w in waters:
+        if "y" not in w:
+            T.heights(td)
+        y = w["y"]
+        if w["kind"] == "lake":
+            r = w["r"] * 1.6
+            box = (w["x"] - r, w["z"] - r, w["x"] + r, w["z"] + r)
+            shore.append((w["x"], w["z"], w["r"] * 1.3, y))
+        else:
+            pts = np.asarray(w["pts"], float)
+            m = w["width"] * 0.5 + 3.0
+            box = (pts[:, 0].min() - m, pts[:, 1].min() - m, pts[:, 0].max() + m, pts[:, 1].max() + m)
+            for a, b in zip(pts, pts[1:]):
+                c = (a + b) / 2
+                shore.append((c[0], c[1], float(np.linalg.norm(b - a)) / 2 + w["width"] * 0.5 + 1.5, y))
+        for k_, v_ in zip(("WBX0", "WBZ0", "WBX1", "WBZ1", "WBY"), box + (y,)):
+            L[k_].append(r4(v_))
+        cs = 1.5
+        gx = np.arange(box[0], box[2], cs)
+        gz = np.arange(box[1], box[3], cs)
+        X, Z = np.meshgrid(gx + cs / 2, gz + cs / 2)
+        if w["kind"] == "lake":
+            keep = np.hypot(X - w["x"], Z - w["z"]) < w["r"] * 1.5
+        else:
+            keep = T.seg_dist(X, Z, w["pts"]) < w["width"] * 0.5 + 2.5
+        for iz, ix in zip(*np.nonzero(keep)):
+            x0, z0 = gx[ix], gz[iz]
+            q = [(x0, y, z0), (x0, y, z0 + cs), (x0 + cs, y, z0 + cs), (x0 + cs, y, z0)]
+            Ps += [q[0], q[1], q[2], q[0], q[2], q[3]]
+    shore = shore[:8]
+    for i in range(8):
+        v = shore[i] if i < len(shore) else (0.0, 0.0, -1.0, -999.0)
+        for k_, x_ in zip(("SHX", "SHZ", "SHR", "SHY"), v):
+            L[k_].append(r4(x_))
+    if not Ps:
+        L["LWAT"].append(0)
+        return
+    P = np.array(Ps, float)
+    n = len(P)
+    N = np.tile([0.0, 1.0, 0.0], (n, 1))
+    UV = np.zeros((n, 2))
+    pk = geo.Pack()
+    info = pk.add(P, N, UV, np.full(n, 39.0), np.ones(n), np.zeros(n), irr=np.zeros((n, 3)), flag=np.full(n, 8.0),
+                  tan=np.tile([1.0, 0.0, 0.0], (n, 1)))
+    L["LWAT"].append(models.reg(info, f"g{li}w"))
+    groups.append((f"g{li}w", pk))
 
 
 def spatial_order(P, cell=14.0):

@@ -13,9 +13,9 @@ SOLID = {"crate", "barrel", "machine", "tank", "rack", "terminal", "trolley", "r
          "streetlamp", "boulder", "rock", "stump", "armchair", "nightstand", "cabinet", "toolcart", "oak", "birch",
          "pine", "spruce", "log", "mossrock", "maple", "willow"}
 TRUNK = {"maple": 0.34, "willow": 0.36, "oak": 0.32, "birch": 0.26, "pine": 0.26, "spruce": 0.26, "streetlamp": 0.16}
-FOLIAGE = {"maple", "willow", "oak", "birch", "pine", "spruce", "bush", "grass", "fern"}
+FOLIAGE = {"reeds", "maple", "willow", "oak", "birch", "pine", "spruce", "bush", "grass", "fern"}
 STYLE = {
-    "nature": ["maple", "willow", "log", "mossrock", "oak", "birch", "pine", "spruce", "bush", "grass", "fern", "boulder", "rock", "stump"],
+    "nature": ["reeds", "lilypad", "maple", "willow", "log", "mossrock", "oak", "birch", "pine", "spruce", "bush", "grass", "fern", "boulder", "rock", "stump"],
     "house": ["table", "chair", "bookshelf", "sofa", "bed", "armchair", "nightstand", "cabinet", "picture",
               "chandelier", "sconce", "lantern"],
     "village": ["woodbarrel", "woodcrate", "bench", "firepit", "streetlamp", "walllamp", "toolcart"],

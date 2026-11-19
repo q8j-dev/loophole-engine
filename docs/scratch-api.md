@@ -17,6 +17,7 @@ Variables marked "read" are updated by the engine every frame. Variables marked 
 | `player pitch` | read, set | Looking up (positive) or down (negative), in degrees. |
 | `player speed` | read | Horizontal speed in metres per second. |
 | `player on ground` | read | 1 when standing on something, 0 in the air. |
+| `water depth` | read | How deep the player's feet are under water, in metres. 0 on land. Over about 1.2 the player swims. |
 | `walk speed` | set | Running speed. Default 6. |
 | `jump power` | set | Jump speed. Default 7. |
 | `gravity` | set | Default 20. |
