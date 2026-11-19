@@ -23,6 +23,10 @@ ArmChair_01, Barrel_01, boulder_01, brass_goblets, Chandelier_01, ClassicNightst
 
 The knight, mage, rogue and barbarian player characters come from the KayKit Character Pack: Adventurers by Kay Lousberg (kaylousberg.com), CC0 1.0. `tools/make_characters.py` converts them with their Idle, Walking_A, Running_A and Jump_Idle animations.
 
+## Vehicles and track props
+
+The karts, race car, police car, taxi, SUV and traffic cone come from the Car Kit by Kenney (kenney.nl), CC0 1.0. `tools/make_vehicles.py` converts the vehicles with their wheels as separate parts, and `tools/make_track_props.py` converts the cone and builds the start gate.
+
 ## Foliage
 
 `tools/make_foliage.py` builds the trees, bushes, grass and ferns from these Poly Haven textures: island_tree_01 leaves, jacaranda_tree leaves (willow fronds), pine_tree_01 twigs and bark, fir_sapling twigs, grass_medium_01, fern_02, bark_brown_02.
@@ -34,4 +38,4 @@ The knight, mage, rogue and barbarian player characters come from the KayKit Cha
 
 ## Made for this project
 
-The lab kit props, the cube, door, button, device, arms and player models, and the sound pack in `loophole/data/sfx` (synthesized by `tools/sfx.py`).
+The lab kit props, the cube, door, button, device, arms and player models, the start gate, and the sound pack in `loophole/data/sfx` (synthesized by `tools/sfx.py`, `tools/make_ambience.py` and `tools/make_vehicle_sfx.py`).

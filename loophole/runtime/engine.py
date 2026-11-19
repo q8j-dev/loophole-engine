@@ -32,6 +32,10 @@ def init():
     phurt = 0
     patk = 0
     pthr = 0
+    drv = 0
+    drvcam = 0
+    skt = 0
+    api_drv = ""
     latk = 0
     lthr = 0
     api_cs = ""
@@ -533,6 +537,10 @@ def respawn():
         OVY[api_hold] = 0
         OVZ[api_hold] = 0
     api_hold = 0
+    if drv > 0:
+        obj_yaw[drv] = yaw
+        OPIT[drv] = 0
+        OROL[drv] = 0
     api_out()
 
 
@@ -545,6 +553,8 @@ def sounds_step():
 
 @warp
 def load_level(lv):
+    if drv > 0:
+        leave_car()
     QON[1] = 0
     QON[2] = 0
     if lv != level or FR < 2:
@@ -661,6 +671,7 @@ def sky_load(lv):
     set_tex("uTHM", "grass", join("thm", lv))
     tex_filter(9729)
     set_tex("uTHM", "world", join("tpm", lv))
+    set_vec4("uStart", "world", RSTX[lv], RSTZ[lv], RSTDX[lv], RSTDZ[lv])
     set_vec4("uTHP", "grass", THX[lv], THZ[lv], THW[lv], THD[lv])
     set_vec4("uTHP", "world", THX[lv], THZ[lv], THW[lv], THD[lv])
     set_vec4("uTHR", "grass", THMN[lv], THRG[lv], 0, 0)
@@ -743,6 +754,14 @@ def objects_load(lv):
     mklist(ODEAD, nobj)
     mklist(OATK, nobj)
     mklist(OAHT, nobj)
+    mklist(OWS, nobj)
+    mklist(OSTR, nobj)
+    mklist(OPIT, nobj)
+    mklist(OPITV, nobj)
+    mklist(OROL, nobj)
+    mklist(OROLV, nobj)
+    mklist(OHV, nobj)
+    mklist(OHVV, nobj)
     mklist(OAC, nobj)
     mklist(OAT, nobj)
     mklist(OSP, nobj)
@@ -1039,6 +1058,11 @@ def look():
 
 @warp
 def player_move():
+    if drv > 0:
+        car_drive()
+        body_step()
+        car_after()
+        return
     mvf = 0
     mvr = 0
     if api_ctl == 1:
@@ -1138,25 +1162,7 @@ def player_move():
                     if fr * fr + fu * fu < 3:
                         vx += (fox * 4 - vx) * min(1, dt * 4)
                         vz += (foz * 4 - vz) * min(1, dt * 4)
-    bx = px
-    by = py
-    bz = pz
-    bvx = vx
-    bvy = vy
-    bvz = vz
-    bhx = PW
-    bhy = PHT
-    if crouch == 1:
-        bhy = PHTC
-    bself = 0
-    if onplat > 0:
-        bx += OAX0[onplat] - OPX[onplat]
-        by += OAY0[onplat] - OPY[onplat]
-        bz += OAZ0[onplat] - OPZ[onplat]
-    move_body()
-    px = bx
-    py = by
-    pz = bz
+    body_step()
     if btele > 0:
         nofun = 0.7
         tele_dir(sin(yaw) * cos(pitch), sin(pitch), 0 - cos(yaw) * cos(pitch), btele)
@@ -1231,6 +1237,32 @@ def player_move():
 
 
 @warp
+def body_step():
+    bx = px
+    by = py
+    bz = pz
+    bvx = vx
+    bvy = vy
+    bvz = vz
+    bhx = PW
+    bhy = PHT
+    if crouch == 1:
+        bhy = PHTC
+    if drv > 0:
+        bhx = VHW[DVS[LO0[level] + drv - 1]]
+        bhy = VHH[DVS[LO0[level] + drv - 1]]
+    bself = 0
+    if onplat > 0:
+        bx += OAX0[onplat] - OPX[onplat]
+        by += OAY0[onplat] - OPY[onplat]
+        bz += OAZ0[onplat] - OPZ[onplat]
+    move_body()
+    px = bx
+    py = by
+    pz = bz
+
+
+@warp
 def atan2_(ay, ax):
     if ax > 0:
         at = atan(ay / ax)
@@ -1279,6 +1311,8 @@ def feel():
     shk = max(0, shk - dt * 2.2)
     fspd = sqrt(vx * vx + vy * vy + vz * vz)
     fovt = max(0, min(16, (fspd - 9) * 0.9))
+    if drv > 0:
+        fovt = min(13, api_vspd / DVTOP[LO0[level] + drv - 1] * 13)
     fovk += (fovt - fovk) * min(1, dt * 5)
 
 
@@ -1970,6 +2004,20 @@ def body_obj(k):
 
 @warp
 def use_key():
+    if drv > 0:
+        exit_car()
+        return
+    ucb = 0
+    ucd = 2.8
+    for uk in rep(nobj):
+        if DKIND[LO0[level] + uk - 1] == 7 and obj_visible[uk] == 1:
+            ud = sqrt((obj_x[uk] - px) * (obj_x[uk] - px) + (obj_z[uk] - pz) * (obj_z[uk] - pz))
+            if ud < ucd and abs(obj_y[uk] - py) < 1.5:
+                ucd = ud
+                ucb = uk
+    if ucb > 0 and api_hold == 0:
+        enter_car(ucb)
+        return
     if api_hold > 0:
         api_hold = 0
         play("release")
@@ -2403,6 +2451,9 @@ def cam_orbit():
         cpitch = 0 - max(10, min(89, api_cpitch))
     if abs(api_cyaw - round(lcyaw * 100) / 100) > 0.02:
         cyaw = api_cyaw
+    if drv > 0 and api_cam == 2:
+        chase_cam()
+        return
     otx = px
     oty = py + 1.4
     otz = pz
@@ -2415,7 +2466,10 @@ def cam_orbit():
     rwt = 999
     if api_cam != 3 or LCUT[level] <= 0:
         ray_world(otx, oty, otz, obx, oby, obz)
-    odist = min(api_cdist, rwt - 0.3)
+    odist = api_cdist
+    if drv > 0:
+        odist = max(odist, 5)
+    odist = min(odist, rwt - 0.3)
     odist = max(0.4, odist)
     ccx = otx + obx * odist
     ccy = oty + oby * odist
@@ -2755,9 +2809,14 @@ def shadows_pick():
             scx = obj_x[sbk] + bxx * sox_ + byx * soy_ + bzx * soz_
             scy = obj_y[sbk] + bxy * sox_ + byy * soy_ + bzy * soz_ + OOPN[sbk] * DSLIDE[sod]
             scz = obj_z[sbk] + bxz * sox_ + byz * soy_ + bzz * soz_
-            set_arr4(shn, "uSC", "world", scx, scy, scz, DBZ[sod] * osz_)
-            set_arr4(shn, "uSX", "world", bxx, bxy, bxz, DBX[sod] * osx_)
-            set_arr4(shn, "uSY", "world", byx, byy, byz, DBY[sod] * osy2)
+            if DVS[sod] > 0:
+                set_arr4(shn, "uSC", "world", obj_x[sbk] + byx * DBY[sod] * osy2 * 0.3, obj_y[sbk] + byy * DBY[sod] * osy2 * 0.3 + 0.06, obj_z[sbk] + byz * DBY[sod] * osy2 * 0.3, DBZ[sod] * osz_ * 0.86)
+                set_arr4(shn, "uSX", "world", bxx, bxy, bxz, DBX[sod] * osx_ * 0.78)
+                set_arr4(shn, "uSY", "world", byx, byy, byz, DBY[sod] * osy2 * 0.28)
+            else:
+                set_arr4(shn, "uSC", "world", scx, scy, scz, DBZ[sod] * osz_)
+                set_arr4(shn, "uSX", "world", bxx, bxy, bxz, DBX[sod] * osx_)
+                set_arr4(shn, "uSY", "world", byx, byy, byz, DBY[sod] * osy2)
     set_num("uShN", "world", shn)
 
 
@@ -2819,13 +2878,17 @@ def draw_scene(vq):
         if obj_visible[dk] == 1:
             draw_obj(dk)
     set_vec4("uMode", "world", 1, 1, 0, 0)
-    if api_cam != 0:
+    if api_cam != 0 and drv == 0:
         draw_player()
     if PORTALS == 1:
         draw_portals()
     if LGRASS[level] == 1:
         cam_u("grass")
         set_vec3("uPlr", "grass", px, py, pz)
+        if drv > 0:
+            set_vec4("uVeh", "grass", px, pz, VHW[DVS[LO0[level] + drv - 1]] * 2 + 0.5, 1)
+        else:
+            set_vec4("uVeh", "grass", 0, 0, 0, 0)
         set_vec4("uGB", "grass", gbm, 0, 0, 0)
         draw_list("engine GRASS", "grass")
     if gbm == 0:
@@ -2879,8 +2942,11 @@ def draw_obj(k):
     if DCHR[od] > 0:
         npc_pose(k, od)
         set_vec4("uSkin", "world", 2, 0, 0, 0)
+    if DVS[od] > 0:
+        car_pose(k, DVS[od])
+        set_vec4("uSkin", "world", 2, 0, 0, 0)
     draw_geo(DG[od])
-    if DCHR[od] > 0:
+    if DCHR[od] > 0 or DVS[od] > 0:
         set_vec4("uSkin", "world", 0, 0, 0, 0)
     if DG2[od] > 0:
         set_vec3("uMP", "world", obj_x[k], obj_y[k] + 0.06 - OOPN[k] * 0.05, obj_z[k])
@@ -3821,3 +3887,263 @@ def draw_water(gi):
             draw_list(ixl, "water")
             gco += CHV
 
+
+@warp
+def enter_car(k):
+    drv = k
+    drvcam = api_cam
+    drvpitch = cpitch
+    if api_cam == 0:
+        api_cam = 2
+        cyaw = obj_yaw[k]
+        cpitch = 13
+    obj_solid[k] = 0
+    px = obj_x[k]
+    pz = obj_z[k]
+    py = obj_y[k] + 0.05
+    yaw = obj_yaw[k]
+    vx = 0
+    vz = 0
+    api_drv = obj_name[k]
+    play("click")
+    broadcast("enter vehicle")
+
+
+@warp
+def leave_car():
+    if drv > 0:
+        obj_solid[drv] = 1
+    drv = 0
+    api_cam = drvcam
+    cpitch = drvpitch
+    api_drv = ""
+    api_vspd = 0
+    api_rpm = 0
+
+
+@warp
+def exit_car():
+    ek = drv
+    leave_car()
+    px = obj_x[ek] - cos(obj_yaw[ek]) * (VHW[DVS[LO0[level] + ek - 1]] + 0.75)
+    pz = obj_z[ek] - sin(obj_yaw[ek]) * (VHW[DVS[LO0[level] + ek - 1]] + 0.75)
+    py = obj_y[ek] + 0.1
+    vx = 0
+    vy = 0
+    vz = 0
+    play("click")
+    broadcast("exit vehicle")
+
+
+@warp
+def car_drive():
+    od = LO0[level] + drv - 1
+    cthr = 0
+    cst = 0
+    chb = 0
+    if api_ctl == 1:
+        cthr = iny
+        cst = inx
+        chb = ijump
+    cyw = obj_yaw[drv]
+    vf = vx * sin(cyw) - vz * cos(cyw)
+    vl = vx * cos(cyw) + vz * sin(cyw)
+    vf0 = vf
+    ctop = DVTOP[od]
+    cacc = DVACC[od]
+    csr = 0
+    if onground == 1:
+        if cthr > 0.05:
+            if vf < -0.3:
+                vf = min(0, vf + cthr * cacc * 2.2 * dt)
+            else:
+                vf = vf + cthr * cacc * max(0, 1.15 - vf / ctop) * dt
+        elif cthr < -0.05:
+            if vf > 0.3:
+                vf = max(0, vf + cthr * cacc * 2.2 * dt)
+            else:
+                vf = max(0 - ctop * 0.35, vf + cthr * cacc * 0.7 * dt)
+        else:
+            vf = vf - vf * min(1, dt * 0.4)
+            if abs(vf) < 0.4:
+                vf = vf - vf * min(1, dt * 4)
+        if chb == 1:
+            vf = vf - vf * min(1, dt * 0.7)
+        cgr = DVGRIP[od] * 9
+        if chb == 1:
+            cgr = DVGRIP[od] * 1.2
+        vl = vl * max(0, 1 - cgr * dt)
+        csr = cst * (125 - 55 * min(1, abs(vf) / ctop)) * min(1, abs(vf) / 3)
+        if chb == 1:
+            csr = csr * 1.5
+        if vf < 0:
+            csr = 0 - csr
+    else:
+        csr = cst * 30
+    cyw = cyw + csr * dt
+    OSTR[drv] = OSTR[drv] + (cst * 26 - OSTR[drv]) * min(1, dt * 10)
+    vx = sin(cyw) * vf + cos(cyw) * vl
+    vz = 0 - cos(cyw) * vf + sin(cyw) * vl
+    vy = max(-40, vy - api_grav * dt)
+    obj_yaw[drv] = cyw
+    yaw = cyw
+    cpt = max(-5, min(5, (vf - vf0) / max(dt, 0.001) * 0.45))
+    crt = max(-7, min(7, csr * abs(vf) * 0.004 - vl * 0.9))
+    OPITV[drv] = OPITV[drv] + ((cpt - OPIT[drv]) * 80 - OPITV[drv] * 9) * dt
+    OPIT[drv] = OPIT[drv] + OPITV[drv] * dt
+    OROLV[drv] = OROLV[drv] + ((crt - OROL[drv]) * 80 - OROLV[drv] * 9) * dt
+    OROL[drv] = OROL[drv] + OROLV[drv] * dt
+    OWS[drv] = (OWS[drv] - vf / VRAD[(DVS[od] - 1) * 5 + 2] * 57.3 * dt) % 360
+    cspd = abs(vf)
+    api_vspd = round(cspd * 10) / 10
+    crr = min(1, cspd / ctop)
+    api_rpm = round(min(1, crr * 0.7 + (crr * 4 - floor(crr * 4)) * 0.22 + max(0, cthr) * 0.1) * 100) / 100
+    skt = skt - dt
+    if onground == 1 and abs(vl) > 2.2 and cspd > 4 and skt <= 0:
+        play("skid")
+        skt = 0.42
+
+
+@warp
+def car_after():
+    if bground == 1 and onground == 0 and lvy < -2.5:
+        OHVV[drv] = OHVV[drv] + lvy * 0.12
+        if lvy < -6:
+            play("land")
+    vx = bvx
+    vy = bvy
+    vz = bvz
+    lvy = vy
+    if bground == 0:
+        lvy = bvy
+    onground = bground
+    OHVV[drv] = OHVV[drv] + (0 - OHV[drv] * 140 - OHVV[drv] * 11) * dt
+    OHV[drv] = OHV[drv] + OHVV[drv] * dt
+    obj_x[drv] = px
+    obj_y[drv] = py
+    obj_z[drv] = pz
+    cgp = 0
+    cgr = 0
+    if HASTER == 1 and onground == 1:
+        cv0 = (DVS[LO0[level] + drv - 1] - 1) * 15
+        cwf = 0 - VPV[cv0 + 6]
+        cwb = VPV[cv0 + 12]
+        cwt = VPV[cv0 + 7]
+        cfx3 = sin(yaw)
+        cfz3 = 0 - cos(yaw)
+        terr_h(px + cfx3 * cwf, pz + cfz3 * cwf)
+        chf = tgh
+        terr_h(px - cfx3 * cwb, pz - cfz3 * cwb)
+        chb = tgh
+        terr_h(px - cos(yaw) * cwt, pz - sin(yaw) * cwt)
+        chl2 = tgh
+        terr_h(px + cos(yaw) * cwt, pz + sin(yaw) * cwt)
+        chr2 = tgh
+        if chf > -900 and chb > -900 and chl2 > -900 and chr2 > -900:
+            cgp = atan((chf - chb) / max(0.3, cwf + cwb))
+            cgr = atan((chr2 - chl2) / max(0.3, cwt * 2))
+            obj_y[drv] = py + max(0, (chf + chb + chl2 + chr2) / 4 - py)
+    obj_pitch[drv] = obj_pitch[drv] + (cgp - obj_pitch[drv]) * min(1, dt * 12)
+    obj_roll[drv] = obj_roll[drv] + (cgr - obj_roll[drv]) * min(1, dt * 12)
+    if bkill == 1:
+        die()
+
+
+@warp
+def terr_h(x, z):
+    tgh = -999
+    if LTER[level] == 1:
+        tgx = (x - TOX[level]) / TST[level]
+        tgz = (z - TOZ[level]) / TST[level]
+        if tgx >= 0 and tgz >= 0 and tgx < TNX[level] - 1 and tgz < TNZ[level] - 1:
+            tix = floor(tgx)
+            tiz = floor(tgz)
+            tfx = tgx - tix
+            tfz = tgz - tiz
+            tb = TH0[level] + tiz * TNX[level] + tix
+            tgh = (THT[tb] * (1 - tfx) + THT[tb + 1] * tfx) * (1 - tfz) + (THT[tb + TNX[level]] * (1 - tfx) + THT[tb + TNX[level] + 1] * tfx) * tfz
+
+
+@warp
+def car_pose(k, vs):
+    cv0 = (vs - 1) * 15
+    cba = OPIT[k]
+    cbb = OROL[k]
+    cca = cos(cba)
+    csa = sin(cba)
+    ccb = cos(cbb)
+    csb = sin(cbb)
+    cpx = VPV[cv0 + 1]
+    cpy = VPV[cv0 + 2]
+    cpz = VPV[cv0 + 3]
+    r00 = ccb
+    r01 = 0 - csb
+    r02 = 0
+    r10 = cca * csb
+    r11 = cca * ccb
+    r12 = 0 - csa
+    r20 = csa * csb
+    r21 = csa * ccb
+    r22 = cca
+    set_arr4(1, "uBM", "world", r00, r01, r02, cpx - (r00 * cpx + r01 * cpy + r02 * cpz))
+    set_arr4(2, "uBM", "world", r10, r11, r12, cpy - (r10 * cpx + r11 * cpy + r12 * cpz) + OHV[k])
+    set_arr4(3, "uBM", "world", r20, r21, r22, cpz - (r20 * cpx + r21 * cpy + r22 * cpz))
+    ccw = cos(OWS[k])
+    csw = sin(OWS[k])
+    for cj in rep(4):
+        cpx = VPV[cv0 + cj * 3 + 1]
+        cpy = VPV[cv0 + cj * 3 + 2]
+        cpz = VPV[cv0 + cj * 3 + 3]
+        ccs = 1
+        css = 0
+        if cj <= 2:
+            ccs = cos(0 - OSTR[k])
+            css = sin(0 - OSTR[k])
+        r00 = ccs
+        r01 = css * csw
+        r02 = css * ccw
+        r10 = 0
+        r11 = ccw
+        r12 = 0 - csw
+        r20 = 0 - css
+        r21 = ccs * csw
+        r22 = ccs * ccw
+        set_arr4(cj * 3 + 1, "uBM", "world", r00, r01, r02, cpx - (r00 * cpx + r01 * cpy + r02 * cpz))
+        set_arr4(cj * 3 + 2, "uBM", "world", r10, r11, r12, cpy - (r10 * cpx + r11 * cpy + r12 * cpz))
+        set_arr4(cj * 3 + 3, "uBM", "world", r20, r21, r22, cpz - (r20 * cpx + r21 * cpy + r22 * cpz))
+
+
+@warp
+def chase_cam():
+    cvy = yaw + OSTR[drv] * 0.8
+    if vx * vx + vz * vz > 9:
+        atan2_(vx, 0 - vz)
+        cvy = at + ((cvy - at + 540) % 360 - 180) * 0.55
+    cyaw += ((cvy - cyaw + 540) % 360 - 180) * min(1, dt * 3.2)
+    chl += (min(2.2, api_vspd * 0.09) - chl) * min(1, dt * 1.6)
+    cvw = VHW[DVS[LO0[level] + drv - 1]]
+    chd = 4.6 + cvw * 3 + chl
+    chh = 2.2 + cvw * 1.4 + chl * 0.25
+    cpitch = 10
+    obx = 0 - sin(cyaw)
+    obz = cos(cyaw)
+    oby = chh / chd
+    obl = sqrt(1 + oby * oby)
+    rwt = 999
+    ray_world(px, py + 1.1, pz, obx / obl, oby / obl, obz / obl)
+    chs = min(1, (rwt - 0.3) / (chd * obl))
+    chs = max(0.15, chs)
+    ccx = px + obx * chd * chs
+    ccy = py + 1.1 + (chh - 1.1) * chs
+    ccz = pz + obz * chd * chs
+    cpc = cos(cpitch)
+    cfx = sin(cyaw) * cpc
+    cfy = 0 - sin(cpitch)
+    cfz = 0 - cos(cyaw) * cpc
+    crx = cos(cyaw)
+    cry = 0
+    crz = sin(cyaw)
+    cux = cry * cfz - crz * cfy
+    cuy = crz * cfx - crx * cfz
+    cuz = crx * cfy - cry * cfx
+    lcyaw = cyaw

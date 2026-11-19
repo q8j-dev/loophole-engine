@@ -42,6 +42,7 @@ API_VARS = {
     "api_ijump": "input jump", "api_iuse": "input use", "api_cpx": "checkpoint x", "api_cpy": "checkpoint y",
     "api_cpz": "checkpoint z", "api_cpyaw": "checkpoint yaw", "api_cs": "cutscene",
     "api_hp": "health", "api_hpmax": "max health", "api_atk": "attack", "api_thr": "throw",
+    "api_drv": "driving", "api_vspd": "vehicle speed", "api_rpm": "engine rpm",
 }
 API_LISTS = {
     "obj_name": "obj name", "obj_x": "obj x", "obj_y": "obj y", "obj_z": "obj z", "obj_yaw": "obj yaw",
@@ -54,7 +55,8 @@ API_LISTS = {
 }
 ALIASES = {**API_VARS, **API_LISTS}
 FIXED_BROADCASTS = ["level start", "player died", "paused", "resumed", "game complete", "collect", "touch", "enter",
-                    "leave", "sees player", "checkpoint", "cutscene done", "defeated", "player hurt"]
+                    "leave", "sees player", "checkpoint", "cutscene done", "defeated", "player hurt", "enter vehicle",
+                    "exit vehicle"]
 USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "player z", "player_yaw": "player yaw",
                 "player_pitch": "player pitch", "player_speed": "player speed", "on_ground": "player on ground",
                 "level": "level", "level_name": "level name", "level_time": "level time", "fps": "fps",
@@ -77,7 +79,7 @@ USER_ALIASES = {"player_x": "player x", "player_y": "player y", "player_z": "pla
                 "checkpoint_x": "checkpoint x", "checkpoint_y": "checkpoint y", "checkpoint_z": "checkpoint z",
                 "checkpoint_yaw": "checkpoint yaw", "save_data": "save data", "cutscene": "cutscene",
                 "health": "health", "max_health": "max health", "obj_health": "obj health", "attack": "attack",
-                "throw": "throw"}
+                "throw": "throw", "driving": "driving", "vehicle_speed": "vehicle speed", "engine_rpm": "engine rpm"}
 
 SH = ("shader", "menu", "penPlusShaders")
 UN = ("uniformName", "text", None)
@@ -677,7 +679,7 @@ def build(world_path, out=None, log=print, cache=None):
     world_path = Path(world_path).resolve()
     game = load_game(world_path)
     props.configure(used_regions(game), high=game.textures == "high")
-    if game.models or game.characters:
+    if game.models or game.characters or getattr(game, "vehicle_models", None):
         from . import models as MD
         MD.import_models(game, world_path.parent, log)
     if game.player_model != "suit" and game.player_model not in decor_place.KINDS:
@@ -795,7 +797,7 @@ def build(world_path, out=None, log=print, cache=None):
                         L[k_].append(int(v_))
             groups.append((f"g{li}{part}", pk))
         level_lists(L, Lv, c, meta, li, models, broadcasts)
-        L["ATYPES"] = sorted(set(L.get("ATYPES", [])) | audio_lists(L, Lv))
+        L["ATYPES"] = sorted(set(L.get("ATYPES", [])) | audio_lists(L, Lv) | ({"engine"} if any(o.kind == 7 for o in Lv.objects) else set()))
         L["_NAVMAX"] = max(L.get("_NAVMAX", 1), nav.nav_lists(L, Lv, c))
         cutscene_lists(L, Lv, li)
     L["NDX"] = [1, -1, 0, 0, 1, 1, -1, -1]
@@ -837,7 +839,7 @@ LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "
               "DPRY2", "DPRS2", "DPRT2", "DBX", "DBY", "DBZ", "DBCX", "DBCY", "DBCZ", "DSX", "DSY", "DSZ", "DKIND",
               "DPHYS", "DCARRY", "DUSE", "DSHAD", "DSOLID", "DVIS", "DX", "DY", "DZ", "DYAW", "DPITCH", "DROLL",
               "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DHR", "DHG", "DHB", "DBOB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
-              "DPSP", "DPLOOP", "DPFACE", "DMODE", "DSIGHT", "DFOV", "DMASS", "DFRIC", "DBNC", "DPUSH", "DWGT", "DSWG", "DLEN", "DLGT", "DHP", "DDMG", "DRNG", "DCHR", "NBM", "NCB0", "NCNJ", "NCCL", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
+              "DPSP", "DPLOOP", "DPFACE", "DMODE", "DSIGHT", "DFOV", "DMASS", "DFRIC", "DBNC", "DPUSH", "DWGT", "DSWG", "DLEN", "DLGT", "DHP", "DDMG", "DRNG", "DCHR", "NBM", "NCB0", "NCNJ", "NCCL", "DVS", "DVTOP", "DVACC", "DVGRIP", "VPV", "VRAD", "VHW", "VHH", "RSTX", "RSTZ", "RSTDX", "RSTDZ", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH", "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"]
 
 
 def portal_blockers(L, Lv, c, rects, h0):
@@ -1105,8 +1107,12 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
         vals = [0.0] * 21
     L["SKY"].extend(vals + [0.0] * (24 - len(vals)))
     for k in ("TLMX", "TLMZ", "TLMW", "TLMD", "THX", "THZ", "THW", "THD", "THMN", "THRG", "GRX", "GRY", "GRW", "GRH",
-              "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT"):
+              "LGRASS", "GRSZ", "GRDN", "GRDRY", "GRFL", "GRLT", "RSTX", "RSTZ", "RSTDX", "RSTDZ"):
         L[k].append(0)
+    for r_ in getattr(Lv, "roads", []):
+        if r_.start and r_.kerbs and not L["RSTDX"][-1] and not L["RSTDZ"][-1]:
+            sx_, sz_, tx_, tz_ = r_.at(0.0)
+            L["RSTX"][-1], L["RSTZ"][-1], L["RSTDX"][-1], L["RSTDZ"][-1] = r4(sx_), r4(sz_), r4(tx_), r4(tz_)
     if c.terrain is not None:
         from . import terrain as T
         f = c.field
@@ -1123,7 +1129,12 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
         b = io.BytesIO()
         Image.fromarray(img, "RGB").save(b, "PNG")
         THM[c.level_index] = (b.getvalue(), img.shape[1], img.shape[0])
-        pimg = np.repeat(np.round(pm * 255).astype(np.uint8)[..., None], 3, -1)
+        if Lv.terrain_def.get("roads"):
+            xs4 = np.linspace(xs2[0], xs2[-1], len(xs2) * 2 - 1)
+            zs4 = np.linspace(zs2[0], zs2[-1], len(zs2) * 2 - 1)
+            X4, Z4 = np.meshgrid(xs4, zs4)
+            _, pm = T.masks(Lv.terrain_def, xs4, zs4, f.inner(X4, Z4), getattr(f, "holes", []), res_ / 2)
+        pimg = np.round(np.clip(pm, 0, 1) * 255).astype(np.uint8)
         b2 = io.BytesIO()
         Image.fromarray(pimg, "RGB").save(b2, "PNG")
         TPM[c.level_index] = (b2.getvalue(), pimg.shape[1], pimg.shape[0])
@@ -1300,6 +1311,14 @@ def object_lists(L, o, names, models, Lv):
     L["DDMG"].append(r4(float(getattr(o, "damage", 1))))
     L["DRNG"].append(r4(float(getattr(o, "attack_range", 1.5))))
     L["DCHR"].append(npc_char(L, o.model))
+    vs = vehicle_spec(L, o.model) if o.kind == 7 else 0
+    if o.kind == 7 and not vs:
+        raise SystemExit(f"{Lv.name}: vehicle '{o.name}' uses '{o.model}', which is not a vehicle model. Use one of "
+                         f"kart, kart_pink, kart_yellow, kart_green, kart_tan, racecar, police, taxi, suv, or add one with game.vehicle_model(...)")
+    L["DVS"].append(vs)
+    L["DVTOP"].append(r4(getattr(o, "top_speed", 0.0)))
+    L["DVACC"].append(r4(getattr(o, "accel", 0.0)))
+    L["DVGRIP"].append(r4(getattr(o, "grip", 1.0)))
     acc = 0.0
     for i, p in enumerate(path):
         if i > 0:
@@ -1312,7 +1331,7 @@ def object_lists(L, o, names, models, Lv):
 
 
 SFX = ["arrive", "button", "click", "door_close", "door_open", "fail", "impact", "jump", "land", "pickup", "release",
-       "step1", "step2", "step3", "step4", "step5", "success", "unpress", "whoosh", "alarm", "boost", "hum", "rumble"]
+       "step1", "step2", "step3", "step4", "step5", "success", "unpress", "whoosh", "alarm", "boost", "hum", "rumble", "skid"]
 
 
 def sounds(A):
@@ -1531,7 +1550,7 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
                 "but don't edit it by hand. This comment can be deleted to remove the stored settings.\n"
                 + json.dumps(tw_cfg, separators=(",", ":")) + " // _twconfig_")
     api_values = {"health": getattr(game, "health", 3), "max health": getattr(game, "health", 3),
-                  "cutscene": "", "checkpoint x": "", "checkpoint y": "", "checkpoint z": "", "checkpoint yaw": "",
+                  "cutscene": "", "driving": "", "vehicle speed": 0, "engine rpm": 0, "checkpoint x": "", "checkpoint y": "", "checkpoint z": "", "checkpoint yaw": "",
                   "touch controls": 1 if touch is True else 0, "weather": "clear", "message": "", "status": "", "quality": game.quality, "viewmodel": game.viewmodel, "controls": 1, "camera mode": game.camera, "field of view": game.fov,
                   "exposure": 1, "walk speed": game.walk_speed, "jump power": game.jump_power, "gravity": 20.0,
                   "camera distance": game.camera_distance, "camera pitch": game.camera_pitch,
@@ -1625,6 +1644,23 @@ def npc_char(L, model):
     for s, n in clips[:len(character.CLIP_ORDER)]:
         L["NCCL"] += [s, n]
     L["NBM"].extend(r4(v) for v in fr.reshape(-1))
+    kinds[model] = len(kinds) + 1
+    return kinds[model]
+
+
+def vehicle_spec(L, model):
+    from . import vehicle
+    kinds = L.setdefault("_VSPECS", {})
+    if model in kinds:
+        return kinds[model]
+    path = vehicle.spec_path(model)
+    if not path.exists():
+        return 0
+    a = np.load(path)
+    L["VPV"].extend(r4(v) for v in a["pivots"].reshape(-1))
+    L["VRAD"].extend(r4(max(float(v), 0.05)) for v in a["radius"])
+    L["VHW"].append(r4(min(0.9, float(a["size"][0]) * 0.42)))
+    L["VHH"].append(r4(min(1.6, float(a["size"][1]) * 0.9)))
     kinds[model] = len(kinds) + 1
     return kinds[model]
 

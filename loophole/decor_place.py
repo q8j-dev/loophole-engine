@@ -147,9 +147,17 @@ def build(c):
 
 
 def footprints(c):
+    key = len(getattr(c, "decor", []))
+    cached = getattr(c, "_footprints", None)
+    if cached is not None and cached[0] == key:
+        return cached[1]
     out = []
     for it in getattr(c, "decor", []):
         name, pos, fwd, up, scale = it
         P = instance(name, pos, fwd, up, scale)[0]
         out.append((P.min(0), P.max(0)))
+    try:
+        c._footprints = (key, out)
+    except AttributeError:
+        pass
     return out

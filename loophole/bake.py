@@ -66,6 +66,7 @@ class Grid:
         F = self.F
         self.fine = np.repeat(np.repeat(np.repeat(self.solid, F, 0), F, 1), F, 2)
         self.fshape = np.array(self.fine.shape)
+        self._skip = None
 
     def add_occluders(self, boxes):
         fr = lvl.RES * self.F
@@ -75,6 +76,7 @@ class Grid:
             a = np.clip(a, 0, self.fshape)
             b = np.clip(b, 0, self.fshape)
             self.fine[a[0]:b[0], a[1]:b[1], a[2]:b[2]] = True
+        self._skip = None
 
     def add_heightfield(self, xs, zs, H):
         fr = lvl.RES * self.F
@@ -99,6 +101,7 @@ class Grid:
             ks = np.nonzero(ok)[0]
             ys = np.arange(nyf)
             self.fine[i][:, ks] |= ys[:, None] < top[None, :]
+        self._skip = None
 
     def fine_solid(self, P):
         I = np.floor((P - self.origin) * (lvl.RES * self.F)).astype(np.int64)
@@ -126,18 +129,47 @@ class Grid:
         out[ok] = self.solid[J[:, 0], J[:, 1], J[:, 2]]
         return out
 
+    def skip_map(self):
+        if self._skip is None:
+            fr = lvl.RES * self.F
+            col = self.fine.any(axis=1)
+            top = self.fshape[1] - np.argmax(self.fine[:, ::-1, :], axis=1)
+            top = np.where(col, self.origin[1] + top / fr, -1e9)
+            b = 8
+            tp = np.pad(top, ((0, (-top.shape[0]) % b), (0, (-top.shape[1]) % b)), constant_values=-1e9)
+            cm = tp.reshape(tp.shape[0] // b, b, tp.shape[1] // b, b).max((1, 3))
+            p = np.pad(cm, 1, constant_values=-1e9)
+            dil = np.max([p[1 + i:p.shape[0] - 1 + i, 1 + j:p.shape[1] - 1 + j] for i in (-1, 0, 1) for j in (-1, 0, 1)], 0)
+            self._skip = (dil, b / fr)
+        return self._skip
+
     def occluded(self, P, D, tmax, t0=0.04):
         n = len(P)
         hit = np.zeros(n, bool)
         act = np.arange(n)
-        t = t0
+        t = np.full(n, float(t0))
         st = 0.07
         top = self.origin[1] + self.shape[1] / lvl.RES
+        if self.outdoor:
+            dil, cell = self.skip_map()
+            hz = np.sqrt(D[:, 0] ** 2 + D[:, 2] ** 2)
+            jump_len = np.maximum(st, cell / np.maximum(hz, 0.05))
+            up = D[:, 1] >= 0
         while len(act):
-            Q = P[act] + D[act] * t
+            Q = P[act] + D[act] * t[act, None]
             s = self.fine_solid(Q)
             hit[act[s]] = True
-            keep = ~s & (tmax[act] > t + st)
+            stp = np.full(len(act), st)
+            if self.outdoor:
+                cx = np.floor((Q[:, 0] - self.origin[0]) / cell).astype(np.int64)
+                cz = np.floor((Q[:, 2] - self.origin[2]) / cell).astype(np.int64)
+                inm = (cx >= 0) & (cz >= 0) & (cx < dil.shape[0]) & (cz < dil.shape[1])
+                mh = np.full(len(act), -1e9)
+                mh[inm] = dil[cx[inm], cz[inm]]
+                j = up[act] & (Q[:, 1] > mh + 0.02)
+                stp = np.where(j, jump_len[act], st)
+            t[act] += stp
+            keep = ~s & (tmax[act] > t[act])
             if self.outdoor:
                 lo_ = self.origin
                 hi_ = self.origin + self.shape / lvl.RES
@@ -145,7 +177,6 @@ class Grid:
             elif self.open_top:
                 keep &= Q[:, 1] < top
             act = act[keep]
-            t += st
         return hit
 
     def first_hit(self, P, D, tmax=60.0, t0=0.04):

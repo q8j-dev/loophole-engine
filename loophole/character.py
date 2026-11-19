@@ -273,6 +273,15 @@ def convert(path, out_dir, name, height=1.8, keep=None, size=512, facing="+z", a
             frames.append(np.array(row))
     frames = np.array(frames, np.float32)
 
+    out_dir = write_kit(out_dir, name, P, N, UV, MI, mats, bone, size)
+    (out_dir / "anim").mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(out_dir / "anim" / f"{name}.npz", frames=frames,
+                        clips=np.array([clips[k] for k in CLIP_ORDER], np.int32),
+                        fps=np.array([FPS], np.float32))
+    return len(P) // 3, len(used), {k: chosen[k] for k in CLIPS}
+
+
+def write_kit(out_dir, name, P, N, UV, MI, mats, bone, size=512):
     mats_used = sorted(set(int(m) for m in MI))
     gsz = int(np.ceil(np.sqrt(len(mats_used))))
     cell = size // gsz
@@ -302,15 +311,11 @@ def convert(path, out_dir, name, height=1.8, keep=None, size=512, facing="+z", a
     out_dir = Path(out_dir)
     (out_dir / "kit").mkdir(parents=True, exist_ok=True)
     (out_dir / "tiles").mkdir(parents=True, exist_ok=True)
-    (out_dir / "anim").mkdir(parents=True, exist_ok=True)
     np.savez_compressed(out_dir / "kit" / f"kit_{name}.npz", pos=P.astype(np.float32), nrm=N.astype(np.float32),
                         uv=UVo.astype(np.float32), tan=Tn.astype(np.float32), bone=bone)
-    np.savez_compressed(out_dir / "anim" / f"{name}.npz", frames=frames,
-                        clips=np.array([clips[k] for k in CLIP_ORDER], np.int32),
-                        fps=np.array([FPS], np.float32))
     from .decor_pack import jpg
     (out_dir / "tiles" / f"{name}_a.jpg").write_bytes(jpg(np.sqrt(np.clip(al, 0, 1) ** 2.2), 92))
     (out_dir / "tiles" / f"{name}_n.jpg").write_bytes(jpg(nm_, 94))
     h = size // 2
     (out_dir / "tiles" / f"{name}_r.jpg").write_bytes(jpg(rm.reshape(h, 2, h, 2, 3).mean((1, 3)), 92))
-    return len(P) // 3, len(used), {k: chosen[k] for k in CLIPS}
+    return out_dir

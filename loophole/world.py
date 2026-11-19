@@ -46,9 +46,83 @@ class Obj:
                  collect=False, spin=0.0, path=None, speed=2.0, loop=True, face_path=True, kind=0, opens=None,
                  slide=0.0, open_speed=0.8, texture=None, highlight=None, bob=0.0, mode=None, sight=12.0, fov=140.0,
                  mass=1.0, friction=0.5, bounce=0.0, push=True, weight=0.5, swing=0.0, length=0.0,
-                 health=0, damage=1, attack_range=1.5):
+                 health=0, damage=1, attack_range=1.5, top_speed=0.0, accel=0.0, grip=1.0):
         self.__dict__.update(locals())
         del self.__dict__["self"]
+
+
+class Road:
+    def __init__(self, points, width, closed, kerbs, start):
+        P = np.array([(float(p[0]), float(p[-1])) for p in points])
+        if len(P) < 2:
+            raise ValueError("a road needs at least 2 points")
+        if closed and np.allclose(P[0], P[-1]):
+            P = P[:-1]
+        n = len(P)
+        segs = range(n if closed else n - 1)
+        out = []
+        for i in segs:
+            p0 = P[(i - 1) % n] if closed or i > 0 else P[i]
+            p1, p2 = P[i], P[(i + 1) % n]
+            p3 = P[(i + 2) % n] if closed or i + 2 < n else p2
+            L = max(float(np.hypot(*(p2 - p1))), 1e-6)
+            k = max(2, int(L / 0.5))
+            t = np.linspace(0, 1, k, endpoint=False)[:, None]
+            out.append(0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t
+                              + (-p0 + 3 * p1 - 3 * p2 + p3) * t ** 3))
+        out.append((P[0] if closed else P[-1])[None])
+        self.pts = np.concatenate(out)
+        d = np.hypot(*np.diff(self.pts, axis=0).T)
+        self.s = np.concatenate([[0], np.cumsum(d)])
+        self.width, self.closed, self.kerbs, self.start = float(width), bool(closed), bool(kerbs), bool(start)
+
+    @property
+    def length(self):
+        return float(self.s[-1])
+
+    def at(self, frac):
+        d = (frac % 1.0 if self.closed else min(max(frac, 0.0), 1.0)) * self.length
+        i = min(int(np.searchsorted(self.s, d)), len(self.pts) - 1)
+        i0, i1 = max(i - 2, 0), min(i + 2, len(self.pts) - 1)
+        t = self.pts[i1] - self.pts[i0]
+        t = t / max(float(np.hypot(*t)), 1e-6)
+        return float(self.pts[i][0]), float(self.pts[i][1]), float(t[0]), float(t[1])
+
+    def data(self):
+        return dict(pts=self.pts.tolist(), s=self.s.tolist(), width=self.width, kerbs=self.kerbs, start=self.start)
+
+    def _gate(self, name, frac, gate):
+        x, z, tx, tz = self.at(frac)
+        h = self.width / 2 + 0.6
+        if gate:
+            self.level.prop("gate", x, 0, z, yaw=math.degrees(math.atan2(tx, -tz)), scale=(self.width + 1.2) / 10.7,
+                            solid=False, light=False)
+        self.level.trigger(name, x - h, -1, z - h, x + h, 5, z + h)
+        return name
+
+    def checkpoints(self, count=3, gates=True):
+        names = [self._gate("start", 0.0, gates)]
+        for i in range(1, count + 1):
+            names.append(self._gate(f"cp{i}", i / (count + 1), gates))
+        return names
+
+    def cones(self, spacing=4.0, bend=0.035, offset=1.0):
+        P = self.pts
+        n = len(P)
+        tang = np.gradient(P, axis=0)
+        tang /= np.maximum(np.linalg.norm(tang, axis=1, keepdims=True), 1e-9)
+        ang = np.unwrap(np.arctan2(tang[:, 1], tang[:, 0]))
+        k = np.gradient(ang) / np.maximum(np.gradient(self.s), 1e-6)
+        k = np.convolve(k, np.ones(9) / 9, mode="same")
+        last = -1e9
+        for i in range(n):
+            if abs(k[i]) > bend and self.s[i] - last > spacing:
+                side = -np.sign(k[i])
+                nx, nz = -tang[i][1] * side, tang[i][0] * side
+                d = self.width / 2 + offset
+                self.level.prop("cone", float(P[i][0] + nx * d), 0, float(P[i][1] + nz * d), solid=False, light=False)
+                last = self.s[i]
+        return self
 
 
 class Cutscene:
@@ -111,6 +185,7 @@ class Level:
         self.vents = []
         self.spark_pts = []
         self.buildings = []
+        self.roads = []
         self.start = (0.0, 0.0, 0.0, 0.0)
         self.start_pitch = 0.0
         self.default_mats = {"floor": "floor", "ceil": "ceil", "wall": "white"}
@@ -444,6 +519,15 @@ class Level:
         return self.object(name, "door", x, y + height / 2, z, yaw=yaw, size=(width / 2, height / 3, 0.6), kind=3,
                            swing=swing, length=width / 2, **kw)
 
+    def vehicle(self, name, model="kart", x=0.0, y=0.0, z=0.0, yaw=0.0, top_speed=None, accel=None, grip=1.0, **kw):
+        from .vehicle import BUILTIN
+        fast = {"racecar": (26.0, 13.0)}.get(model, (15.0, 9.0) if model.startswith("kart") or model not in BUILTIN else (21.0, 9.0))
+        kw.setdefault("shadow", True)
+        if self.terrain_def:
+            self.terrain_def.setdefault("clear", []).append((float(x), float(z), 2.2))
+        return self.object(name, model, x, y, z, yaw=yaw, kind=7, solid=True, top_speed=float(top_speed or fast[0]),
+                           accel=float(accel or fast[1]), grip=float(grip), **kw)
+
     def swing(self, name, model, x, y, z, length=1.5, angle=25.0, light=None, **kw):
         kw.setdefault("solid", False)
         o = self.object(name, model, x, y - length, z, kind=4, swing=angle, length=length, **kw)
@@ -602,6 +686,9 @@ class Level:
         sx, _, sz, _ = self.start
         if (x - sx) ** 2 + (z - sz) ** 2 < (margin + 2.0) ** 2:
             return True
+        for r in self.roads:
+            if float(np.min((r.pts[:, 0] - x) ** 2 + (r.pts[:, 1] - z) ** 2)) < (r.width / 2 + 1.5 + margin) ** 2:
+                return True
         for pts, w, _ in (self.terrain_def or {}).get("paths", []):
             for a, b in zip(pts, pts[1:]):
                 ax, az, bx, bz = a[0], a[1], b[0], b[1]
@@ -741,6 +828,19 @@ class Level:
                        volume=0.6, auto=True)
         return self
 
+    def road(self, *points, width=8.0, closed=True, kerbs=True, start=True, surface="asphalt"):
+        if not self.terrain_def:
+            raise ValueError("call level.terrain(...) before level.road(...)")
+        r = Road(points, width, closed, kerbs, start)
+        r.level = self
+        if surface == "asphalt":
+            self.terrain_def.setdefault("roads", []).append(r.data())
+        else:
+            self.terrain_def.setdefault("roads", []).append(dict(r.data(), paint=False))
+            self.terrain_def.setdefault("paths", []).append(([tuple(p) for p in r.pts], float(width), surface))
+        self.roads.append(r)
+        return r
+
     def flatten(self, x0, z0, x1, z1, height=0.0, falloff=6.0):
         if not self.terrain_def:
             raise ValueError("call level.terrain(...) before level.flatten(...)")
@@ -763,6 +863,7 @@ class Game:
         self.portal_colors = ("cyan", "magenta")
         self.player_model = player_model
         self.characters = {}
+        self.vehicle_models = {}
         self.camera_pitch = camera_pitch if camera_pitch is not None else (60.0 if camera == "top down" else 20.0)
         self.viewmodel_arms = viewmodel_arms
         if textures not in ("normal", "high"):
@@ -791,6 +892,10 @@ class Game:
 
     def model(self, name, path, scale=1.0, texture=1024, up="y"):
         self.models[name] = dict(path=str(path), scale=scale, texture=texture, up=up)
+        return self
+
+    def vehicle_model(self, name, path, length=3.5, facing="+z"):
+        self.vehicle_models[name] = dict(path=str(path), length=float(length), facing=facing)
         return self
 
     def character(self, name, path, height=1.8, keep=None, facing="+z"):

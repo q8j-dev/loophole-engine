@@ -53,8 +53,49 @@ def heights(t):
         w = np.clip(1 - d / max(fall, 1e-3), 0, 1)
         w = w * w * (3 - 2 * w)
         H = H * (1 - w) + fy * w
+    for r in t.get("roads", []):
+        H = level_road(r, X, Z, H)
     H = carve_waters(t, X, Z, H)
     return xs, zs, H
+
+
+def road_nearest(r, X, Z, reach):
+    pts = np.asarray(r["pts"], float)
+    xs, zs = X[0], Z[:, 0]
+    dx_, dz_ = xs[1] - xs[0], zs[1] - zs[0]
+    d2 = np.full(X.shape, 1e18)
+    idx = np.zeros(X.shape, np.int64)
+    rx, rz = int(np.ceil(reach / dx_)) + 1, int(np.ceil(reach / dz_)) + 1
+    for i, (px, pz) in enumerate(pts):
+        cx, cz = int(round((px - xs[0]) / dx_)), int(round((pz - zs[0]) / dz_))
+        x0, x1, z0, z1 = max(cx - rx, 0), min(cx + rx + 1, len(xs)), max(cz - rz, 0), min(cz + rz + 1, len(zs))
+        if x0 >= x1 or z0 >= z1:
+            continue
+        dd = (X[z0:z1, x0:x1] - px) ** 2 + (Z[z0:z1, x0:x1] - pz) ** 2
+        sub = d2[z0:z1, x0:x1]
+        m = dd < sub
+        sub[m] = dd[m]
+        idx[z0:z1, x0:x1][m] = i
+    return np.sqrt(d2), idx
+
+
+def level_road(r, X, Z, H):
+    pts = np.asarray(r["pts"], float)
+    xs, zs = X[0], Z[:, 0]
+    ix = np.clip(np.searchsorted(xs, pts[:, 0]), 0, len(xs) - 1)
+    iz = np.clip(np.searchsorted(zs, pts[:, 1]), 0, len(zs) - 1)
+    hc = H[iz, ix]
+    k = 31
+    ker = np.ones(k) / k
+    pad = np.concatenate([hc[-k:], hc, hc[:k]])
+    for _ in range(2):
+        pad = np.convolve(pad, ker, mode="same")
+    hc = pad[k:-k]
+    fall = 6.0
+    d, j = road_nearest(r, X, Z, r["width"] / 2 + fall)
+    w = np.clip(1 - (d - r["width"] / 2 - 1.0) / fall, 0, 1)
+    w = w * w * (3 - 2 * w)
+    return H * (1 - w) + hc[j] * w
 
 
 def seg_dist(X, Z, pts):
@@ -139,9 +180,26 @@ def masks(t, xs2, zs2, H2, holes, res):
             d = np.sqrt(dx * dx + dz * dz)
             edge = fbm(X / 1.3, Z / 1.3, 77, 3) * 0.6
             pm = np.maximum(pm, np.clip((w / 2 + edge - 0.2 - d) / 0.5, 0, 1))
+    rm = np.zeros_like(H2)
+    km = np.zeros_like(H2)
+    par = np.zeros_like(H2)
+    for r in t.get("roads", []):
+        hw = r["width"] / 2
+        d, j = road_nearest(r, X, Z, hw + 3)
+        s_ = np.asarray(r["s"], float)[j]
+        dens *= np.clip((d - hw - 0.6) / 1.4, 0, 1)
+        if r.get("paint", True) is False:
+            continue
+        rm = np.maximum(rm, np.clip((hw - d) / 0.35 + 0.5, 0, 1))
+        if r.get("kerbs", True):
+            band = np.clip((d - (hw - 0.95)) / 0.12, 0, 1) * np.clip((hw + 0.1 - d) / 0.12, 0, 1)
+            par = np.where(band > 0, ((np.floor(s_ / 1.6) % 2) == 0).astype(float), par)
+            km = np.maximum(km, band)
+    for (cx, cz, cr) in t.get("clear", []):
+        dens *= np.clip((np.hypot(X - cx, Z - cz) - cr) / 1.5, 0, 1)
     dens *= (1 - pm) * float(t.get("grass", 1.0))
     dens[under_water(t, X, Z, H2)] = 0
-    return np.clip(dens, 0, 1), pm
+    return np.clip(dens, 0, 1), np.stack([np.where(km > 0, par, pm), rm, km], -1)
 
 
 def mesh(t, H, xs, zs, holes=()):

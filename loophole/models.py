@@ -374,4 +374,18 @@ def import_models(game, project_dir, log=print):
         decor_place.EXTRA[name] = out / "kit" / f"kit_{name}.npz"
         decor_pack.EXTRA_TILES[name] = out / "tiles"
         character.ANIMS[name] = out / "anim" / f"{name}.npz"
+    for name, spec in getattr(game, "vehicle_models", {}).items():
+        from . import vehicle
+        src = (Path(project_dir) / spec["path"]).resolve()
+        if not src.exists():
+            raise SystemExit(f"vehicle model '{name}': file not found: {spec['path']}")
+        key = hashlib.md5(src.read_bytes() + repr(sorted(spec.items())).encode()).hexdigest()[:12]
+        stamp = out / f"{name}.vkey"
+        if not (stamp.exists() and stamp.read_text(encoding="utf-8") == key and (out / "vehicle" / f"{name}.npz").exists()):
+            n, nw = vehicle.convert(src, out, name, length=spec["length"], facing=spec["facing"])
+            stamp.write_text(key, encoding="utf-8")
+            log(f"  vehicle {name}: {n} triangles, {nw} wheels found")
+        decor_place.EXTRA[name] = out / "kit" / f"kit_{name}.npz"
+        decor_pack.EXTRA_TILES[name] = out / "tiles"
+        vehicle.SPECS[name] = out / "vehicle" / f"{name}.npz"
     decor_place.refresh()

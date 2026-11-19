@@ -7,6 +7,12 @@ def audio_start():
 
 @when_clone
 def audio_loop():
+    if my_sound == "engine":
+        while True:
+            play("amb_engine")
+            wait(1.97)
+            play("amb_engine_b")
+            wait(1.97)
     while True:
         play(join("amb_", my_sound))
         wait(12)
@@ -16,6 +22,14 @@ def audio_loop():
 
 @when_clone
 def audio_mix():
+    if my_sound == "engine":
+        while True:
+            if driving == "":
+                set_volume(0)
+            else:
+                set_volume((0.45 + 0.55 * engine_rpm) * 55 * (1 - fade))
+            set_pitch(engine_rpm * 110 - 25)
+            wait(0)
     while True:
         gain = 0
         pan = 0

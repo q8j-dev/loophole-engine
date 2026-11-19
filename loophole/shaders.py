@@ -319,6 +319,7 @@ uniform vec4 uHaze;
 uniform vec4 uLf[24];
 uniform sampler2D uTLM;
 uniform vec4 uTLMP;
+uniform vec4 uStart;
 uniform sampler2D uTHM;
 uniform vec4 uTHP;
 uniform vec4 uFog;
@@ -821,7 +822,8 @@ void main() {
         nm = mix(nm, ln_, wl * (1.0 - moss * 0.5));
       }
       nm = mix(mix(nm, nd, wd), nr, wr);
-      float pth = texture2D(uTHM, (vW.xz - uTHP.xy) * uTHP.zw).r;
+      vec3 ptx = texture2D(uTHM, (vW.xz - uTHP.xy) * uTHP.zw).rgb;
+      float pth = ptx.r * (1.0 - smoothstep(0.02, 0.1, ptx.b));
       if (pth > 0.01) {
         vec2 pu = vW.xz / 1.6;
         float pl = max(tl - 0.5, 0.0);
@@ -847,6 +849,28 @@ void main() {
           a = mix(a, la2 * 0.95, lit * pe);
           nm = mix(nm, ln2, lit * pe);
         }
+      }
+      if (ptx.g > 0.01 || ptx.b > 0.02) {
+        float rl = max(tl - 0.5, 0.0);
+        vec3 ra = sampA(3.0, 0.0, vW.xz / 3.2, rl);
+        vec3 rn = sampA(3.0, 1.0, vW.xz / 3.2, rl);
+        vec3 ras = ra * (0.9 + 0.14 * ns2) * vec3(0.95, 0.97, 1.02);
+        float km = smoothstep(0.25, 0.6, ptx.b);
+        vec3 kc = mix(vec3(0.84, 0.83, 0.8), vec3(0.8, 0.13, 0.1), smoothstep(0.35, 0.65, ptx.r));
+        kc *= 0.88 + 0.12 * dot(ra, vec3(0.33));
+        if (dot(uStart.zw, uStart.zw) > 0.25) {
+          vec2 sq = vW.xz - uStart.xy;
+          float sal = dot(sq, uStart.zw);
+          float sac = dot(sq, vec2(-uStart.w, uStart.z));
+          float sm_ = (1.0 - smoothstep(1.15, 1.25, abs(sal))) * smoothstep(0.45, 0.6, ptx.g) * (1.0 - km);
+          vec3 sck = vec3(mod(floor(sal * 1.25 + 8.0) + floor(sac * 1.25 + 64.0), 2.0) * 0.76 + 0.08);
+          ras = mix(ras, sck, sm_);
+        }
+        ras = mix(ras, kc, km);
+        float re = max(smoothstep(0.25, 0.6, ptx.g), km);
+        a = mix(a, ras, re);
+        nm = mix(nm, mix(rn, vec3(0.5, 0.5, 0.35), km * 0.7), re);
+        wl *= 1.0 - re;
       }
     }
     float sv = fract(vSeed * 0.7548777);
@@ -1776,6 +1800,7 @@ void main() {
 
 GRASS_VS = HEAD + CAM_U + PROJECT + WIND + """
 uniform vec3 uPlr;
+uniform vec4 uVeh;
 uniform vec4 uGT;
 varying float vGust;
 varying float vDry;
@@ -1816,6 +1841,14 @@ void main() {
   float push = (1.0 - smoothstep(0.25, 0.95, pd)) * step(abs(h - uPlr.y), 1.0);
   p.xz += away / max(pd, 0.05) * push * 0.45 * sw * sz;
   p.y -= push * 0.35 * sw * sz;
+  if (uVeh.w > 0.5) {
+    float fv = 1.0 - smoothstep(uVeh.z, uVeh.z + 1.4, length(base - uVeh.xy));
+    vec2 sab = cam - uVeh.xy;
+    float st = clamp(dot(base - uVeh.xy, sab) / max(dot(sab, sab), 1e-4), 0.0, 1.0);
+    fv = max(fv, 1.0 - smoothstep(0.9, 2.0, length(base - uVeh.xy - sab * st)));
+    p.y -= fv * 0.85 * sw * sz;
+    p.xz += normalize(base - uVeh.xy + vec2(1e-4)) * fv * 0.3 * sw * sz;
+  }
   vGust = gust(base, u_timer);
   vDry = min(1.0, uGT.z * (0.95 + 0.3 * fract(aSeed.x * 31.7)));
   float qx = mod(k, 2.0);
