@@ -71,6 +71,7 @@ class Level:
         self.haze = 0.02
         self.haze_amb = 0.3
         self.exposure = 1.0
+        self.auto_exposure = 0.5
         self.grade_rgb = (1.0, 1.0, 1.0)
         self.saturation = 1.0
         self.kill_height = None
@@ -146,7 +147,7 @@ class Level:
         return self
 
     def paint(self, material, x0, y0, z0, x1, y1, z1, facing=None):
-        f = None if facing is None else tuple(int(round(v)) for v in globals()["facing"](facing))
+        f = None if facing is None else ("walls" if facing == "walls" else tuple(int(round(v)) for v in globals()["facing"](facing)))
         b = _box(x0, y0, z0, x1, y1, z1)
         self.paint_ops.append((resolve(material), np.array(b[:3]), np.array(b[3:]), f))
         return self
@@ -158,6 +159,40 @@ class Level:
             self.default_mats["wall"] = resolve(walls)
         if ceiling:
             self.default_mats["ceil"] = resolve(ceiling)
+        return self
+
+    def building(self, x0, z0, x1, z1, height=3.0, y=0.0, walls="brick", inside="plaster", floor="wood",
+                 ceiling="plaster", roof="roof", thickness=0.5, door=None, windows=(), door_size=(1.5, 2.5),
+                 window_size=(2.0, 1.5), sill=1.0, foundation=1.5):
+        def sn(v):
+            return round(v * 2) / 2
+        x0, x1 = sn(min(x0, x1)), sn(max(x0, x1))
+        z0, z1 = sn(min(z0, z1)), sn(max(z0, z1))
+        y, height, thickness, sill = sn(y), max(sn(height), 2.0), max(sn(thickness), 0.5), sn(sill)
+        door_size = (max(sn(door_size[0]), 1.0), sn(door_size[1]))
+        window_size = (max(sn(window_size[0]), 0.5), max(sn(window_size[1]), 0.5))
+        t = thickness
+        top = y + height + 0.5
+        self.solid(x0, y - foundation, z0, x1, top, z1, material=walls)
+        self.paint(roof, x0, top, z0, x1, top, z1, facing="+y")
+        self.ops.append(("carve", (x0 + t, y, z0 + t, x1 - t, y + height, z1 - t)))
+        self.paint(inside, x0 + t, y + 0.01, z0 + t, x1 - t, y + height - 0.01, z1 - t, facing="walls")
+        self.paint(floor, x0 + t, y, z0 + t, x1 - t, y, z1 - t, facing="+y")
+        self.paint(ceiling, x0 + t, y + height, z0 + t, x1 - t, y + height, z1 - t, facing="-y")
+
+        def opening(side, at, w, h, bottom):
+            at = sn(at)
+            if side in ("-z", "+z"):
+                zz = z0 if side == "-z" else z1 - t
+                self.ops.append(("carve", (at - w / 2, y + bottom, zz, at + w / 2, y + bottom + h, zz + t)))
+            else:
+                xx = x0 if side == "-x" else x1 - t
+                self.ops.append(("carve", (xx, y + bottom, at - w / 2, xx + t, y + bottom + h, at + w / 2)))
+        if door:
+            side, at = door
+            opening(side, at, door_size[0], door_size[1], 0.0)
+        for (side, at) in windows:
+            opening(side, at, window_size[0], window_size[1], sill)
         return self
 
     def pool(self, material, x0, z0, x1, z1, y=0.0, depth=1.5):
@@ -365,14 +400,17 @@ class Level:
         self.saturation = saturation
         return self
 
-    def outdoor(self, sky="day", sun=(0.4, 0.75, 0.3), sun_color=None, fog=0.012, clouds=0.45):
+    def outdoor(self, sky="day", sun=(0.4, 0.75, 0.3), sun_color=None, fog=0.0035, clouds=0.45):
         self.sky = sky
         self.sun_dir = tuple(np.array(sun, float) / np.linalg.norm(sun))
         self.sun_color = sun_color
         self.fog = fog
         self.clouds = clouds
         self.open_faces = {(1, -1)}
-        self.default_mats.setdefault("floor", "concrete")
+        self.haze = 0.0
+        self.beams = False
+        self.stripe = False
+        self.window_style = "sky"
         return self
 
     def terrain(self, x0, z0, x1, z1, height=None, base=0.0, step=1.0, material="terrain", seed=1, hills=4.0):

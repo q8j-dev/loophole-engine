@@ -109,6 +109,9 @@ def make_rts():
     create_rt("b2", round(RTW / 4), round(RTH / 4))
     create_rt("b3", round(RTW / 8), round(RTH / 8))
     create_rt("b4", round(RTW / 8), round(RTH / 8))
+    create_rt("lum0", 4, 4)
+    create_rt("lum1", 4, 4)
+    lumreset = 1
     create_rt("env", 3 * ENVT, 2 * ENVT)
     create_rt("envb", 3 * ENVT / 2, ENVT)
     create_rt("enve", 3 * ENVT / 2, ENVT)
@@ -308,6 +311,7 @@ def load_level(lv):
     set_tex("uLM", "world", join("lm", lv))
     envdirty = 1
     taareset = 1
+    lumreset = 1
     set_vec4("uHaze", "world", LHZ[lv], LVN[lv], LHA[lv], 0)
     set_vec4("uHaze", "haze", LHZ[lv], LVN[lv], LHA[lv], 0)
     set_vec4("uGrade", "comp", LGR[lv], LGG[lv], LGB[lv], LSAT[lv])
@@ -325,7 +329,17 @@ def sky_load(lv):
     set_vec4("uSkyG", "sky", SKY[sb + 14], SKY[sb + 15], SKY[sb + 16], 0)
     set_vec4("uSun", "haze", SKY[sb], SKY[sb + 1], SKY[sb + 2], 1)
     set_vec4("uSunC", "haze", SKY[sb + 3], SKY[sb + 4], SKY[sb + 5], 1)
-    set_vec4("uFogC", "haze", SKY[sb + 17], SKY[sb + 18], SKY[sb + 19], SKY[sb + 20])
+    set_vec4("uFogC", "haze", 0, 0, 0, 0)
+    set_vec4("uFog", "world", SKY[sb + 17], SKY[sb + 18], SKY[sb + 19], SKY[sb + 20])
+    set_vec4("uFogS", "world", SKY[sb + 21], SKY[sb + 22], 1, 0)
+    set_vec3("uFogSun", "world", SKY[sb], SKY[sb + 1], SKY[sb + 2])
+    set_vec4("uFog", "sky", SKY[sb + 17], SKY[sb + 18], SKY[sb + 19], SKY[sb + 20])
+    set_vec4("uFogS", "sky", SKY[sb + 21], SKY[sb + 22], 1, 0)
+    if TLMW[lv] > 0:
+        set_tex("uTLM", "world", join("tlm", lv))
+        set_vec4("uTLMP", "world", TLMX[lv], TLMZ[lv], TLMW[lv], TLMD[lv])
+    else:
+        set_tex("uTLM", "world", "atlas")
 
 
 @warp
@@ -1670,9 +1684,10 @@ def draw_scene(vq):
     if api_cam != 0:
         draw_player()
     if gbm == 0:
-        set_vec4("uPM", "part", 0, LFY[level], LCY_[level], 0)
-        set_vec3("uCol", "part", 1.0, 0.95, 0.85)
-        draw_list("DUST", "part")
+        if LSKY[level] == 0:
+            set_vec4("uPM", "part", 0, LFY[level], LCY_[level], 0)
+            set_vec3("uCol", "part", 1.0, 0.95, 0.85)
+            draw_list("DUST", "part")
         vj = LV0[level]
         for vji in times(LVNN[level]):
             set_vec3("uQC", "part", (VX0[vj] + VX1[vj]) / 2, VY0[vj], (VZ0[vj] + VZ1[vj]) / 2)
@@ -1861,9 +1876,18 @@ def post():
     blur_pass("b3", "b1", 4 / RTW, 0)
     blur_pass("b4", "b3", 0, 8 / RTH)
     blur_pass("b3", "b4", 8 / RTW, 0)
+    target_rt(join("lum", tp))
+    clear_rt(join("lum", tp))
+    set_tex("uSrc", "lum", join("hh", tp))
+    set_tex("uPrev", "lum", join("lum", 1 - tp))
+    set_vec4("uLA", "lum", 1 - exp(0 - dt * 1.8), lumreset, 0, 0)
+    draw_list("QUAD", "lum")
+    lumreset = 0
     target_rt("Scratch Stage")
     pen_clear()
     clear_depth()
+    set_tex("uLum", "comp", join("lum", tp))
+    set_vec4("uAE", "comp", LAE[level], 0.32, 0.45, 2.6)
     set_tex("uScene", "comp", join("hh", tp))
     set_tex("uB1", "comp", "b1")
     set_tex("uB2", "comp", "b3")

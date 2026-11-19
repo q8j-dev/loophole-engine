@@ -225,6 +225,11 @@ uniform vec4 uLd[24];
 uniform vec4 uLc[24];
 uniform vec4 uHaze;
 uniform vec4 uLf[24];
+uniform sampler2D uTLM;
+uniform vec4 uTLMP;
+uniform vec4 uFog;
+uniform vec4 uFogS;
+uniform vec3 uFogSun;
 uniform vec4 uO1;
 uniform vec4 uO2;
 uniform vec4 uSC[4];
@@ -571,16 +576,25 @@ void main() {
     vec3 a = sampA(atl, cidA, tuv, lod);
     vec3 nm = sampA(atl, cidA + 1.0, tuv, lod);
     if (mat > 69.5 && mat < 70.5) {
-      float ns = samp(22.0, vW.xz * 0.02, 2.0).r;
-      float ns2 = samp(22.0, vW.xz * 0.07 + 0.3, 2.0).g;
-      float wr = smoothstep(0.86, 0.68, Ng.y + (ns - 0.5) * 0.12);
-      float wd = smoothstep(0.52, 0.66, ns2 + ns * 0.3) * (1.0 - wr);
-      vec2 tr = uv / 3.0 + 0.37;
-      vec3 ar = sampA(2.0, 2.0, tr, lod);
-      vec3 nr = sampA(2.0, 3.0, tr, lod);
-      vec3 ad = sampA(2.0, 6.0, uv / 3.0, lod);
-      vec3 nd = sampA(2.0, 7.0, uv / 3.0, lod);
-      a = mix(mix(a * vec3(0.92, 1.05, 0.8), ad, wd), ar, wr);
+      float tl = max(lod - 1.0, 0.0);
+      float ns = samp(22.0, vW.xz * 0.013, 2.0).r;
+      float ns2 = samp(22.0, vW.xz * 0.045 + 0.3, 2.0).g;
+      float ns3 = samp(22.0, vW.xz * 0.11 + 0.7, 1.0).b;
+      a = sampA(2.0, 0.0, tuv, tl);
+      nm = sampA(2.0, 1.0, tuv, tl);
+      float wr = smoothstep(0.84, 0.7, Ng.y + (ns - 0.5) * 0.1);
+      float wd = smoothstep(0.7, 0.8, ns2 * 0.75 + ns3 * 0.4) * (1.0 - wr);
+      vec2 tr = uv / 4.0 + 0.37;
+      vec3 ar = sampA(2.0, 2.0, tr, tl);
+      vec3 nr = sampA(2.0, 3.0, tr, tl);
+      vec3 ad = sampA(2.0, 6.0, uv / 2.5, tl);
+      vec3 nd = sampA(2.0, 7.0, uv / 2.5, tl);
+      float near = 1.0 - smoothstep(6.0, 22.0, dist);
+      vec3 dg = sampA(2.0, 0.0, uv * 1.37 + 0.21, max(tl - 1.5, 0.0));
+      vec3 gr = mix(a, dg, near * 0.45);
+      float gv = ns * 0.6 + ns3 * 0.4;
+      gr *= mix(vec3(0.42, 0.62, 0.3), vec3(0.62, 0.72, 0.36), gv) * (0.8 + 0.35 * smoothstep(0.3, 0.7, ns2));
+      a = mix(mix(gr, ad * vec3(0.7, 0.66, 0.6), wd), ar * vec3(1.05, 1.0, 0.95), wr);
       nm = mix(mix(nm, nd, wd), nr, wr);
     }
     float sv = fract(vSeed * 0.7548777);
@@ -855,7 +869,11 @@ void main() {
   }
   vec3 E;
   float so = 1.0;
-  if (uMode.x < 0.5 && vIrr.w > 0.5) {
+  if (uMode.x < 0.5 && vIrr.w > 3.5) {
+    vec3 tl = texture2D(uTLM, (vW.xz - uTLMP.xy) * uTLMP.zw).rgb;
+    E = tl * tl * 4.0;
+    so = clamp(dot(E, vec3(0.4)) * 1.4 - 0.1, 0.0, 1.0);
+  } else if (uMode.x < 0.5 && vIrr.w > 0.5) {
     E = vIrr.rgb;
     so = clamp(dot(E, vec3(0.4)) * 1.4 - 0.1, 0.0, 1.0);
   } else if (uMode.x < 0.5) {
@@ -960,6 +978,12 @@ void main() {
   vec3 col = diff * (max(E - dloss, 0.0) * ao + ddir) + spec * mix(1.0, so, props ? 0.0 : 1.0) * ao + envs * ao + emis;
   float ext = exp(-dist * uHaze.x * 0.35);
   col = col * mix(1.0, ext, 0.7);
+  if (uFog.w > 0.0) {
+    float fh = exp(-max(vW.y - uFogS.x, 0.0) * uFogS.y);
+    float fa = (1.0 - exp(-dist * uFog.w * fh)) * uFogS.z;
+    float fs = pow(max(dot(-V, uFogSun), 0.0), 8.0);
+    col = mix(col, uFog.rgb * (1.0 + fs * 0.9), fa);
+  }
   if (uSSR.x < 0.5) col += haze(uCP, -V, dist, jit);
   gl_FragColor = enc(col * uMode.y, 1.0);
 }
@@ -1112,6 +1136,8 @@ uniform vec4 uPost;
 uniform vec4 uFx;
 uniform vec3 uFlash;
 uniform vec4 uGrade;
+uniform sampler2D uLum;
+uniform vec4 uAE;
 uniform vec2 u_res;
 uniform float u_timer;
 float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -1156,7 +1182,10 @@ void main() {
   vec3 b1 = texture2D(uB1, uv).rgb;
   vec3 b2 = texture2D(uB2, uv).rgb;
   c += (b1 * b1 * 4.0) * uPost.y + (b2 * b2 * 4.0) * uPost.z;
-  c *= uPost.x * uGrade.rgb;
+  float lv = texture2D(uLum, vec2(0.5)).r;
+  float lum = lv * lv * 8.0;
+  float ae = clamp(pow(uAE.y / max(lum, 0.01), uAE.x), uAE.z, uAE.w);
+  c *= uPost.x * uGrade.rgb * ae;
   float lg = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c = max(mix(vec3(lg), c, uGrade.w), 0.0);
   c = aces(c);
@@ -1216,13 +1245,6 @@ void main() {
     }
   }
   vec3 h = acc * st * uHaze.x + uHaze.z * vec3(0.004, 0.0047, 0.006) * len * uHaze.x;
-  if (uFogC.w > 0.0) {
-    float fs = pow(max(dot(dir, uSun.xyz), 0.0), 6.0);
-    vec3 fc = uFogC.rgb + uSunC.rgb * fs * 0.35;
-    float fa = 1.0 - exp(-len * uFogC.w);
-    if (sky) fa *= 0.25 * (1.0 - smoothstep(0.0, 0.35, dir.y));
-    h += fc * fa;
-  }
   gl_FragColor = vec4(sqrt(clamp(h * 0.25, 0.0, 1.0)), 1.0);
 }
 """
@@ -1320,6 +1342,8 @@ uniform vec4 uSunC;
 uniform vec4 uSkyZ;
 uniform vec4 uSkyH;
 uniform vec4 uSkyG;
+uniform vec4 uFog;
+uniform vec4 uFogS;
 """ + GATE + ENC + NOISE + """
 float fbm(vec2 p) {
   float a = 0.5;
@@ -1352,7 +1376,40 @@ void main() {
   }
   col += uSunC.rgb * smoothstep(uSkyH.w, uSkyH.w + 0.0006, sd) * 40.0 * smoothstep(-0.02, 0.02, y);
   if (y < 0.0) col = mix(col, uSkyG.rgb, smoothstep(0.0, 0.12, -y));
+  if (uFog.w > 0.0) {
+    float fs = pow(sd, 8.0);
+    vec3 fc = uFog.rgb * (1.0 + fs * 0.9);
+    col = mix(col, fc, (1.0 - smoothstep(-0.02, 0.22, y)) * 0.85 * uFogS.z);
+  }
   gl_FragColor = enc(col, 1.0);
+}
+"""
+
+
+LUM_FS = HEAD + """
+uniform sampler2D uSrc;
+uniform sampler2D uPrev;
+uniform vec4 uLA;
+uniform vec2 u_res;
+void main() {
+  float acc = 0.0;
+  float wt = 0.0;
+  for (int j = 0; j < 7; j++) {
+    for (int i = 0; i < 7; i++) {
+      vec2 p = (vec2(float(i), float(j)) + 0.5) / 7.0;
+      vec3 e = texture2D(uSrc, p).rgb;
+      vec3 c = e * e * 4.0;
+      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      float w = 1.0 - 0.6 * length(p - 0.5);
+      acc += log(max(l, 0.002)) * w;
+      wt += w;
+    }
+  }
+  float cur = exp(acc / wt);
+  float pv = texture2D(uPrev, vec2(0.5)).r;
+  float prev = pv * pv * 8.0;
+  float o = uLA.y > 0.5 ? cur : mix(prev, cur, uLA.x);
+  gl_FragColor = vec4(sqrt(clamp(o / 8.0, 0.0, 1.0)), 0.0, 0.0, 1.0);
 }
 """
 
@@ -1385,4 +1442,5 @@ SHADERS = {k: (merge(v, f), f) for k, (v, f) in {
     "taa": (QUAD_VS, TAA_FS),
     "haze": (QUAD_VS, HAZE_FS),
     "comp": (QUAD_VS, COMP_FS),
+    "lum": (QUAD_VS, LUM_FS),
 }.items()}

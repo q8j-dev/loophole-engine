@@ -60,6 +60,7 @@ class Grid:
         self.origin = c.origin
         self.shape = np.array(self.solid.shape)
         self.open_top = (1, -1) in getattr(c, "open_faces", ())
+        self.outdoor = len(getattr(c, "open_faces", ())) >= 5
         vol = float(np.prod(self.shape))
         self.F = FINE if vol * FINE ** 3 < 60e6 else (2 if vol * 8 < 60e6 else 1)
         F = self.F
@@ -103,7 +104,9 @@ class Grid:
         I = np.floor((P - self.origin) * (lvl.RES * self.F)).astype(np.int64)
         ok = np.all((I >= 0) & (I < self.fshape), axis=1)
         out = np.ones(len(I), bool)
-        if self.open_top:
+        if self.outdoor:
+            out[~ok] = I[~ok, 1] < 0
+        elif self.open_top:
             out[I[:, 1] >= self.fshape[1]] = False
         J = I[ok]
         out[ok] = self.fine[J[:, 0], J[:, 1], J[:, 2]]
@@ -115,7 +118,9 @@ class Grid:
     def is_solid(self, I):
         ok = np.all((I >= 0) & (I < self.shape), axis=1)
         out = np.ones(len(I), bool)
-        if self.open_top:
+        if self.outdoor:
+            out[~ok] = I[~ok, 1] < 0
+        elif self.open_top:
             out[I[:, 1] >= self.shape[1]] = False
         J = I[ok]
         out[ok] = self.solid[J[:, 0], J[:, 1], J[:, 2]]
@@ -133,7 +138,11 @@ class Grid:
             s = self.fine_solid(Q)
             hit[act[s]] = True
             keep = ~s & (tmax[act] > t + st)
-            if self.open_top:
+            if self.outdoor:
+                lo_ = self.origin
+                hi_ = self.origin + self.shape / lvl.RES
+                keep &= np.all((Q >= lo_ - 0.5) & (Q <= hi_ + 0.5), axis=1)
+            elif self.open_top:
                 keep &= Q[:, 1] < top
             act = act[keep]
             t += st
@@ -150,7 +159,13 @@ class Grid:
         top = self.shape[1]
         while len(act) and t < tmax:
             I = self.idx(P[act] + D[act] * t)
-            if self.open_top:
+            if self.outdoor:
+                up = np.any((I >= self.shape) | (I < 0), axis=1) & (I[:, 1] >= 0)
+                if up.any():
+                    act = act[~up]
+                    prev = prev[~up]
+                    I = I[~up]
+            elif self.open_top:
                 up = I[:, 1] >= top
                 if up.any():
                     act = act[~up]
@@ -528,19 +543,39 @@ def bake_level(c, seed=1, ao_rays=32, gi_rays=256):
         Ei = amb_sample(amb, UP + UN * 0.1, UN)
         dirr = (Ed + Ei)[inv.ravel()]
         _log(f"  decor {len(DP) // 3} tris, {len(UP)} lit vertices")
-    tirr = np.zeros((0, 3))
-    if TER is not None and len(TER["P"]):
-        TP_, TN_ = TER["P"], TER["N"]
-        key = np.round(TP_ * 100).astype(np.int64)
+    tlm = None
+    rirr = np.zeros((0, 3))
+    if TER is not None:
+        from . import terrain as T
+        field = TER["field"]
+        res_ = TER["tlm_step"]
+        xs2 = np.arange(field.x0, field.x1 + 1e-6, res_)
+        zs2 = np.arange(field.z0, field.z1 + 1e-6, res_)
+        X2, Z2 = np.meshgrid(xs2, zs2)
+        H2 = field.inner(X2, Z2)
+        gx = np.gradient(H2, res_, axis=1)
+        gz = np.gradient(H2, res_, axis=0)
+        N2 = np.stack([-gx, np.ones_like(H2), -gz], -1)
+        N2 /= np.linalg.norm(N2, axis=-1, keepdims=True)
+        P2 = np.stack([X2, H2, Z2], -1).reshape(-1, 3)
+        stage(t0, f"terrain lightmap {len(xs2)}x{len(zs2)}")
+        E2 = T.light_points(P2, N2.reshape(-1, 3), field, grid, getattr(c, "sun", None), getattr(c, "sky_rad", None),
+                            lights, direct, rng, k_sky=12)
+        img2 = np.sqrt(np.clip(E2.reshape(len(zs2), len(xs2), 3) / LMAX, 0, 1))
+        for _ in range(1):
+            p_ = np.pad(img2, ((1, 1), (1, 1), (0, 0)), mode="edge")
+            img2 = (p_[:-2, 1:-1] + p_[2:, 1:-1] + p_[1:-1, :-2] + p_[1:-1, 2:] + 4 * p_[1:-1, 1:-1]) / 8
+        tlm = dict(img=img2, x0=float(xs2[0]), z0=float(zs2[0]), w=float(xs2[-1] - xs2[0]), d=float(zs2[-1] - zs2[0]))
+        RP, RN = TER["ring"]
+        key = np.round(RP * 10).astype(np.int64)
         uq, inv = np.unique(key, axis=0, return_inverse=True)
         first = np.zeros(len(uq), np.int64)
-        first[inv[::-1]] = np.arange(len(TP_))[::-1]
-        UP, UN = TP_[first], TN_[first]
-        Et, _ = direct(UP + UN * 0.08, UN, lights, grid, rng, ns=2)
-        Ei = amb_sample(amb, UP + UN * 0.6, UN)
-        tirr = (Et + Ei)[inv.ravel()]
-        _log(f"  terrain {len(TP_) // 3} tris, {len(UP)} lit vertices")
-    return dict(rects=rects, panels=panels, lights=lights, lightmap=full, amb=amb, B=B, dirr=dirr, tirr=tirr)
+        first[inv[::-1]] = np.arange(len(RP))[::-1]
+        stage(t0, f"far terrain {len(uq)} vertices")
+        Er = T.light_points(RP[first], RN[first], field, grid, getattr(c, "sun", None), getattr(c, "sky_rad", None),
+                            [], direct, rng, k_sky=10)
+        rirr = Er[inv.ravel()]
+    return dict(rects=rects, panels=panels, lights=lights, lightmap=full, amb=amb, B=B, dirr=dirr, tlm=tlm, rirr=rirr)
 
 
 def amb_sample(amb, P, N):

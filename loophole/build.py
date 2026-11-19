@@ -167,7 +167,48 @@ def load_game(path):
     return games[0]
 
 
+def voxelize_outdoor(L, li):
+    from . import terrain as T
+    field = None
+    pts = [b for _, b in L.ops]
+    if L.terrain_def:
+        td = L.terrain_def
+        xs, zs, H = T.heights(td)
+        field = T.Field(td, xs, zs, H)
+        field.holes = [(b[0] + 0.2, b[2] + 0.2, b[3] - 0.2, b[5] - 0.2) for op, b in L.ops if op == "fill"]
+        pts.append((td["x0"], float(H.min()) - 1.0, td["z0"], td["x1"], float(H.max()) + 2.0, td["z1"]))
+    for d in L.decor:
+        pts.append((d[1][0] - 1, d[1][1] - 1, d[1][2] - 1, d[1][0] + 1, d[1][1] + 3, d[1][2] + 1))
+    for p in L.procs:
+        pts.append((p[1][0] - 2, p[1][1] - 0.5, p[1][2] - 2, p[1][0] + 2, p[1][1] + 8, p[1][2] + 2))
+    if not pts:
+        raise SystemExit(f"level '{L.name}' is empty. Add terrain, solids or props.")
+    allb = np.array(pts, float)
+    lo = allb[:, :3].min(0)
+    hi = allb[:, 3:].max(0)
+    if field is None:
+        lo[1] = 0.0
+    origin = np.floor(lo * lvl.RES) / lvl.RES
+    size = np.ceil((hi + 1.0 - origin) * lvl.RES) / lvl.RES
+    c = lvl.Level(L.name, tuple(size), tuple(origin))
+    c.air[:] = True
+    for op, b in L.ops:
+        a = c.g(b[:3])
+        e = c.g(b[3:])
+        a = [max(a[i], 0) for i in range(3)]
+        e = [min(e[i], c.size[i]) for i in range(3)]
+        c.air[a[0]:e[0], a[1]:e[1], a[2]:e[2]] = op == "carve"
+    c.open_faces = {(0, 1), (0, -1), (1, -1), (2, 1), (2, -1)} | ({(1, 1)} if field is not None else set())
+    c.field = field
+    sx, sy, sz, _ = L.start
+    c.main_box = L.probe or (sx - 20, sy, sz - 20, sx + 20, sy + 12, sz + 20)
+    return c
+
+
 def voxelize(L, li):
+    if L.sky:
+        c = voxelize_outdoor(L, li)
+        return finish_voxel(c, L, li)
     boxes = [b for op, b in L.ops if op == "carve"]
     if not boxes:
         raise SystemExit(f"level '{L.name}' has no rooms. Add one with level.room(x0, y0, z0, x1, y1, z1).")
@@ -192,10 +233,15 @@ def voxelize(L, li):
         a = [max(a[i], 1) for i in range(3)]
         e = [min(e[i], c.size[i] - (0 if (open_top and i == 1) else 1)) for i in range(3)]
         c.air[a[0]:e[0], a[1]:e[1], a[2]:e[2]] = op == "carve"
-    c.paint_ops = list(L.paint_ops)
-    c.default_mats = dict(L.default_mats)
     c.open_faces = set(L.open_faces)
     c.main_box = L.probe or boxes[0]
+    c.field = None
+    return finish_voxel(c, L, li)
+
+
+def finish_voxel(c, L, li):
+    c.paint_ops = list(L.paint_ops)
+    c.default_mats = dict(L.default_mats)
     c.decor = list(L.decor)
     c.procs = list(L.procs)
     c.lights = [dict(l) for l in L.lights if not l.get("dynamic")]
@@ -212,12 +258,17 @@ def voxelize(L, li):
     c.sky = L.sky
     q = {"draft": (48, 10, 2, 2, 64), "normal": (128, 24, 3, 3, 96), "high": (256, 32, 4, 4, 128)}[L.bake_quality]
     c.bake_gi_rays, c.bake_ao_rays, c.bake_dres, c.bake_ns, c.bake_amb_rays = q
+    if L.sky:
+        c.bake_amb_step = 2.0
+        c.bake_amb_rays = 48
     c.terrain = None
-    if L.terrain_def:
+    if L.terrain_def and c.field is not None:
         from . import terrain as T
-        xs, zs, H = T.heights(L.terrain_def)
-        TP, TN, TM, TS = T.mesh(L.terrain_def, H, xs, zs)
-        c.terrain = dict(grid=(xs, zs, H), P=TP, N=TN, M=TM, S=TS, step=L.terrain_def["step"])
+        f = c.field
+        TP, TN, TM, TS = T.mesh(L.terrain_def, f.H, f.xs, f.zs, getattr(f, "holes", []))
+        RP, RN = f.ring_mesh()
+        c.terrain = dict(grid=(f.xs, f.zs, f.H), P=TP, N=TN, M=TM, S=TS, step=L.terrain_def["step"], field=f,
+                         ring=(RP, RN), tlm_step=0.5, mat=TM[0] if len(TM) else 70.0)
     if L.sky:
         c.sun = dict(d=L.sun_dir, col=sky_preset(L)["sun"])
         c.sky_rad = sky_preset(L)["amb"]
@@ -225,10 +276,10 @@ def voxelize(L, li):
 
 
 SKIES = {
-    "day": dict(zen=(0.25, 0.5, 1.05), hor=(0.85, 0.95, 1.1), ground=(0.2, 0.19, 0.17), sun=(3.4, 3.15, 2.8),
-                amb=(0.32, 0.42, 0.6), fog=(0.62, 0.72, 0.86)),
-    "sunset": dict(zen=(0.14, 0.2, 0.48), hor=(1.35, 0.72, 0.38), ground=(0.12, 0.09, 0.08), sun=(3.6, 2.0, 0.9),
-                   amb=(0.32, 0.27, 0.33), fog=(0.9, 0.58, 0.42)),
+    "day": dict(zen=(0.09, 0.27, 0.78), hor=(0.62, 0.78, 1.0), ground=(0.16, 0.15, 0.13), sun=(3.7, 3.35, 2.85),
+                amb=(0.22, 0.32, 0.55), fog=(0.58, 0.7, 0.9)),
+    "sunset": dict(zen=(0.08, 0.13, 0.36), hor=(1.25, 0.62, 0.3), ground=(0.1, 0.07, 0.06), sun=(3.8, 2.1, 0.85),
+                   amb=(0.22, 0.2, 0.3), fog=(0.85, 0.52, 0.36)),
     "night": dict(zen=(0.01, 0.015, 0.04), hor=(0.04, 0.06, 0.11), ground=(0.01, 0.01, 0.012), sun=(0.35, 0.42, 0.62),
                   amb=(0.025, 0.035, 0.06), fog=(0.04, 0.05, 0.08)),
     "overcast": dict(zen=(0.55, 0.58, 0.62), hor=(0.8, 0.82, 0.85), ground=(0.2, 0.2, 0.2), sun=(0.7, 0.7, 0.72),
@@ -263,7 +314,10 @@ def baked(c, L, cache, log):
     if f.exists():
         d = np.load(f, allow_pickle=False)
         log(f"  {L.name}: cached bake")
-        return json.loads(bytes(d["meta"]).decode()), bytes(d["lm"]), d["dirr"], d["tirr"]
+        tl = json.loads(bytes(d["tlmmeta"]).decode()) if "tlmmeta" in d else None
+        if tl:
+            tl["png"] = bytes(d["tlm"])
+        return json.loads(bytes(d["meta"]).decode()), bytes(d["lm"]), d["dirr"], tl, d["rirr"]
     log(f"  {L.name}: baking (first time, cached afterwards)")
     t0 = time.time()
     bake.LOG = log if VERBOSE else None
@@ -276,10 +330,18 @@ def baked(c, L, cache, log):
                          step=float(res["amb"]["step"]), cube=np.round(res["amb"]["cube"], 4).tolist()))
     lm = bake.png_bytes(res["lightmap"])
     cache.mkdir(parents=True, exist_ok=True)
+    tl = None
+    extra = {}
+    if res["tlm"] is not None:
+        t = res["tlm"]
+        png = bake.png_bytes(t["img"])
+        tl = dict(x0=t["x0"], z0=t["z0"], w=t["w"], d=t["d"], W=int(t["img"].shape[1]), H=int(t["img"].shape[0]))
+        extra = dict(tlm=np.frombuffer(png, np.uint8), tlmmeta=np.frombuffer(json.dumps(tl).encode(), np.uint8))
+        tl["png"] = png
     np.savez_compressed(f, meta=np.frombuffer(json.dumps(meta).encode(), np.uint8), lm=np.frombuffer(lm, np.uint8),
-                        dirr=res["dirr"].astype(np.float32), tirr=res["tirr"].astype(np.float32))
+                        dirr=res["dirr"].astype(np.float32), rirr=res["rirr"].astype(np.float32), **extra)
     log(f"  {L.name}: baked in {time.time() - t0:.0f}s")
-    return meta, lm, res["dirr"].astype(np.float32), res["tirr"].astype(np.float32)
+    return meta, lm, res["dirr"].astype(np.float32), tl, res["rirr"].astype(np.float32)
 
 
 def light_json(Lt):
@@ -377,6 +439,7 @@ def build(world_path, out=None, log=print, cache=None):
         L[k] = []
     groups = []
     lms = {}
+    tlms = {}
     pkm = geo.Pack()
     models = Models(pkm, L)
     broadcasts = set(FIXED_BROADCASTS)
@@ -384,16 +447,22 @@ def build(world_path, out=None, log=print, cache=None):
     has_terrain = False
     for li, Lv in enumerate(game.levels, start=1):
         c = voxelize(Lv, li)
-        meta, lm, dirr, tirr = baked(c, Lv, cache, log)
+        meta, lm, dirr, tl, rirr = baked(c, Lv, cache, log)
         lms[li] = lm
+        tlms[li] = tl
         P_, N_, UV_, M_, A_, S_, I_, F_, T_ = kit.build(c, meta, dirr)
         if c.terrain is not None:
             t = c.terrain
-            n = len(t["P"])
-            ti = tirr if len(tirr) == n else np.full((n, 3), 0.4)
-            P_, N_, UV_ = np.concatenate([P_, t["P"]]), np.concatenate([N_, t["N"]]), np.concatenate([UV_, np.zeros((n, 2))])
-            M_, A_, S_ = np.concatenate([M_, t["M"]]), np.concatenate([A_, np.ones(n)]), np.concatenate([S_, t["S"]])
-            I_, F_, T_ = np.concatenate([I_, ti]), np.concatenate([F_, np.full(n, 3.0)]), np.concatenate([T_, np.zeros((n, 3))])
+            RP, RN = t["ring"]
+            parts = [(t["P"], t["N"], t["M"], t["S"], np.full((len(t["P"]), 3), 0.4), 4.0),
+                     (RP, RN, np.full(len(RP), t["mat"]), np.zeros(len(RP)),
+                      rirr if len(rirr) == len(RP) else np.full((len(RP), 3), 0.4), 3.0)]
+            for (pp, nn, mm, ss, ii, fl) in parts:
+                n = len(pp)
+                P_, N_, UV_ = np.concatenate([P_, pp]), np.concatenate([N_, nn]), np.concatenate([UV_, np.zeros((n, 2))])
+                M_, A_, S_ = np.concatenate([M_, mm]), np.concatenate([A_, np.ones(n)]), np.concatenate([S_, ss])
+                I_, F_ = np.concatenate([I_, ii]), np.concatenate([F_, np.full(n, fl)])
+                T_ = np.concatenate([T_, np.zeros((n, 3))])
             has_terrain = True
         used_ids.update(np.unique(M_).astype(int).tolist())
         pk = geo.Pack()
@@ -418,7 +487,7 @@ def build(world_path, out=None, log=print, cache=None):
     for key in models.cache:
         if key.startswith("proc:"):
             used_ids.update(np.unique(procprops.mesh(key[5:], 1)[2]).astype(int).tolist())
-    proj = assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_ids, has_terrain)
+    proj = assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_ids, has_terrain, tlms)
     return proj
 
 
@@ -430,7 +499,7 @@ def safe_name(s):
 LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "HV1", "HKILL", "HPORT", "LSX", "LSY",
               "LSZ", "LSYAW", "LSPIT", "LKILL", "LO0", "LON", "LT0", "LTN", "TNAME", "TKIND", "TARG", "TX0", "TY0",
               "TZ0", "TX1", "TY1", "TZ1", "LL0", "LLN", "LNM", "LTX", "LTY", "LTZ", "LTW", "LDDX", "LDDY", "LDDZ",
-              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LVN", "LHZ", "LHA", "LEXP", "LGR", "LGG", "LGB", "LSAT",
+              "LDDW", "LCR", "LCG", "LCB", "LCW", "LDYN", "LVN", "LHZ", "LHA", "LEXP", "LAE", "LGR", "LGG", "LGB", "LSAT",
               "AMB0", "AMBNX", "AMBNY", "AMBNZ", "AMBST", "AMBOX", "AMBOY", "AMBOZ", "AMB", "LPX", "LPY", "LPZ",
               "LB0X", "LB0Y", "LB0Z", "LB1X", "LB1Y", "LB1Z", "LFY", "LCY_", "LV0", "LVNN", "VX0", "VZ0", "VX1",
               "VZ1", "VY0", "VY1", "VPW", "LSP0", "LSPN", "SPX", "SPY", "SPZ", "LSKY", "LSUN", "LTER", "TOX", "TOZ",
@@ -438,7 +507,7 @@ LIST_NAMES = ["LNAME", "LH0", "LHN", "HAX", "HSG", "HPL", "HU0", "HU1", "HV0", "
               "DPRY2", "DPRS2", "DPRT2", "DBX", "DBY", "DBZ", "DBCX", "DBCY", "DBCZ", "DSX", "DSY", "DSZ", "DKIND",
               "DPHYS", "DCARRY", "DUSE", "DSHAD", "DSOLID", "DVIS", "DX", "DY", "DZ", "DYAW", "DPITCH", "DROLL",
               "DSCALE", "DGLOW", "DGR", "DGG", "DGB", "DLNK", "DSLIDE", "DOSP", "DSPIN", "DCOLL", "DPN", "DP0",
-              "DPSP", "DPLOOP", "DPFACE", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY"]
+              "DPSP", "DPLOOP", "DPFACE", "PWX", "PWY", "PWZ", "PLEN", "PCLOSE", "SKY", "TLMX", "TLMZ", "TLMW", "TLMD"]
 
 
 def r4(v):
@@ -504,6 +573,7 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
     L["LHZ"].append(Lv.haze)
     L["LHA"].append(Lv.haze_amb)
     L["LEXP"].append(Lv.exposure)
+    L["LAE"].append(Lv.auto_exposure)
     L["LGR"].append(Lv.grade_rgb[0])
     L["LGG"].append(Lv.grade_rgb[1])
     L["LGB"].append(Lv.grade_rgb[2])
@@ -550,11 +620,33 @@ def level_lists(L, Lv, c, meta, li, models, broadcasts):
     if Lv.sky:
         sp = sky_preset(Lv)
         sd = Lv.sun_dir
+        fb = float(c.field.base) if getattr(c, "field", None) is not None else 0.0
         vals = [r4(x) for x in (*sd, *sp["sun"], *sp["zen"], Lv.clouds, *sp["hor"], 0.9996, *sp["ground"],
-                                 *sp["fog"], Lv.fog or 0.0)]
+                                 *sp["fog"], Lv.fog or 0.0, fb, 0.04)]
     else:
         vals = [0.0] * 21
     L["SKY"].extend(vals + [0.0] * (24 - len(vals)))
+    for k in ("TLMX", "TLMZ", "TLMW", "TLMD"):
+        L[k].append(0)
+    if Lv.sky and c.field is not None:
+        f = c.field
+        for (lo, hi) in ((np.array([f.x0 - 1, -50, f.z0 - 1]), np.array([f.x0, 200, f.z1 + 1])),
+                         (np.array([f.x1, -50, f.z0 - 1]), np.array([f.x1 + 1, 200, f.z1 + 1])),
+                         (np.array([f.x0 - 1, -50, f.z0 - 1]), np.array([f.x1 + 1, 200, f.z0])),
+                         (np.array([f.x0 - 1, -50, f.z1]), np.array([f.x1 + 1, 200, f.z1 + 1]))):
+            for r in box_rects(lo, hi):
+                ax = r["axis"]
+                u0, u1, v0, v1 = (r["v0"], r["v1"], r["u0"], r["u1"]) if ax == 0 else (r["u0"], r["u1"], r["v0"], r["v1"])
+                L["HAX"].append(ax + 1)
+                L["HSG"].append(r["sgn"])
+                L["HPL"].append(r4(r["pl"]))
+                L["HU0"].append(r4(u0))
+                L["HU1"].append(r4(u1))
+                L["HV0"].append(r4(v0))
+                L["HV1"].append(r4(v1))
+                L["HKILL"].append(0)
+                L["HPORT"].append(0)
+                L["LHN"][-1] += 1
     if c.terrain is not None:
         xs, zs, H = c.terrain["grid"]
         L["LTER"].append(1)
@@ -738,7 +830,7 @@ def placeholder_jpg():
     return b.getvalue()
 
 
-def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_ids=(), has_terrain=False):
+def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_ids=(), has_terrain=False, tlms=None):
     A = Assets()
     proj = Project(global_names=list(API_VARS.values()), global_lists=list(API_LISTS.values()))
     for b in sorted(broadcasts):
@@ -790,6 +882,15 @@ def assemble(game, L, lms, gcost, gids, broadcasts, world_path, out, log, used_i
     costumes.append(A.bitmap("dR", (DATA / "atlas" / "dR.jpg").read_bytes(), "jpg", dj["PW"] // 2, dj["PH"] * 3 // 4))
     for li, data in lms.items():
         costumes.append(A.bitmap(f"lm{li}", data, "png", bake.LMW, bake.LMH * 3))
+    for li, tl in (tlms or {}).items():
+        if tl:
+            costumes.append(A.bitmap(f"tlm{li}", tl["png"], "png", tl["W"], tl["H"]))
+            L["TLMX"][li - 1:li] = [r4(tl["x0"])]
+            L["TLMZ"][li - 1:li] = [r4(tl["z0"])]
+            L["TLMW"][li - 1:li] = [r4(1.0 / max(tl["w"], 1e-3))]
+            L["TLMD"][li - 1:li] = [r4(1.0 / max(tl["d"], 1e-3))]
+        else:
+            costumes.append(A.bitmap(f"tlm{li}", placeholder_jpg(), "jpg", 8, 8))
     for gname, (gdata, gw, gh) in gcost.items():
         costumes.append(A.bitmap(gname, gdata, "png", gw, gh))
     engine = {"isStage": False, "name": "Engine", "variables": {vid: [n, 0] for n, vid in gc.new_vars.items()},
